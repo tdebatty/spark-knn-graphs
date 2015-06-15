@@ -2,8 +2,6 @@ package info.debatty.spark.knngraphs.example;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
-import info.debatty.java.graphs.SimilarityInterface;
-import info.debatty.java.lsh.SuperBit;
 import info.debatty.spark.knngraphs.builder.LSHSuperBitDoubleArray;
 import java.util.ArrayList;
 import java.util.List;
