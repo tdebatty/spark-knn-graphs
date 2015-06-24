@@ -7,7 +7,6 @@ import info.debatty.java.graphs.Node;
 import java.io.Serializable;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.Random;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -70,17 +69,17 @@ public class NNDescent<T> extends AbstractBuilder<T> implements Serializable {
         });
         
         // Inside bucket, associate
-        JavaPairRDD<Node<T>, NeighborList> random_nl = randomized.mapPartitionsToPair(
-                new PairFlatMapFunction<Iterator<Tuple2<Integer, Node<T>>>, Node<T>, NeighborList>() {
+        JavaPairRDD<Node<T>, NeighborList> random_nl = randomized.groupByKey().flatMapToPair(
+                new PairFlatMapFunction<Tuple2<Integer, Iterable<Node<T>>>, Node<T>, NeighborList>() {
                     
             Random rand = new Random();
             public Iterable<Tuple2<Node<T>, NeighborList>> call(
-                    Iterator<Tuple2<Integer, Node<T>>> tuples_iterator) throws Exception {
+                    Tuple2<Integer, Iterable<Node<T>>> tuple) throws Exception {
 
                 // Read all tuples in bucket
                 ArrayList<Node<T>> nodes = new ArrayList<Node<T>>();
-                while (tuples_iterator.hasNext()) {
-                    nodes.add (tuples_iterator.next()._2());
+                for (Node<T> n : tuple._2) {
+                    nodes.add(n);
                 }
 
                 ArrayList<Tuple2<Node<T>, NeighborList>> r = new ArrayList<Tuple2<Node<T>, NeighborList>>();

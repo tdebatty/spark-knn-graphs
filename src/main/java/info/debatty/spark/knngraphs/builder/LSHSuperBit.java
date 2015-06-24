@@ -26,11 +26,9 @@ abstract class LSHSuperBit<T> extends AbstractPartitioningBuilder<T> {
     }
     
     @Override
-    protected JavaPairRDD<Node<T>, NeighborList> _computeGraph(JavaRDD<Node<T>> nodes) {
+    protected JavaPairRDD<Node<T>, NeighborList> _computeGraph(JavaRDD<Node<T>> nodes) throws Exception {
+        lsh = new info.debatty.java.lsh.LSHSuperBit(stages, buckets, this.dim);
         
-        
-        lsh = new info.debatty.java.lsh.LSHSuperBit(stages, buckets, dim);
-        //lsh.hash(vector);
         
         JavaPairRDD<Integer, Node<T>> bucketsofnodes = nodes.flatMapToPair(
                 new PairFlatMapFunction<Node<T>, Integer, Node<T>>() {

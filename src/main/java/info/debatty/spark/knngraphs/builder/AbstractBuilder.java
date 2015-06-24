@@ -47,7 +47,7 @@ public abstract class AbstractBuilder<T> implements Serializable {
      * @param nodes
      * @return the graph
      */
-    public JavaPairRDD<Node<T>, NeighborList> computeGraph(JavaRDD<Node<T>> nodes) {
+    public JavaPairRDD<Node<T>, NeighborList> computeGraph(JavaRDD<Node<T>> nodes) throws Exception {
         if (similarity == null) {
             throw new InvalidParameterException("Similarity is not defined!");
         }
@@ -60,5 +60,5 @@ public abstract class AbstractBuilder<T> implements Serializable {
      * @param nodes
      * @return
      */
-    protected abstract JavaPairRDD<Node<T>, NeighborList> _computeGraph(JavaRDD<Node<T>> nodes);
+    protected abstract JavaPairRDD<Node<T>, NeighborList> _computeGraph(JavaRDD<Node<T>> nodes) throws Exception ;
 }

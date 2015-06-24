@@ -6,6 +6,8 @@ import info.debatty.spark.knngraphs.builder.LSHSuperBitDoubleArray;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -52,8 +54,14 @@ public class LSHSuperBitExample {
         
         
         // Build the graph...
-        JavaPairRDD<Node<double[]>, NeighborList> graph = gbuilder.computeGraph(nodes);
+        JavaPairRDD<Node<double[]>, NeighborList> graph;
+        try {
+            graph = gbuilder.computeGraph(nodes);
+        
         System.out.println(graph.first());
+        } catch (Exception ex) {
+            Logger.getLogger(LSHSuperBitExample.class.getName()).log(Level.SEVERE, null, ex);
+        }
         
     }
 }

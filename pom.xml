@@ -142,18 +142,18 @@
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>java-string-similarity</artifactId>
-      <version>0.11</version>
+      <artifactId>java-graphs</artifactId>
+      <version>0.9</version>
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>java-lsh</artifactId>
-      <version>0.5</version>
+      <version>0.6</version>
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>java-graphs</artifactId>
-      <version>0.7</version>
+      <artifactId>java-string-similarity</artifactId>
+      <version>0.12</version>
     </dependency>
   </dependencies>
 </project>

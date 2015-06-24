@@ -7,6 +7,8 @@ import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -52,7 +54,10 @@ public class NNDescentExample {
         });
         
         // Compute the graph...
-        JavaPairRDD<Node, NeighborList> graph = nndes.computeGraph(nodes);
+        JavaPairRDD<Node, NeighborList> graph;
+        try {
+            graph = nndes.computeGraph(nodes);
+       
         
         // BTW: until now graph is only an execution plan and nothing has been
         // executed by the spark cluster...
@@ -79,7 +84,9 @@ public class NNDescentExample {
                 });
         
         System.out.println("Total sim: " + total_similarity);
-        System.out.println(graph.first());
+        System.out.println(graph.first()); } catch (Exception ex) {
+            Logger.getLogger(NNDescentExample.class.getName()).log(Level.SEVERE, null, ex);
+        }
         
     }    
 }
