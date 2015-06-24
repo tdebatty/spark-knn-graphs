@@ -39,6 +39,7 @@ public class LSHSuperBitTextExample {
         
         // Convert the strings to nodes of SparseIntegerVectors
         // using k-shingling
+        // we will split strings in 3-grams (sequences of 3 characters)
         KShingling ks = new KShingling(3);
         List<Node<SparseIntegerVector>> data = new ArrayList<Node<SparseIntegerVector>>();
         for (int i = 0; i < strings.size(); i++) {
@@ -79,7 +80,6 @@ public class LSHSuperBitTextExample {
             graph = gbuilder.computeGraph(nodes);
             System.out.println(graph.first());
         
-        System.out.println(graph.first());
         } catch (Exception ex) {
             Logger.getLogger(LSHSuperBitSparseIntegerVectorExample.class.getName()).log(Level.SEVERE, null, ex);
         }
