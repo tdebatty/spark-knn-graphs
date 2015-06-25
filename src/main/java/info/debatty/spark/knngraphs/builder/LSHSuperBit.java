@@ -53,10 +53,12 @@ abstract class LSHSuperBit<T> extends AbstractPartitioningBuilder<T> {
                     nodes.add(n);
                 }
                 
-                Brute b = new Brute();
-                b.setK(10);
-                b.setSimilarity(similarity);
-                HashMap graph = b.computeGraph(nodes);
+                if (inner_graph_builder == null) {
+                    inner_graph_builder = new Brute();
+                }
+                inner_graph_builder.setK(k);
+                inner_graph_builder.setSimilarity(similarity);
+                HashMap graph = inner_graph_builder.computeGraph(nodes);
                 
                 ArrayList<Tuple2<Node<T>, NeighborList>> r = new ArrayList<Tuple2<Node<T>, NeighborList>>();
                 for (Object e : graph.entrySet()) {
