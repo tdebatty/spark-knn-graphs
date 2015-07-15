@@ -12,8 +12,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -31,7 +29,7 @@ public class LSHSuperBitNNDescentTextExample {
      * @param args the command line arguments
      * @throws java.io.IOException
      */
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, Exception {
         
         String file = args[0];
         
@@ -84,14 +82,9 @@ public class LSHSuperBitNNDescentTextExample {
         // but another similarity measure can be defined if needed...
         
         // Build the graph...
-        JavaPairRDD<Node<SparseIntegerVector>, NeighborList> graph;
-        try {
-            graph = gbuilder.computeGraph(nodes);
-            System.out.println(graph.first());
-        
-        } catch (Exception ex) {
-            Logger.getLogger(LSHSuperBitSparseIntegerVectorExample.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        JavaPairRDD<Node<SparseIntegerVector>, NeighborList> graph = 
+                gbuilder.computeGraph(nodes);
+        System.out.println(graph.first());
     }
     
     private static ArrayList<String> readFile(String path) throws IOException {

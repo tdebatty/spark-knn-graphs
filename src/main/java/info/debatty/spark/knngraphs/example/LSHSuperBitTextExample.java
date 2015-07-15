@@ -30,7 +30,7 @@ public class LSHSuperBitTextExample {
      * @param args the command line arguments
      * @throws java.io.IOException
      */
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, Exception {
         
         String file = args[0];
         
@@ -75,14 +75,10 @@ public class LSHSuperBitTextExample {
         // but another similarity measure can be defined if needed...
         
         // Build the graph...
-        JavaPairRDD<Node<SparseIntegerVector>, NeighborList> graph;
-        try {
-            graph = gbuilder.computeGraph(nodes);
-            System.out.println(graph.first());
-        
-        } catch (Exception ex) {
-            Logger.getLogger(LSHSuperBitSparseIntegerVectorExample.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        JavaPairRDD<Node<SparseIntegerVector>, NeighborList> graph = 
+                gbuilder.computeGraph(nodes);
+        System.out.println(graph.first());
+
     }
     
     private static ArrayList<String> readFile(String path) throws IOException {

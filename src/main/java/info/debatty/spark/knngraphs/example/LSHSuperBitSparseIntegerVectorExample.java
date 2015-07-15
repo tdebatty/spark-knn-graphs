@@ -7,8 +7,6 @@ import info.debatty.spark.knngraphs.builder.LSHSuperBitSparseIntegerVector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -25,7 +23,7 @@ public class LSHSuperBitSparseIntegerVectorExample {
     /**
      * @param args the command line arguments
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         
         // Configure spark instance
         SparkConf conf = new SparkConf();
@@ -63,13 +61,8 @@ public class LSHSuperBitSparseIntegerVectorExample {
         // but another similarity measure can be defined if needed...
         
         // Build the graph...
-        JavaPairRDD<Node<SparseIntegerVector>, NeighborList> graph;
-        try {
-            graph = gbuilder.computeGraph(nodes);
-        
+        JavaPairRDD<Node<SparseIntegerVector>, NeighborList> graph = 
+                gbuilder.computeGraph(nodes);
         System.out.println(graph.first());
-        } catch (Exception ex) {
-            Logger.getLogger(LSHSuperBitSparseIntegerVectorExample.class.getName()).log(Level.SEVERE, null, ex);
-        }
     }
 }
