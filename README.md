@@ -1,4 +1,6 @@
 # spark-knn-graphs
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs/badge.svg)](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs)
+
 Spark algorithms for building k-nn graphs
 
 ## Installation
@@ -9,6 +11,8 @@ Spark algorithms for building k-nn graphs
     <version>RELEASE</version>
 </dependency>
 ```
+
+Or on spark-packages: http://spark-packages.org/package/tdebatty/spark-knn-graphs
 
 ## NN-Descent
 
