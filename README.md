@@ -1,18 +1,14 @@
 # spark-knn-graphs
-<<<<<<< HEAD
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs/badge.svg)](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs)
+
 Spark algorithms for building k-nn graphs.
 
 Currently implemented:
 * NN-Descent (which supports any similarity)
-* LSH Super Bit (for cosine similarity)
+* LSH SuperBit (for cosine similarity)
 
 
 All algorithms support custom classes as value. See [an example with custom class as value](https://github.com/tdebatty/spark-knn-graphs/blob/master/src/main/java/info/debatty/spark/knngraphs/example/NNDescentCustomValue.java).
-=======
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs/badge.svg)](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs)
-
-Spark algorithms for building k-nn graphs
->>>>>>> 7821f9716be538ee6f8a4485746abbda81ea3126
 
 ## Installation
 Using Maven:
@@ -24,11 +20,7 @@ Using Maven:
 </dependency>
 ```
 
-<<<<<<< HEAD
 Or check [Spark Packages](http://spark-packages.org/package/tdebatty/spark-knn-graphs)
-=======
-Or on spark-packages: http://spark-packages.org/package/tdebatty/spark-knn-graphs
->>>>>>> 7821f9716be538ee6f8a4485746abbda81ea3126
 
 ## NN-Descent
 
