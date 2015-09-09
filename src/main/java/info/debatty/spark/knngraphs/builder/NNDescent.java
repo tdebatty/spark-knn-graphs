@@ -24,11 +24,11 @@ import scala.Tuple2;
  * NN-Descent works by iteratively exploring the neighbors of neighbors...
  * 
  * @author Thibault Debatty
+ * @param <T> The class of nodes value
  */
 public class NNDescent<T> extends AbstractBuilder<T> implements Serializable {
     
     private int max_iterations = 10;
-
     
     /**
      * Set the maximum number of iterations.

@@ -1,7 +1,15 @@
 # spark-knn-graphs
-Spark algorithms for building k-nn graphs
+Spark algorithms for building k-nn graphs.
+
+Currently implemented:
+* NN-Descent (which supports any similarity)
+* LSH Super Bit (for cosine similarity)
+
+
+All algorithms support custom classes as value. See [an example with custom class as value](https://github.com/tdebatty/spark-knn-graphs/blob/master/src/main/java/info/debatty/spark/knngraphs/example/NNDescentCustomValue.java).
 
 ## Installation
+Using Maven:
 ```
 <dependency>
     <groupId>info.debatty</groupId>
@@ -9,6 +17,8 @@ Spark algorithms for building k-nn graphs
     <version>RELEASE</version>
 </dependency>
 ```
+
+Or check [Spark Packages](http://spark-packages.org/package/tdebatty/spark-knn-graphs)
 
 ## NN-Descent
 

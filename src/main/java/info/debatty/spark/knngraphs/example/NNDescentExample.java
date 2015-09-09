@@ -42,13 +42,13 @@ public class NNDescentExample {
         nndes.setMaxIterations(10);
         nndes.setSimilarity(new SimilarityInterface<Integer>() {
 
-                    // Define the similarity that will be used
-                    // in this case: 1 / (1 + delta)
-                    public double similarity(Integer value1, Integer value2) {
-                        
-                        // The value of nodes is an integer...
-                        return 1.0 / (1.0 + Math.abs((Integer) value1 - (Integer) value2));
-                    }
+            // Define the similarity that will be used
+            // in this case: 1 / (1 + delta)
+            public double similarity(Integer value1, Integer value2) {
+
+                // The value of nodes is an integer...
+                return 1.0 / (1.0 + Math.abs(value1 - value2));
+            }
         });
         
         // Compute the graph...

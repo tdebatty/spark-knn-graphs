@@ -7,7 +7,7 @@
   <version>0.5-SNAPSHOT</version>
   <packaging>jar</packaging>
 
-  <name>${project.artifactId}</name>
+  <name>spark-knn-graphs</name>
   <url>https://github.com/tdebatty/spark-knn-graphs</url>
   <description>Spark algorithms for building k-nn graphs</description>
   
@@ -136,22 +136,22 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>${project.groupId}</groupId>
+      <groupId>info.debatty</groupId>
       <artifactId>java-graphs</artifactId>
       <version>0.9</version>
     </dependency>
     <dependency>
-      <groupId>${project.groupId}</groupId>
+      <groupId>info.debatty</groupId>
       <artifactId>java-lsh</artifactId>
       <version>0.6</version>
     </dependency>
     <dependency>
-      <groupId>${project.groupId}</groupId>
+      <groupId>info.debatty</groupId>
       <artifactId>java-string-similarity</artifactId>
       <version>0.12</version>
     </dependency>
     <dependency>
-      <groupId>${project.groupId}</groupId>
+      <groupId>info.debatty</groupId>
       <artifactId>java-spamsum</artifactId>
       <version>0.1</version>
     </dependency>
