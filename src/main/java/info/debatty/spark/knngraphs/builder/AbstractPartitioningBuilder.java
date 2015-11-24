@@ -18,7 +18,7 @@ import scala.Tuple2;
  * @author tibo
  * @param <T>
  */
-public abstract class AbstractPartitioningBuilder<T> extends AbstractBuilder<T> {
+public abstract class AbstractPartitioningBuilder<T> extends DistributedGraphBuilder<T> {
     protected int stages = 3;
     protected int buckets = 10;
     

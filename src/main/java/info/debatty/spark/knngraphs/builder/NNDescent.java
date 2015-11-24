@@ -26,7 +26,7 @@ import scala.Tuple2;
  * @author Thibault Debatty
  * @param <T> The class of nodes value
  */
-public class NNDescent<T> extends AbstractBuilder<T> implements Serializable {
+public class NNDescent<T> extends DistributedGraphBuilder<T> implements Serializable {
     
     private int max_iterations = 10;
     
