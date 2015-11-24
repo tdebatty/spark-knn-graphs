@@ -28,10 +28,8 @@ import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.stringsimilarity.JaroWinkler;
+import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import info.debatty.spark.knngraphs.builder.NNCTPH;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,7 +52,7 @@ public class NNCTPHExample {
         String file = args[0];
         
         // Read the file
-        ArrayList<String> strings = readFile(file);
+        ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
         
         // Convert to nodes
         List<Node<String>> data = new ArrayList<Node<String>>();
@@ -88,20 +86,5 @@ public class NNCTPHExample {
         JavaPairRDD<Node<String>, NeighborList> graph = nnctph.computeGraph(nodes);
         System.out.println(graph.first());
         
-    }
-    
-    private static ArrayList<String> readFile(String path) throws IOException {
-        
-        File file = new File(path);
-	BufferedReader br = new BufferedReader(new FileReader(file));
-        
-        ArrayList<String> r = new ArrayList<String>();
-	String line;
-	while ((line = br.readLine()) != null) {
-		r.add(line);
-	}
- 
-	br.close();
-        return r;
     }
 }
