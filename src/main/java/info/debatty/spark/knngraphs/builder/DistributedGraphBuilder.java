@@ -3,8 +3,13 @@ package info.debatty.spark.knngraphs.builder;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.io.Serializable;
 import java.security.InvalidParameterException;
+import java.util.ArrayList;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 
@@ -13,7 +18,7 @@ import org.apache.spark.api.java.JavaRDD;
  * @author Thibault Debatty
  * @param <T> the type of element the actual graph builder works with...
  */
-public abstract class AbstractBuilder<T> implements Serializable {
+public abstract class DistributedGraphBuilder<T> implements Serializable {
     
     protected int k = 10;
     protected SimilarityInterface<T> similarity;
@@ -46,6 +51,7 @@ public abstract class AbstractBuilder<T> implements Serializable {
      * 
      * @param nodes
      * @return the graph
+     * @throws java.lang.Exception
      */
     public JavaPairRDD<Node<T>, NeighborList> computeGraph(JavaRDD<Node<T>> nodes) throws Exception {
         if (similarity == null) {
@@ -59,6 +65,22 @@ public abstract class AbstractBuilder<T> implements Serializable {
      *
      * @param nodes
      * @return
+     * @throws java.lang.Exception
      */
     protected abstract JavaPairRDD<Node<T>, NeighborList> _computeGraph(JavaRDD<Node<T>> nodes) throws Exception ;
+    
+    public static ArrayList<String> readFile(String path) throws IOException {
+        
+        File file = new File(path);
+	BufferedReader br = new BufferedReader(new FileReader(file));
+        
+        ArrayList<String> r = new ArrayList<String>();
+	String line;
+	while ((line = br.readLine()) != null) {
+		r.add(line);
+	}
+ 
+	br.close();
+        return r;
+    }
 }
