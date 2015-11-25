@@ -23,24 +23,22 @@
  */
 package info.debatty.spark.knngraphs.example;
 
-import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.stringsimilarity.JaroWinkler;
 import info.debatty.spark.knngraphs.ApproximateSearch;
+import info.debatty.spark.knngraphs.ExhaustiveSearch;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.FlatMapFunction;
 
 /**
  *
@@ -117,7 +115,8 @@ public class SearchComparison {
             graph.cache();
 
             // Prepare the graph for searching
-            ApproximateSearch search_algorithm = new ApproximateSearch(graph, partitioning_iterations, partitioning_medoids, similarity);
+            ApproximateSearch approximate_search_algorithm = new ApproximateSearch(graph, partitioning_iterations, partitioning_medoids, similarity);
+            ExhaustiveSearch exhaustive_search = new ExhaustiveSearch(graph, similarity);
 
             // Perform validation...
             int correct_results = 0;
@@ -132,37 +131,16 @@ public class SearchComparison {
                 // Using distributed graph based NN-search
                 long start_time = System.currentTimeMillis();
                 int[] computed_similarities_temp = new int[1];
-                NeighborList neighborlist_graph = search_algorithm.search(query, search_k, gnss_restarts, gnss_depth, computed_similarities_temp);
+                NeighborList neighborlist_graph = approximate_search_algorithm.search(query, search_k, gnss_restarts, gnss_depth, computed_similarities_temp);
                 running_time_graph += (System.currentTimeMillis() - start_time);
                 computed_similarities_graph += computed_similarities_temp[0];
 
                 // Using distributed exhaustive search
                 start_time = System.currentTimeMillis();
-                JavaRDD<NeighborList> candidates_neighborlists = nodes.mapPartitions(new FlatMapFunction<Iterator<Node<String>>, NeighborList>() {
-
-                    public Iterable<NeighborList> call(Iterator<Node<String>> nodes_iterator) throws Exception {
-                        NeighborList local_nl = new NeighborList(search_k);
-                        while (nodes_iterator.hasNext()) {
-                            Node<String> next = nodes_iterator.next();
-                            local_nl.add(new Neighbor(
-                                    next,
-                                    similarity.similarity(query.value, next.value)));
-                        }
-
-                        ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);
-                        result.add(local_nl);
-                        return result;
-
-                    }
-                });
-
-                NeighborList final_neighborlist = new NeighborList(search_k);
-                for (NeighborList nl : candidates_neighborlists.collect()) {
-                    final_neighborlist.addAll(nl);
-                }
+                NeighborList neighborlist_exhaustive = exhaustive_search.search(query, search_k);
                 running_time_exhaustive_search += (System.currentTimeMillis() - start_time);
 
-                correct_results += neighborlist_graph.CountCommons(final_neighborlist);
+                correct_results += neighborlist_graph.CountCommons(neighborlist_exhaustive);
 
             }
 
