@@ -86,9 +86,9 @@ public class SearchComparison {
         // Configure spark instance
         SparkConf conf = new SparkConf();
         conf.setAppName("SparkTest");
-        conf.setMaster("local");
+        conf.setIfMissing("spark.master", "local[*]");
         JavaSparkContext sc = new JavaSparkContext(conf);
-
+        
         for (int validation_i = 0; validation_i < validation_iterations; validation_i++) {
             // Convert to nodes
             List<Node<String>> dataset = new ArrayList<Node<String>>();

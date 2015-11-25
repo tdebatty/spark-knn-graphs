@@ -59,7 +59,7 @@ public class NNDescentCustomValue {
         // Configure spark instance
         SparkConf conf = new SparkConf();
         conf.setAppName("SparkTest");
-        conf.setMaster("local");
+        conf.setIfMissing("spark.master", "local[*]");
         JavaSparkContext sc = new JavaSparkContext(conf);
         
         // Create some nodes
