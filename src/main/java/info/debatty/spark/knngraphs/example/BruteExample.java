@@ -49,7 +49,7 @@ public class BruteExample {
      * @throws java.io.IOException
      */
     public static void main(String[] args) throws IOException, Exception {
-        String file = "/home/tibo/Downloads/726-unique-spams";
+        String file =  BruteExample.class.getClassLoader().getResource("726-unique-spams").getPath();
         
         // Read the file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
