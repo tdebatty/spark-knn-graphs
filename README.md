@@ -1,9 +1,10 @@
 # spark-knn-graphs
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs/badge.svg)](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs/badge.svg)](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs) [![Build Status](https://travis-ci.org/tdebatty/spark-knn-graphs.svg?branch=master)](https://travis-ci.org/tdebatty/spark-knn-graphs)
 
 Spark algorithms for building k-nn graphs.
 
 Currently implemented:
+* Brute force
 * NN-Descent (which supports any similarity)
 * LSH SuperBit (for cosine similarity)
 
