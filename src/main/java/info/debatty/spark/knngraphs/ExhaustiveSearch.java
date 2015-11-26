@@ -38,6 +38,7 @@ import scala.Tuple2;
 /**
  *
  * @author Thibault Debatty
+ * @param <T>
  */
 public class ExhaustiveSearch<T> implements Serializable {
     private final JavaPairRDD<Node<T>, NeighborList> graph;
