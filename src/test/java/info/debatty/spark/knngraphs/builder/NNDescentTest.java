@@ -42,9 +42,9 @@ import org.apache.spark.api.java.JavaSparkContext;
  *
  * @author Thibault Debatty
  */
-public class BruteTest extends TestCase implements Serializable {
+public class NNDescentTest extends TestCase implements Serializable {
     
-    public BruteTest(String testName) {
+    public NNDescentTest(String testName) {
         super(testName);
     }
     
@@ -58,6 +58,10 @@ public class BruteTest extends TestCase implements Serializable {
         super.tearDown();
     }
 
+    /**
+     * Test of computeGraph method, of class NNDescent.
+     * @throws java.io.IOException
+     */
     public void testComputeGraph() throws IOException, Exception {
         String file =  getClass().getClassLoader().getResource("726-unique-spams").getPath();
         
@@ -79,9 +83,9 @@ public class BruteTest extends TestCase implements Serializable {
         // Parallelize the dataset in Spark
         JavaRDD<Node<String>> nodes = sc.parallelize(data);
         
-        Brute brute = new Brute();
-        brute.setK(10);
-        brute.setSimilarity(new SimilarityInterface<String>() {
+        NNDescent builder = new NNDescent();
+        builder.setK(10);
+        builder.setSimilarity(new SimilarityInterface<String>() {
 
             public double similarity(String value1, String value2) {
                 JaroWinkler jw = new JaroWinkler();
@@ -90,7 +94,7 @@ public class BruteTest extends TestCase implements Serializable {
         });
         
         // Compute the graph and force execution
-        JavaPairRDD<Node<String>, NeighborList> graph = brute.computeGraph(nodes);
+        JavaPairRDD<Node<String>, NeighborList> graph = builder.computeGraph(nodes);
         graph.first();
         sc.close();
     }
