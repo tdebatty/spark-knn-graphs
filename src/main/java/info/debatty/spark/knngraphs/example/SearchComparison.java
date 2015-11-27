@@ -39,6 +39,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import scala.Tuple2;
 
 /**
  *
@@ -51,19 +52,25 @@ public class SearchComparison {
      * @throws java.io.IOException
      */
     public static void main(String[] args) throws IOException, Exception {
+        
+        if (args.length != 5) {
+            System.out.println("Usage: ... <dataset> <partitioning_iterations> <partitioning_medoids> <gnss_restarts> <gnss_depth>");
+            System.exit(1);
+        }
+        
         String file = args[0];
 
         // Graph building parameters
         int k = 10;
 
         // Partitioning parameters
-        int partitioning_iterations = 6;
-        int partitioning_medoids = 4;
+        int partitioning_iterations = Integer.valueOf(args[1]);
+        int partitioning_medoids = Integer.valueOf(args[2]);
 
         // Search parameters
         final int search_k = 10;
-        final int gnss_restarts = 5;
-        final int gnss_depth = 5;
+        final int gnss_restarts = Integer.valueOf(args[3]);
+        final int gnss_depth = Integer.valueOf(args[4]);
 
         // Cross-validation parameters
         // Repeated random sub-sampling validation
@@ -78,10 +85,18 @@ public class SearchComparison {
                 return jw.similarity(value1, value2);
             }
         };
+        
+        java.util.Date date = new java.util.Date();
+        System.out.println(date);
+        System.out.println("Dataset:                 " + file);
+        System.out.println("k:                       " + k);
+        System.out.println("Partitioning iterations: " + partitioning_iterations);
+        System.out.println("Partitioning medoids:    " + partitioning_medoids);
+        System.out.println("GNSS restarts:           " + gnss_restarts);
+        System.out.println("GNSS depth:              " + gnss_depth);
 
         // Read the dataset file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
-        System.out.printf("Found %d strings in input file\n", strings.size());
 
         // Configure spark instance
         SparkConf conf = new SparkConf();
@@ -90,6 +105,15 @@ public class SearchComparison {
         JavaSparkContext sc = new JavaSparkContext(conf);
         
         for (int validation_i = 0; validation_i < validation_iterations; validation_i++) {
+            
+            int correct_results = 0;
+            int computed_similarities_graph = 0;
+            long time_search_graph = 0;
+            long time_search_exhaustive = 0;
+            long time_build_graph = 0;
+            long time_partition_graph = 0;
+            long start_time = 0;
+            
             // Convert to nodes
             List<Node<String>> dataset = new ArrayList<Node<String>>();
             for (String s : strings) {
@@ -103,74 +127,64 @@ public class SearchComparison {
                 validation_dataset.add(dataset.remove(rand.nextInt(dataset.size())));
             }
 
-            // Parallelize the dataset
+            // Parallelize the dataset and force execution
             JavaRDD<Node<String>> nodes = sc.parallelize(dataset);
+            nodes.cache();
+            nodes.first();
 
-            // Compute the graph...
-            System.out.println("Computing graph...");
+            // Compute the graph (and force execution)...
+            start_time = System.currentTimeMillis();
             DistributedGraphBuilder<String> builder = new Brute<String>();
             builder.setK(k);
             builder.setSimilarity(similarity);
             JavaPairRDD<Node<String>, NeighborList> graph = builder.computeGraph(nodes);
             graph.cache();
+            graph.first();
+            time_build_graph = System.currentTimeMillis() - start_time;
 
-            // Prepare the graph for searching
+            // Prepare the graph for searching (and force execution)
+            start_time = System.currentTimeMillis();
             ApproximateSearch approximate_search_algorithm = new ApproximateSearch(graph, partitioning_iterations, partitioning_medoids, similarity);
             ExhaustiveSearch exhaustive_search = new ExhaustiveSearch(graph, similarity);
+            graph.cache();
+            graph.first();
+            time_partition_graph = System.currentTimeMillis() - start_time;
 
             // Perform validation...
-            int correct_results = 0;
-            int computed_similarities_graph = 0;
-            long running_time_graph = 0;
-            long running_time_exhaustive_search = 0;
-
             for (final Node<String> query : validation_dataset) {
 
-                System.out.println("Search query: " + query.value);
-
                 // Using distributed graph based NN-search
-                long start_time = System.currentTimeMillis();
+                start_time = System.currentTimeMillis();
                 int[] computed_similarities_temp = new int[1];
                 NeighborList neighborlist_graph = approximate_search_algorithm.search(query, search_k, gnss_restarts, gnss_depth, computed_similarities_temp);
-                running_time_graph += (System.currentTimeMillis() - start_time);
+                time_search_graph += (System.currentTimeMillis() - start_time);
                 computed_similarities_graph += computed_similarities_temp[0];
 
                 // Using distributed exhaustive search
                 start_time = System.currentTimeMillis();
                 NeighborList neighborlist_exhaustive = exhaustive_search.search(query, search_k);
-                running_time_exhaustive_search += (System.currentTimeMillis() - start_time);
+                time_search_exhaustive += (System.currentTimeMillis() - start_time);
 
-                correct_results += neighborlist_graph.CountCommons(neighborlist_exhaustive);
+                correct_results += neighborlist_graph.CountCommonValues(neighborlist_exhaustive);
 
             }
 
             int computed_similarities_exhaustive_search = (strings.size() - validation_queries) * validation_queries;
 
             // Correct search results
-            System.out.printf("%d; ", correct_results);
-
-            // Precision (%)
-            System.out.printf("%.1f; ", 100.0 * correct_results / (search_k * validation_queries));
-
-            // Computed similarities (graph based)
-            System.out.printf("%d; ", computed_similarities_graph);
-
-            // Computed similarities (exhaustive search)
-            System.out.printf("%d; ", computed_similarities_exhaustive_search);
-
-            // Gross speedup
-            System.out.printf("%f; ", (double) computed_similarities_exhaustive_search / computed_similarities_graph);
-
-            // Quality-equivalent speedup
-            System.out.printf("%f; ", (double) correct_results / (validation_queries * search_k) * computed_similarities_exhaustive_search / computed_similarities_graph);
-
-            // Graph based running time
-            System.out.printf("%d; ", running_time_graph);
-
-            // Exhaustive search running time
-            System.out.printf("%d; ", running_time_exhaustive_search);
-
-            System.out.println();
+            System.out.printf("%d; %.1f; %d; %d; %f; %f; %d; %d; %d; %d\n",
+                    correct_results,
+                    100.0 * correct_results / (search_k * validation_queries),
+                    computed_similarities_graph,
+                    computed_similarities_exhaustive_search,
+                    (double) computed_similarities_exhaustive_search / computed_similarities_graph,
+                    (double) correct_results / (validation_queries * search_k) * computed_similarities_exhaustive_search / computed_similarities_graph,
+                    time_search_graph,
+                    time_search_exhaustive,
+                    time_build_graph,
+                    time_partition_graph);
         }
+        
+        System.out.println("SUCCESS!");
     }
 }

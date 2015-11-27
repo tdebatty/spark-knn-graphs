@@ -112,8 +112,7 @@ class VoronoiPartitioner<T> implements Serializable {
 
     public JavaPairRDD<Node<T>, NeighborList> partition(JavaPairRDD<Node<T>, NeighborList> graph) {
 
-        System.out.println("Picking some random initial medoids...");
-
+        // Pick some random initial medoids
         double fraction = 10.0 * medoids_count / graph.count();
         Iterator<Tuple2<Node<T>, NeighborList>> sample_iterator = graph.sample(false, fraction).collect().iterator();
         List<Node<T>> medoids = new ArrayList<Node<T>>();
@@ -121,15 +120,13 @@ class VoronoiPartitioner<T> implements Serializable {
             medoids.add(sample_iterator.next()._1);
         }
 
-        System.out.println("Configuring internal Voronoi partitioner...");
-        InternalVoronoiPartitioner part = new InternalVoronoiPartitioner();
-        part.setSimilarity(similarity);
+        InternalVoronoiPartitioner internal_partitioner =  new InternalVoronoiPartitioner();
+        internal_partitioner.setSimilarity(similarity);
 
         for (int iteration = 0; iteration < iterations; iteration++) {
-            System.out.printf("Iteration %d\n", iteration);
 
-            part.setMedoids(medoids);
-            graph = graph.partitionBy(part);
+            internal_partitioner.setMedoids(medoids);
+            graph = graph.partitionBy(internal_partitioner);
             graph.cache();
 
             JavaRDD<Node<T>> new_medoids;
@@ -147,13 +144,8 @@ class VoronoiPartitioner<T> implements Serializable {
                         return new ArrayList<Node<T>>();
                     }
 
-                    // This partition might contain multiple subgraphs
+                    // This partition might contain multiple subgraphs => find largest subgraph
                     ArrayList<Graph<T>> stronglyConnectedComponents = partition.stronglyConnectedComponents();
-                    //System.out.printf(
-                    //        "This partition contains %d subgraphs\n",
-                    //        stronglyConnectedComponents.size());
-
-                    // Find the largest subgraph
                     int largest_subgraph_size = 0;
                     Graph<T> largest_subgraph = stronglyConnectedComponents.get(0);
                     for (Graph<T> subgraph : stronglyConnectedComponents) {
@@ -163,9 +155,6 @@ class VoronoiPartitioner<T> implements Serializable {
                         }
                     }
 
-                    //System.out.printf(
-                    //        "Largest subgraph in partition contains %d nodes\n",
-                    //        largest_subgraph.size());
                     int largest_distance = Integer.MAX_VALUE;
                     Node medoid = (Node) largest_subgraph.keySet().iterator().next();
                     for (Node n : largest_subgraph.keySet()) {
@@ -185,11 +174,7 @@ class VoronoiPartitioner<T> implements Serializable {
                     }
                     ArrayList<Node<T>> list = new ArrayList<Node<T>>(1);
                     list.add(medoid);
-
-                    //System.out.printf(
-                    //        "New medoid is %s (radius %d)\n",
-                    //        medoid,
-                    //        largest_distance);
+                    
                     return list;
                 }
             });
@@ -219,15 +204,20 @@ class InternalVoronoiPartitioner<T> extends Partitioner {
     }
 
     @Override
-    public int getPartition(Object o) {
-        Node n = (Node) o;
+    public int getPartition(Object object) {
+        Node node = (Node) object;
 
         double highest_similarity = 0;
         int most_similar = 0;
 
         for (int i = 0; i < medoids.size(); i++) {
             Node medoid = medoids.get(i);
-            double sim = similarity.similarity(n.value, medoid.value);
+            
+            if (medoid.equals(node)) {
+                return i;
+            }
+            
+            double sim = similarity.similarity(node.value, medoid.value);
             if (sim > highest_similarity) {
                 highest_similarity = sim;
                 most_similar = i;
