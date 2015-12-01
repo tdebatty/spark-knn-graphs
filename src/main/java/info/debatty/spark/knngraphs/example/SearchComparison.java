@@ -39,7 +39,6 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import scala.Tuple2;
 
 /**
  *
@@ -69,6 +68,7 @@ public class SearchComparison {
 
         // Search parameters
         final int search_k = 10;
+        final double search_expansion = 1.01;
         final int gnss_restarts = Integer.valueOf(args[3]);
         final int gnss_depth = Integer.valueOf(args[4]);
 
@@ -94,6 +94,7 @@ public class SearchComparison {
         System.out.println("Partitioning medoids:    " + partitioning_medoids);
         System.out.println("GNSS restarts:           " + gnss_restarts);
         System.out.println("GNSS depth:              " + gnss_depth);
+        System.out.println("GNSS expansion:          " + search_expansion);
 
         // Read the dataset file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
@@ -156,7 +157,14 @@ public class SearchComparison {
                 // Using distributed graph based NN-search
                 start_time = System.currentTimeMillis();
                 int[] computed_similarities_temp = new int[1];
-                NeighborList neighborlist_graph = approximate_search_algorithm.search(query, search_k, gnss_restarts, gnss_depth, computed_similarities_temp);
+                NeighborList neighborlist_graph = 
+                        approximate_search_algorithm.search(
+                                query, 
+                                search_k, 
+                                gnss_restarts, 
+                                gnss_depth, 
+                                search_expansion,
+                                computed_similarities_temp);
                 time_search_graph += (System.currentTimeMillis() - start_time);
                 computed_similarities_graph += computed_similarities_temp[0];
 

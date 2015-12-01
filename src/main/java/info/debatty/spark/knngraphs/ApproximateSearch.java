@@ -61,7 +61,13 @@ public class ApproximateSearch<T> implements Serializable {
         this.similarity = similarity;
     }
 
-    public NeighborList search(final Node<T> query, final int k, final int gnss_restarts, final int gnss_depth, int[] computed_similarities) {
+    public NeighborList search(
+            final Node<T> query, 
+            final int k, 
+            final int gnss_restarts, 
+            final int gnss_depth,
+            final double gnss_expansion,
+            int[] computed_similarities) {
         JavaRDD<SearchResult> candidates_neighborlists_graph = graph.mapPartitions(new FlatMapFunction<Iterator<Tuple2<Node<T>, NeighborList>>, SearchResult>() {
 
             public Iterable<SearchResult> call(Iterator<Tuple2<Node<T>, NeighborList>> tuples) throws Exception {
@@ -76,7 +82,14 @@ public class ApproximateSearch<T> implements Serializable {
                 ArrayList<SearchResult> result = new ArrayList<SearchResult>(1);
 
                 int[] computed_similarities = new int[1];
-                NeighborList nl = local_graph.search(query, k, gnss_restarts, gnss_depth, similarity, computed_similarities);
+                NeighborList nl = local_graph.search(
+                        query, 
+                        k, 
+                        gnss_restarts, 
+                        gnss_depth, 
+                        similarity, 
+                        gnss_expansion,
+                        computed_similarities);
                 result.add(new SearchResult(nl, computed_similarities[0]));
                 return result;
             }
