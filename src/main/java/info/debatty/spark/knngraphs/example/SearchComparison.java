@@ -180,7 +180,14 @@ public class SearchComparison {
             int computed_similarities_exhaustive_search = (strings.size() - validation_queries) * validation_queries;
 
             // Correct search results
-            System.out.printf("%d; %.1f; %d; %d; %f; %f; %d; %d; %d; %d\n",
+            // size;k;iterations;medoids;restarts;depth;correct;ratio;similarities;brute;speedup;qe_speedup;time_search;time_search_all;time_build;time_partition
+            System.out.printf("%d; %d; %d; %d; %d; %d; %d; %.1f; %d; %d; %f; %f; %d; %d; %d; %d\n",
+                    strings.size(), 
+                    k,
+                    partitioning_iterations,
+                    partitioning_medoids,
+                    gnss_restarts,
+                    gnss_depth,
                     correct_results,
                     100.0 * correct_results / (search_k * validation_queries),
                     computed_similarities_graph,
