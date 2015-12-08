@@ -1,7 +1,6 @@
-
-
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+    
     <groupId>info.debatty</groupId>
     <artifactId>spark-knn-graphs</artifactId>
     <version>0.7-SNAPSHOT</version>
@@ -17,7 +16,7 @@
   
     <licenses>
         <license>
-            <name>MIT License</name>
+            <name>MIT</name>
             <url>http://www.opensource.org/licenses/mit-license.php</url>
         </license>
     </licenses>
@@ -93,6 +92,23 @@
             
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>2.10</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/libs</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
                 <version>1.5</version>
                 <executions>
@@ -145,6 +161,20 @@
                         </excludes>
                     </instrumentation>
                 </configuration>
+            </plugin>
+            
+            <plugin>
+                <groupId>info.debatty</groupId>
+                <artifactId>sparkpackage-maven-plugin</artifactId>
+                <version>0.1-SNAPSHOT</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>zip</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
         </plugins>
