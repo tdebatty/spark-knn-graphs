@@ -167,7 +167,7 @@
             <plugin>
                 <groupId>info.debatty</groupId>
                 <artifactId>sparkpackage-maven-plugin</artifactId>
-                <version>0.1-SNAPSHOT</version>
+                <version>0.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
