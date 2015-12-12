@@ -44,8 +44,9 @@ import scala.Tuple2;
  * In this example, a custom class is used as node value.
  * The only requirement is that the custom class must implement Serializable.
  * 
- * This also allows to support the use case where you have, say, user vectors, and item
- * vectors. And you'd like to compute the NN for item-item and the user-item "similarity
+ * This also allows to support the use case where you have, say, user vectors, 
+ * and item vectors. And you'd like to compute the NN for item-item and the 
+ * user-item similarity.
  * 
  * @author Thibault Debatty
  */
@@ -69,13 +70,16 @@ public class NNDescentCustomValue {
         
         // Let's add some values of type 1 ...
         for (int i = 0; i < 1000; i++) {
-            CustomValue value = new CustomValue(CustomValue.TYPE1, rand.nextDouble() * 100);
+            CustomValue value = new CustomValue(
+                    CustomValue.TYPE1, rand.nextDouble() * 100);
             data.add(new Node("TYPE1_" + String.valueOf(i), value));
         }
         
         // ... and some values of type 2
         for (int i = 0 ; i < 1000; i++) {
-            CustomValue value = new CustomValue(CustomValue.TYPE2, rand.nextDouble() * 100);
+            CustomValue value = new CustomValue(
+                    CustomValue.TYPE2, 
+                    rand.nextDouble() * 100);
             data.add(new Node("TYPE2_" + String.valueOf(i), value));
         }
         JavaRDD<Node<CustomValue>> nodes = sc.parallelize(data);
@@ -115,7 +119,9 @@ public class NNDescentCustomValue {
                 0.0,
                 new  Function2<Double,Tuple2<Node,NeighborList>,Double>() {
 
-                    public Double call(Double val, Tuple2<Node, NeighborList> tuple) throws Exception {
+                    public Double call(
+                            Double val, 
+                            Tuple2<Node, NeighborList> tuple) throws Exception {
                         for (Neighbor n : tuple._2()) {
                             val += n.similarity;
                         }
@@ -125,7 +131,9 @@ public class NNDescentCustomValue {
                 },
                 new Function2<Double, Double, Double>() {
 
-                    public Double call(Double val0, Double val1) throws Exception {
+                    public Double call(
+                            Double val0, 
+                            Double val1) throws Exception {
                         return val0 + val1;
                     }
 

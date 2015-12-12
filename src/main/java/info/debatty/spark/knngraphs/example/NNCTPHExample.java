@@ -49,7 +49,15 @@ public class NNCTPHExample {
      * @throws java.io.IOException
      */
     public static void main(String[] args) throws IOException, Exception {
-        String file = args[0];
+        
+        if (args.length != 1) {
+            System.out.println(
+                    "Usage: spark-submit --class " +
+                    Search.class.getCanonicalName() + " " +
+                    "<dataset>");
+        }
+        
+        String file =  args[0];
         
         // Read the file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
@@ -83,7 +91,8 @@ public class NNCTPHExample {
         });
         
         // Compute the graph...
-        JavaPairRDD<Node<String>, NeighborList> graph = nnctph.computeGraph(nodes);
+        JavaPairRDD<Node<String>, NeighborList> graph = 
+                nnctph.computeGraph(nodes);
         System.out.println(graph.first());
         
     }

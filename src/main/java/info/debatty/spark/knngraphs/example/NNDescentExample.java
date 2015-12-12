@@ -61,7 +61,9 @@ public class NNDescentExample {
                 0.0,
                 new  Function2<Double,Tuple2<Node,NeighborList>,Double>() {
 
-                    public Double call(Double val, Tuple2<Node, NeighborList> tuple) throws Exception {
+                    public Double call(
+                            Double val, 
+                            Tuple2<Node, NeighborList> tuple) throws Exception {
                         for (Neighbor n : tuple._2()) {
                             val += n.similarity;
                         }
@@ -71,7 +73,9 @@ public class NNDescentExample {
                 },
                 new Function2<Double, Double, Double>() {
 
-                    public Double call(Double val0, Double val1) throws Exception {
+                    public Double call(
+                            Double val0, 
+                            Double val1) throws Exception {
                         return val0 + val1;
                     }
 

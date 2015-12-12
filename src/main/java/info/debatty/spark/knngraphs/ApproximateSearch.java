@@ -48,7 +48,11 @@ public class ApproximateSearch<T> implements Serializable {
     private final JavaPairRDD graph;
     private final SimilarityInterface<T> similarity;
 
-    public ApproximateSearch(JavaPairRDD<Node<T>, NeighborList> graph, int partitioning_iterations, int partitioning_medoids, SimilarityInterface<T> similarity) {
+    public ApproximateSearch(
+            JavaPairRDD<Node<T>, NeighborList> graph, 
+            int partitioning_iterations, 
+            int partitioning_medoids, 
+            SimilarityInterface<T> similarity) {
 
         // Partition the graph
         VoronoiPartitioner partitioner = new VoronoiPartitioner();
@@ -60,6 +64,23 @@ public class ApproximateSearch<T> implements Serializable {
 
         this.similarity = similarity;
     }
+    
+    public NeighborList search(
+            final Node<T> query, 
+            final int k, 
+            final int gnss_restarts, 
+            final int gnss_depth) {
+        
+        int[] computed_similarities = new int[1];
+        
+        return search(
+                query, 
+                k, 
+                gnss_restarts, 
+                gnss_depth, 
+                1.01, 
+                computed_similarities);
+    }
 
     public NeighborList search(
             final Node<T> query, 
@@ -68,9 +89,16 @@ public class ApproximateSearch<T> implements Serializable {
             final int gnss_depth,
             final double gnss_expansion,
             int[] computed_similarities) {
-        JavaRDD<SearchResult> candidates_neighborlists_graph = graph.mapPartitions(new FlatMapFunction<Iterator<Tuple2<Node<T>, NeighborList>>, SearchResult>() {
+        
+        JavaRDD<SearchResult> candidates_neighborlists_graph = 
+                graph.mapPartitions(
+                        new FlatMapFunction<
+                                Iterator<Tuple2<Node<T>, NeighborList>>, 
+                                SearchResult>() {
 
-            public Iterable<SearchResult> call(Iterator<Tuple2<Node<T>, NeighborList>> tuples) throws Exception {
+            public Iterable<SearchResult> call(
+                    Iterator<Tuple2<Node<T>, NeighborList>> tuples) 
+                    throws Exception {
 
                 // Read all tuples to rebuild the subgraph
                 Graph<T> local_graph = new Graph<T>();

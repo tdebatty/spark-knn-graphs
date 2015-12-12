@@ -63,7 +63,8 @@ public class NNDescentTest extends TestCase implements Serializable {
      * @throws java.io.IOException
      */
     public void testComputeGraph() throws IOException, Exception {
-        String file =  getClass().getClassLoader().getResource("726-unique-spams").getPath();
+        String file =  getClass().getClassLoader().
+                getResource("726-unique-spams").getPath();
         
         // Read the file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
@@ -94,7 +95,8 @@ public class NNDescentTest extends TestCase implements Serializable {
         });
         
         // Compute the graph and force execution
-        JavaPairRDD<Node<String>, NeighborList> graph = builder.computeGraph(nodes);
+        JavaPairRDD<Node<String>, NeighborList> graph = 
+                builder.computeGraph(nodes);
         graph.first();
         sc.close();
     }

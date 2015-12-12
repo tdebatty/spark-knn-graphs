@@ -49,7 +49,14 @@ public class BruteExample {
      * @throws java.io.IOException
      */
     public static void main(String[] args) throws IOException, Exception {
-        String file =  BruteExample.class.getClassLoader().getResource("726-unique-spams").getPath();
+        if (args.length != 1) {
+            System.out.println(
+                    "Usage: spark-submit --class " +
+                    Search.class.getCanonicalName() + " " +
+                    "<dataset>");
+        }
+        
+        String file =  args[0];
         
         // Read the file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
@@ -80,7 +87,8 @@ public class BruteExample {
         });
         
         // Compute the graph...
-        JavaPairRDD<Node<String>, NeighborList> graph = brute.computeGraph(nodes);
+        JavaPairRDD<Node<String>, NeighborList> graph = 
+                brute.computeGraph(nodes);
         System.out.println(graph.first());
     }
     
