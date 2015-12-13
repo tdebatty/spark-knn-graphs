@@ -69,8 +69,7 @@ public class Search {
 
         // Search parameters
         final int search_k = 10;
-        final int gnss_restarts = 10;
-        final int gnss_depth = 10;
+        final int max_similarities = 400;
 
         int search_queries = 10;
 
@@ -144,8 +143,7 @@ public class Search {
                     approximate_search_algorithm.search(
                             query, 
                             search_k, 
-                            gnss_restarts, 
-                            gnss_depth);
+                            max_similarities);
             System.out.println(
                     "Using graph: " + neighborlist_graph.element().node.value);
 

@@ -47,13 +47,22 @@ public class ApproximateSearch<T> implements Serializable {
 
     private final JavaPairRDD graph;
     private final SimilarityInterface<T> similarity;
+    private final int partitioning_medoids;
 
+    /**
+     *
+     * @param graph
+     * @param partitioning_iterations
+     * @param partitioning_medoids
+     * @param similarity
+     */
     public ApproximateSearch(
             JavaPairRDD<Node<T>, NeighborList> graph, 
             int partitioning_iterations, 
             int partitioning_medoids, 
             SimilarityInterface<T> similarity) {
 
+        
         // Partition the graph
         VoronoiPartitioner partitioner = new VoronoiPartitioner();
         partitioner.iterations = partitioning_iterations;
@@ -63,40 +72,56 @@ public class ApproximateSearch<T> implements Serializable {
         this.graph.cache();
 
         this.similarity = similarity;
+        this.partitioning_medoids = partitioning_medoids;
     }
     
+    /**
+     *
+     * @param query
+     * @param k
+     * @param max_similarities
+     * @return
+     */
     public NeighborList search(
             final Node<T> query, 
             final int k, 
-            final int gnss_restarts, 
-            final int gnss_depth) {
+            final int max_similarities) {
         
-        int[] computed_similarities = new int[1];
         
         return search(
                 query, 
-                k, 
-                gnss_restarts, 
-                gnss_depth, 
-                1.01, 
-                computed_similarities);
+                k,
+                max_similarities,
+                100, 
+                1.01);
     }
 
+    /**
+     *
+     * @param query
+     * @param k
+     * @param max_similarities
+     * @param gnss_depth
+     * @param gnss_expansion
+     * @return
+     */
     public NeighborList search(
             final Node<T> query, 
             final int k, 
-            final int gnss_restarts, 
+            final int max_similarities, 
             final int gnss_depth,
-            final double gnss_expansion,
-            int[] computed_similarities) {
+            final double gnss_expansion) {
         
-        JavaRDD<SearchResult> candidates_neighborlists_graph = 
+        final int max_similarities_per_partition = 
+                max_similarities / partitioning_medoids;
+        
+        JavaRDD<NeighborList> candidates_neighborlists_graph = 
                 graph.mapPartitions(
                         new FlatMapFunction<
                                 Iterator<Tuple2<Node<T>, NeighborList>>, 
-                                SearchResult>() {
+                                NeighborList>() {
 
-            public Iterable<SearchResult> call(
+            public Iterable<NeighborList> call(
                     Iterator<Tuple2<Node<T>, NeighborList>> tuples) 
                     throws Exception {
 
@@ -107,42 +132,27 @@ public class ApproximateSearch<T> implements Serializable {
                     local_graph.put(next._1, next._2);
                 }
 
-                ArrayList<SearchResult> result = new ArrayList<SearchResult>(1);
+                ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);
 
-                int[] computed_similarities = new int[1];
                 NeighborList nl = local_graph.search(
                         query, 
                         k, 
-                        gnss_restarts, 
-                        gnss_depth, 
                         similarity, 
-                        gnss_expansion,
-                        computed_similarities);
-                result.add(new SearchResult(nl, computed_similarities[0]));
+                        max_similarities_per_partition,
+                        gnss_depth,
+                        gnss_expansion);
+                result.add(nl);
                 return result;
             }
         });
 
         NeighborList final_neighborlist = new NeighborList(k);
-        for (SearchResult sr : candidates_neighborlists_graph.collect()) {
-            final_neighborlist.addAll(sr.neighborlist);
-            computed_similarities[0] += sr.computed_similarities;
+        for (NeighborList nl : candidates_neighborlists_graph.collect()) {
+            final_neighborlist.addAll(nl);
         }
-
         return final_neighborlist;
     }
 
-}
-
-class SearchResult implements Serializable {
-
-    public NeighborList neighborlist;
-    public int computed_similarities;
-
-    public SearchResult(NeighborList neighborList, int computed_similarities) {
-        this.neighborlist = neighborList;
-        this.computed_similarities = computed_similarities;
-    }
 }
 
 class VoronoiPartitioner<T> implements Serializable {
