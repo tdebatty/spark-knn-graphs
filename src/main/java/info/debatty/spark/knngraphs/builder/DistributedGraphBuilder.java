@@ -53,7 +53,8 @@ public abstract class DistributedGraphBuilder<T> implements Serializable {
      * @return the graph
      * @throws java.lang.Exception
      */
-    public JavaPairRDD<Node<T>, NeighborList> computeGraph(JavaRDD<Node<T>> nodes) throws Exception {
+    public JavaPairRDD<Node<T>, NeighborList> 
+        computeGraph(JavaRDD<Node<T>> nodes) throws Exception {
         if (similarity == null) {
             throw new InvalidParameterException("Similarity is not defined!");
         }
@@ -67,7 +68,8 @@ public abstract class DistributedGraphBuilder<T> implements Serializable {
      * @return
      * @throws java.lang.Exception
      */
-    protected abstract JavaPairRDD<Node<T>, NeighborList> _computeGraph(JavaRDD<Node<T>> nodes) throws Exception ;
+    protected abstract JavaPairRDD<Node<T>, NeighborList> 
+        _computeGraph(JavaRDD<Node<T>> nodes) throws Exception ;
     
     public static ArrayList<String> readFile(String path) throws IOException {
         
