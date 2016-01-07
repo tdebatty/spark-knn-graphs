@@ -33,6 +33,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import junit.framework.TestCase;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -64,6 +66,9 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
      */
     public void testSearch_3args() throws Exception {
         System.out.println("search");
+        
+        Logger.getLogger("org").setLevel(Level.WARN);
+        Logger.getLogger("akka").setLevel(Level.WARN);
         
         int n = 10000;
         int partitions = 4;
@@ -116,7 +121,7 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
         int correct = 0;
         for (int i = 0; i < 100; i++) {
             Node<Double> query = new Node<Double>("", 400.0 * rand.nextDouble());
-            System.out.println(query);
+            //System.out.println(query);
             NeighborList approximate_result = approximate_search.search(query, 1, n / 10);
             NeighborList exhaustive_result = exhaustive_search.search(query, 1);
             
