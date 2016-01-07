@@ -65,7 +65,7 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
     public void testSearch_3args() throws Exception {
         System.out.println("search");
         
-        int n = 4000;
+        int n = 10000;
         int partitions = 4;
         
         SimilarityInterface<Double> similarity = new SimilarityInterface<Double>() {
@@ -75,7 +75,7 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
             }
         };
         
-        System.out.println("Create some random nodes to nodes");
+        System.out.println("Create some random nodes");
         Random rand = new Random();
         List<Node<Double>> data = new ArrayList<Node<Double>>();
         while (data.size() < n) {
@@ -117,7 +117,7 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
         for (int i = 0; i < 100; i++) {
             Node<Double> query = new Node<Double>("", 400.0 * rand.nextDouble());
             System.out.println(query);
-            NeighborList approximate_result = approximate_search.search(query, 1, n / 20);
+            NeighborList approximate_result = approximate_search.search(query, 1, n / 10);
             NeighborList exhaustive_result = exhaustive_search.search(query, 1);
             
             correct += approximate_result.CountCommons(exhaustive_result);
