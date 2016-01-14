@@ -33,6 +33,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import junit.framework.TestCase;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -59,6 +61,10 @@ public class BruteTest extends TestCase implements Serializable {
     }
 
     public void testComputeGraph() throws IOException, Exception {
+        
+        Logger.getLogger("org").setLevel(Level.WARN);
+        Logger.getLogger("akka").setLevel(Level.WARN);
+        
         String file =  getClass().getClassLoader().
                 getResource("726-unique-spams").getPath();
         

@@ -38,6 +38,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
+import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
 /**
@@ -72,12 +73,14 @@ public class ApproximateSearch<T> implements Serializable {
         partitioner.iterations = partitioning_iterations;
         partitioner.partitions = partitioning_medoids;
         partitioner.similarity = similarity;
-        partitioner.imbalance = 1.05;
+        partitioner.imbalance = 1.1;
         
         this.graph = partitioner.partition(graph);
+        //this.graph = graph;
         this.graph.cache();
     }
-    
+
+
     /**
      *
      * @param query
@@ -91,32 +94,9 @@ public class ApproximateSearch<T> implements Serializable {
             final int max_similarities) {
         
         
-        return search(
-                query, 
-                k,
-                max_similarities,
-                100, 
-                1.01);
-    }
-
-    /**
-     *
-     * @param query
-     * @param k
-     * @param max_similarities
-     * @param gnss_depth
-     * @param gnss_expansion
-     * @return
-     */
-    public NeighborList search(
-            final Node<T> query, 
-            final int k, 
-            final int max_similarities, 
-            final int gnss_depth,
-            final double gnss_expansion) {
         
         final int max_similarities_per_partition = 
-                max_similarities / partitioning_medoids;
+                max_similarities / graph.partitions().size();
         
         JavaRDD<NeighborList> candidates_neighborlists_graph = 
                 graph.mapPartitions(
@@ -135,15 +115,14 @@ public class ApproximateSearch<T> implements Serializable {
                     local_graph.put(next._1, next._2);
                 }
 
-                ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);
-
+                // Search the local graph
                 NeighborList nl = local_graph.search(
-                        query, 
+                        query.value, 
                         k, 
                         similarity, 
-                        max_similarities_per_partition,
-                        gnss_depth,
-                        gnss_expansion);
+                        max_similarities_per_partition);
+                
+                ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);
                 result.add(nl);
                 return result;
             }
@@ -166,12 +145,14 @@ class BalancedKMedoidsPartitioner<T> implements Serializable {
     public int partitions = 4;
     public double imbalance = 1.1;
 
-    public JavaPairRDD<Node<T>, NeighborList> partition(JavaPairRDD<Node<T>, NeighborList> graph) {
-
+    public JavaPairRDD<Node<T>, NeighborList> partition(JavaPairRDD<Node<T>, NeighborList> input_graph) {
+        
+        input_graph.cache();
+        
         // Pick some random initial medoids
-        double fraction = 10.0 * partitions / graph.count();
+        double fraction = 10.0 * partitions / input_graph.count();
         Iterator<Tuple2<Node<T>, NeighborList>> sample_iterator = 
-                graph.sample(false, fraction).collect().iterator();
+                input_graph.sample(false, fraction).collect().iterator();
         List<Node<T>> medoids = new ArrayList<Node<T>>();
         for (int i = 0; i < partitions; i++) {
             medoids.add(sample_iterator.next()._1);
@@ -182,19 +163,16 @@ class BalancedKMedoidsPartitioner<T> implements Serializable {
             //System.out.println("Iteration: " + iteration);
             
             // Assign each node to a partition id
-            JavaPairRDD<NodePartition<T>, NeighborList> graph2 = 
-                    graph.mapPartitionsToPair(
+            JavaPairRDD<NodePartition<T>, NeighborList> partitioned_graph = 
+                    input_graph.mapPartitionsToPair(
                             new AssignFunction(medoids),
                             true);
                     
-
             // Partition
-            graph2 = graph2.partitionBy(new NodePartitioner(partitions));
-            graph2.cache();
-
+            partitioned_graph = partitioned_graph.partitionBy(new NodePartitioner(partitions));
             
             // Compute new centers
-            JavaRDD<Node<T>> new_medoids = graph2.mapPartitions(
+            JavaRDD<Node<T>> new_medoids = partitioned_graph.mapPartitions(
                     new FlatMapFunction<Iterator<Tuple2<NodePartition<T>, NeighborList>>, Node<T>>() {
 
                 public Iterable<Node<T>> 
@@ -248,8 +226,26 @@ class BalancedKMedoidsPartitioner<T> implements Serializable {
             });
             medoids = new_medoids.collect();
         }
+        
+        // Perform final partitioning of the input graph
+        // Assign each node to a partition id
+        JavaPairRDD<NodePartition<T>, NeighborList> partitioned_graph = 
+                input_graph.mapPartitionsToPair(
+                        new AssignFunction(medoids),
+                        true);
 
-        return graph;
+        // Partition
+        partitioned_graph = partitioned_graph.partitionBy(new NodePartitioner(partitions));
+        
+        
+        return partitioned_graph.mapToPair(
+                new PairFunction<Tuple2<NodePartition<T>, NeighborList>, Node<T>, NeighborList>() {
+
+            public Tuple2<Node<T>, NeighborList> call(Tuple2<NodePartition<T>, NeighborList> tuple) 
+                    throws Exception {
+                return new Tuple2<Node<T>, NeighborList>(tuple._1.node, tuple._2);
+            }
+        });
     }
 
     private static class NodePartitioner extends Partitioner {
