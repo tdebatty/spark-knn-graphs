@@ -23,7 +23,6 @@
  */
 package info.debatty.spark.knngraphs;
 
-import info.debatty.java.graphs.Dijkstra;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
@@ -32,13 +31,9 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Random;
-import org.apache.spark.Partitioner;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
-import org.apache.spark.api.java.function.PairFlatMapFunction;
-import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
 /**
@@ -48,9 +43,9 @@ import scala.Tuple2;
  */
 public class ApproximateSearch<T> implements Serializable {
 
-    private final JavaPairRDD graph;
+    private JavaPairRDD<Node<T>, NeighborList> graph;
     private final SimilarityInterface<T> similarity;
-    private final int partitioning_medoids;
+    private final BalancedKMedoidsPartitioner partitioner;
 
     /**
      *
@@ -66,18 +61,24 @@ public class ApproximateSearch<T> implements Serializable {
             SimilarityInterface<T> similarity) {
 
         this.similarity = similarity;
-        this.partitioning_medoids = partitioning_medoids;
         
         // Partition the graph        
-        BalancedKMedoidsPartitioner partitioner = new BalancedKMedoidsPartitioner();
+        this.partitioner = new BalancedKMedoidsPartitioner();
         partitioner.iterations = partitioning_iterations;
         partitioner.partitions = partitioning_medoids;
         partitioner.similarity = similarity;
         partitioner.imbalance = 1.1;
         
         this.graph = partitioner.partition(graph);
-        //this.graph = graph;
         this.graph.cache();
+    }
+    
+    public NodePartitioner getPartitioner() {
+        return partitioner.internal_partitioner;
+    }
+    
+    public List<Node<T>> getMedoids() {
+        return partitioner.medoids;
     }
 
 
@@ -135,235 +136,13 @@ public class ApproximateSearch<T> implements Serializable {
         return final_neighborlist;
     }
 
-}
-
-
-class BalancedKMedoidsPartitioner<T> implements Serializable {
-
-    public SimilarityInterface<T> similarity;
-    public int iterations = 5;
-    public int partitions = 4;
-    public double imbalance = 1.1;
-
-    public JavaPairRDD<Node<T>, NeighborList> partition(JavaPairRDD<Node<T>, NeighborList> input_graph) {
-        
-        input_graph.cache();
-        
-        // Pick some random initial medoids
-        double fraction = 10.0 * partitions / input_graph.count();
-        Iterator<Tuple2<Node<T>, NeighborList>> sample_iterator = 
-                input_graph.sample(false, fraction).collect().iterator();
-        List<Node<T>> medoids = new ArrayList<Node<T>>();
-        for (int i = 0; i < partitions; i++) {
-            medoids.add(sample_iterator.next()._1);
-        }
-
-        // Perform iterations
-        for (int iteration = 0; iteration < iterations; iteration++) {
-            //System.out.println("Iteration: " + iteration);
-            
-            // Assign each node to a partition id
-            JavaPairRDD<NodePartition<T>, NeighborList> partitioned_graph = 
-                    input_graph.mapPartitionsToPair(
-                            new AssignFunction(medoids),
-                            true);
-                    
-            // Partition
-            partitioned_graph = partitioned_graph.partitionBy(new NodePartitioner(partitions));
-            
-            // Compute new centers
-            JavaRDD<Node<T>> new_medoids = partitioned_graph.mapPartitions(
-                    new FlatMapFunction<Iterator<Tuple2<NodePartition<T>, NeighborList>>, Node<T>>() {
-
-                public Iterable<Node<T>> 
-                    call(Iterator<Tuple2<NodePartition<T>, NeighborList>> t) 
-                            throws Exception {
-                        
-                    // Build the partition
-                    Graph partition = new Graph();
-                    while (t.hasNext()) {
-                        Tuple2<NodePartition<T>, NeighborList> tuple = t.next();
-                        partition.put(tuple._1().node, tuple._2());
-                    }
-
-                    if (partition.size() == 0) {
-                        return new ArrayList<Node<T>>();
-                    }
-
-                    // This partition might contain multiple subgraphs => find largest subgraph
-                    ArrayList<Graph<T>> stronglyConnectedComponents = partition.stronglyConnectedComponents();
-                    int largest_subgraph_size = 0;
-                    Graph<T> largest_subgraph = stronglyConnectedComponents.get(0);
-                    for (Graph<T> subgraph : stronglyConnectedComponents) {
-                        if (subgraph.size() > largest_subgraph_size) {
-                            largest_subgraph = subgraph;
-                            largest_subgraph_size = subgraph.size();
-                        }
-                    }
-
-                    int largest_distance = Integer.MAX_VALUE;
-                    Node medoid = (Node) largest_subgraph.keySet().iterator().next();
-                    for (Node n : largest_subgraph.keySet()) {
-                        //Node n = (Node) o;
-                        Dijkstra dijkstra = new Dijkstra(largest_subgraph, n);
-
-                        int node_largest_distance = dijkstra.getLargestDistance();
-
-                        if (node_largest_distance == 0) {
-                            continue;
-                        }
-
-                        if (node_largest_distance < largest_distance) {
-                            largest_distance = node_largest_distance;
-                            medoid = n;
-                        }
-                    }
-                    ArrayList<Node<T>> list = new ArrayList<Node<T>>(1);
-                    list.add(medoid);
-                    
-                    return list;
-                }
-            });
-            medoids = new_medoids.collect();
-        }
-        
-        // Perform final partitioning of the input graph
-        // Assign each node to a partition id
-        JavaPairRDD<NodePartition<T>, NeighborList> partitioned_graph = 
-                input_graph.mapPartitionsToPair(
-                        new AssignFunction(medoids),
-                        true);
-
-        // Partition
-        partitioned_graph = partitioned_graph.partitionBy(new NodePartitioner(partitions));
-        
-        
-        return partitioned_graph.mapToPair(
-                new PairFunction<Tuple2<NodePartition<T>, NeighborList>, Node<T>, NeighborList>() {
-
-            public Tuple2<Node<T>, NeighborList> call(Tuple2<NodePartition<T>, NeighborList> tuple) 
-                    throws Exception {
-                return new Tuple2<Node<T>, NeighborList>(tuple._1.node, tuple._2);
-            }
-        });
+    public JavaPairRDD<Node<T>, NeighborList> getGraph() {
+        return this.graph;
     }
 
-    private static class NodePartitioner extends Partitioner {
-        private final int partitions;
-
-        public NodePartitioner(int partitions) {
-            this.partitions = partitions;
-        }
-
-        @Override
-        public int numPartitions() {
-            return partitions;
-        }
-
-        @Override
-        public int getPartition(Object node_partition) {
-            return ((NodePartition) node_partition).partition % partitions;
-        }
-    }
-
-    private  class AssignFunction
-        implements PairFlatMapFunction<Iterator<Tuple2<Node<T>, NeighborList>>, NodePartition<T>, NeighborList> {
-        private final List<Node<T>> medoids;
-        
-
-        public AssignFunction(List<Node<T>> medoids) {
-            this.medoids = medoids;
-        }
-        
-        public Iterable<Tuple2<NodePartition<T>, NeighborList>> 
-            call(Iterator<Tuple2<Node<T>, NeighborList>> iterator) 
-                    throws Exception {
-
-
-            // fetch all tuples in this partition 
-            // to compute the partition_constraint
-            ArrayList<Tuple2<Node<T>, NeighborList>> partition_tuples = 
-                    new ArrayList<Tuple2<Node<T>, NeighborList>>();
-
-            while (iterator.hasNext()) {
-                partition_tuples.add(iterator.next());
-            }
-
-            // this could be estimated with total_n / partitions
-            int partition_n = partition_tuples.size();
-            int partition_constraint = (int) (imbalance * partition_n / partitions);
-            int[] partitions_size = new int[partitions];
-            ArrayList<Tuple2<NodePartition<T>, NeighborList>> result = 
-                    new ArrayList<Tuple2<NodePartition<T>, NeighborList>>(partition_n);
-
-            for (Tuple2<Node<T>, NeighborList> tuple : partition_tuples) {
-                double[] similarities = new double[partitions];
-                double[] values = new double[partitions];
-
-                // 1. similarities
-                for (int center_id = 0; center_id < partitions; center_id++) {
-                    similarities[center_id] = similarity.similarity(
-                            medoids.get(center_id).value,
-                            tuple._1.value);
-                }
-                
-                // 2. value to maximize = similarity * (1 - cluster_size / capacity_constraint)
-                for (int center_id = 0; center_id < partitions; center_id++) {
-                    values[center_id] = similarities[center_id] *
-                            (1 - partitions_size[center_id] / partition_constraint);
-                }
-                
-                // 3. choose partition that minimizes compute value
-                int partition = argmax(values);
-                partitions_size[partition]++;
-                result.add(new Tuple2<NodePartition<T>, NeighborList>(
-                        new NodePartition<T>(tuple._1, partition), 
-                        tuple._2));
-            }
-            
-            return result;
-
-        }
-            
-        
-    }
-
-    
-    private static int argmax(double[] values) {
-        double max_value = -1.0 * Double.MAX_VALUE;
-        ArrayList<Integer> ties = new ArrayList<Integer>();
-        
-        for (int i = 0; i < values.length; i++) {
-            if (values[i] > max_value) {
-                max_value = values[i];
-                ties = new ArrayList<Integer>();
-                ties.add(i);
-                
-            } else if(values[i] == max_value) {
-                // add a tie
-                ties.add(i);
-            }
-        }
-        
-        if (ties.size() == 1) {
-            return ties.get(0);
-        }
-        
-        Random rand = new Random();
-        return ties.get(rand.nextInt(ties.size()));
+    public void setGraph(JavaPairRDD<Node<T>, NeighborList> graph) {
+        this.graph = graph;
     }
 }
 
-/**
- * Wraps a node and a corresponding partition id
- * @author Thibault Debatty
- */
-class NodePartition<T> implements Serializable {
-    public Node<T> node;
-    public int partition;
-    
-    public NodePartition(Node<T> node, int partition) {
-        this.node = node;
-        this.partition = partition;
-    }
-}
+

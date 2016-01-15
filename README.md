@@ -16,8 +16,11 @@ Implemented k-nn graph processing algorithms:
 
 All algorithms support custom classes as value. See [an example with custom class as value](https://github.com/tdebatty/spark-knn-graphs/blob/master/src/main/java/info/debatty/spark/knngraphs/example/NNDescentCustomValue.java).
 
-## Installation
-Using Maven:
+## Installation and requirements
+
+spark-knn-graphs requires **spark version 1.4.0** or earlier.
+
+Installation using Maven:
 ```
 <dependency>
     <groupId>info.debatty</groupId>
