@@ -55,32 +55,31 @@ public class ApproximateSearch<T> implements Serializable {
      * @param similarity
      */
     public ApproximateSearch(
-            JavaPairRDD<Node<T>, NeighborList> graph, 
-            int partitioning_iterations, 
-            int partitioning_medoids, 
+            JavaPairRDD<Node<T>, NeighborList> graph,
+            int partitioning_iterations,
+            int partitioning_medoids,
             SimilarityInterface<T> similarity) {
 
         this.similarity = similarity;
-        
-        // Partition the graph        
+
+        // Partition the graph
         this.partitioner = new BalancedKMedoidsPartitioner();
         partitioner.iterations = partitioning_iterations;
         partitioner.partitions = partitioning_medoids;
         partitioner.similarity = similarity;
         partitioner.imbalance = 1.1;
-        
+
         this.graph = partitioner.partition(graph);
         this.graph.cache();
     }
-    
+
     public NodePartitioner getPartitioner() {
         return partitioner.internal_partitioner;
     }
-    
+
     public List<Node<T>> getMedoids() {
         return partitioner.medoids;
     }
-
 
     /**
      *
@@ -90,41 +89,39 @@ public class ApproximateSearch<T> implements Serializable {
      * @return
      */
     public NeighborList search(
-            final Node<T> query, 
-            final int k, 
+            final Node<T> query,
+            final int k,
             final double speedup) {
-        
-        
-        JavaRDD<NeighborList> candidates_neighborlists_graph = 
-                graph.mapPartitions(
+
+        JavaRDD<NeighborList> candidates_neighborlists_graph
+                = graph.mapPartitions(
                         new FlatMapFunction<
-                                Iterator<Tuple2<Node<T>, NeighborList>>, 
-                                NeighborList>() {
+                                Iterator<Tuple2<Node<T>, NeighborList>>, NeighborList>() {
 
-            public Iterable<NeighborList> call(
-                    Iterator<Tuple2<Node<T>, NeighborList>> tuples) 
-                    throws Exception {
+                            public Iterable<NeighborList> call(
+                                    Iterator<Tuple2<Node<T>, NeighborList>> tuples)
+                            throws Exception {
 
-                // Read all tuples to rebuild the subgraph
-                Graph<T> local_graph = new Graph<T>();
-                while (tuples.hasNext()) {
-                    Tuple2<Node<T>, NeighborList> next = tuples.next();
-                    local_graph.put(next._1, next._2);
-                }
-                
-                local_graph.setSimilarity(similarity);
+                                // Read all tuples to rebuild the subgraph
+                                Graph<T> local_graph = new Graph<T>();
+                                while (tuples.hasNext()) {
+                                    Tuple2<Node<T>, NeighborList> next = tuples.next();
+                                    local_graph.put(next._1, next._2);
+                                }
 
-                // Search the local graph
-                NeighborList nl = local_graph.search(
-                        query.value, 
-                        k,
-                        speedup);
-                
-                ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);
-                result.add(nl);
-                return result;
-            }
-        });
+                                local_graph.setSimilarity(similarity);
+
+                                // Search the local graph
+                                NeighborList nl = local_graph.search(
+                                        query.value,
+                                        k,
+                                        speedup);
+
+                                ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);
+                                result.add(nl);
+                                return result;
+                            }
+                        });
 
         NeighborList final_neighborlist = new NeighborList(k);
         for (NeighborList nl : candidates_neighborlists_graph.collect()) {
@@ -141,5 +138,3 @@ public class ApproximateSearch<T> implements Serializable {
         this.graph = graph;
     }
 }
-
-
