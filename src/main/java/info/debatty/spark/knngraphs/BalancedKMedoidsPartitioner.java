@@ -112,8 +112,8 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
                     }
 
                     int largest_distance = Integer.MAX_VALUE;
-                    Node medoid = (Node) largest_subgraph.keySet().iterator().next();
-                    for (Node n : largest_subgraph.keySet()) {
+                    Node medoid = (Node) largest_subgraph.getNodes().iterator().next();
+                    for (Node n : largest_subgraph.getNodes()) {
                         //Node n = (Node) o;
                         Dijkstra dijkstra = new Dijkstra(largest_subgraph, n);
 

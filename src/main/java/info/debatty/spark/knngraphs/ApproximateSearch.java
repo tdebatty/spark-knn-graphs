@@ -86,18 +86,14 @@ public class ApproximateSearch<T> implements Serializable {
      *
      * @param query
      * @param k
-     * @param max_similarities
+     * @param speedup
      * @return
      */
     public NeighborList search(
             final Node<T> query, 
             final int k, 
-            final int max_similarities) {
+            final double speedup) {
         
-        
-        
-        final int max_similarities_per_partition = 
-                max_similarities / graph.partitions().size();
         
         JavaRDD<NeighborList> candidates_neighborlists_graph = 
                 graph.mapPartitions(
@@ -115,13 +111,14 @@ public class ApproximateSearch<T> implements Serializable {
                     Tuple2<Node<T>, NeighborList> next = tuples.next();
                     local_graph.put(next._1, next._2);
                 }
+                
+                local_graph.setSimilarity(similarity);
 
                 // Search the local graph
                 NeighborList nl = local_graph.search(
                         query.value, 
-                        k, 
-                        similarity, 
-                        max_similarities_per_partition);
+                        k,
+                        speedup);
                 
                 ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);
                 result.add(nl);

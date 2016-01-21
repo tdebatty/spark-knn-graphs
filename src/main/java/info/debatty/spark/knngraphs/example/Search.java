@@ -69,7 +69,7 @@ public class Search {
 
         // Search parameters
         final int search_k = 10;
-        final int max_similarities = 400;
+        final double speedup = 4.0;
 
         int search_queries = 10;
 
@@ -143,7 +143,7 @@ public class Search {
                     approximate_search_algorithm.search(
                             query, 
                             search_k, 
-                            max_similarities);
+                            speedup);
             System.out.println(
                     "Using graph: " + neighborlist_graph.element().node.value);
 

@@ -125,7 +125,7 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
             NeighborList approximate_result = approximate_search.search(
                     query,
                     1,
-                    data.size() / 4);
+                    4);
             NeighborList exhaustive_result = exhaustive_search.search(query, 1);
             
             correct += approximate_result.CountCommons(exhaustive_result);

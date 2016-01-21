@@ -1,5 +1,6 @@
 package info.debatty.spark.knngraphs.builder;
 
+import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.build.Brute;
@@ -55,7 +56,7 @@ public abstract class AbstractPartitioningBuilder<T> extends DistributedGraphBui
                 }
                 inner_graph_builder.setK(k);
                 inner_graph_builder.setSimilarity(similarity);
-                HashMap graph = inner_graph_builder.computeGraph(nodes);
+                Graph<T> graph = inner_graph_builder.computeGraph(nodes);
                 
                 ArrayList<Tuple2<Node<T>, NeighborList>> r = new ArrayList<Tuple2<Node<T>, NeighborList>>();
                 for (Object e : graph.entrySet()) {
