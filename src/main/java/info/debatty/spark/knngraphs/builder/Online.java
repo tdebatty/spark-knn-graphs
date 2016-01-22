@@ -54,6 +54,8 @@ public class Online<T> {
     private final int k;
     private final JavaSparkContext sc;
     private final SimilarityInterface<T> similarity;
+    private final long[] counts;
+    private int iteration;
 
     /**
      *
@@ -68,16 +70,17 @@ public class Online<T> {
             final JavaSparkContext sc,
             final JavaPairRDD<Node<T>, NeighborList> initial) {
 
+        this.iteration = 0;
         this.similarity = similarity;
         this.k = k;
         this.sc = sc;
-        searcher = new ApproximateSearch<T>(
+        this.searcher = new ApproximateSearch<T>(
                 initial,
                 5, // Partitioning iterations
                 4, // partitioning medoids
                 similarity);
 
-        sc.setCheckpointDir("/tmp/spark/online-graph/checkpoints");
+        this.counts = getCounts();
     }
 
     /**
@@ -85,6 +88,7 @@ public class Online<T> {
      * @param node to add to the graph
      */
     public final void addNode(final Node<T> node) {
+        iteration++;
 
         // Find the neighbors of this node
         NeighborList neighborlist = searcher.search(node, k, 4);
@@ -100,20 +104,27 @@ public class Online<T> {
         JavaPairRDD<Node<T>, NeighborList> partitioned_piece = partition(
                 new_graph_piece,
                 searcher.getMedoids(),
-                getCounts(),
+                counts,
                 searcher.getPartitioner());
 
-        // update the existing graph
+        // bookkeeping: update the counts
+        Node<T> partitioned_node = partitioned_piece.collect().get(0)._1;
+        counts[(Integer)
+                partitioned_node
+                .getAttribute(BalancedKMedoidsPartitioner.PARTITION_KEY)]++;
 
-        JavaPairRDD<Node<T>, NeighborList> updated_graph = searcher.getGraph();
-        //JavaPairRDD<Node<T>, NeighborList> updated_graph =
-        //        update(searcher.getGraph(), node, neighborlist);
+        // update the existing graph
+        JavaPairRDD<Node<T>, NeighborList> updated_graph =
+                update(searcher.getGraph(), node, neighborlist);
 
         // The new graph is the union of Java RDD's
         JavaPairRDD<Node<T>, NeighborList> union =
                 updated_graph.union(partitioned_piece);
         union.cache();
-        union.checkpoint();
+
+        if ((iteration % 20) == 0) {
+            union.rdd().localCheckpoint();
+        }
 
         // From now on, use the new graph...
         searcher.setGraph(union);
@@ -246,7 +257,7 @@ public class Online<T> {
     private JavaPairRDD<Node<T>, NeighborList> partition(
             final JavaPairRDD<Node<T>, NeighborList> piece,
             final List<Node<T>> medoids,
-            final Long[] counts,
+            final long[] counts,
             final NodePartitioner internal_partitioner) {
 
         // Assign each node to a partition id
@@ -270,12 +281,12 @@ public class Online<T> {
             <Iterator<Tuple2<Node<U>, NeighborList>>, Node<U>, NeighborList> {
 
         private final List<Node<U>> medoids;
-        private final Long[] counts;
+        private final long[] counts;
         private final SimilarityInterface<U> similarity;
 
         public AssignFunction(
                 final List<Node<U>> medoids,
-                final Long[] counts,
+                final long[] counts,
                 final SimilarityInterface<U> similarity) {
             this.medoids = medoids;
             this.counts = counts;
@@ -329,7 +340,7 @@ public class Online<T> {
             return tuples;
         }
 
-        private static long sum(final Long[] values) {
+        private static long sum(final long[] values) {
             long agg = 0;
             for (long value : values) {
                 agg += value;
@@ -362,11 +373,15 @@ public class Online<T> {
         }
     }
 
-    private Long[] getCounts() {
-        List<Long> counts = searcher.getGraph().mapPartitions(
+    private long[] getCounts() {
+        List<Long> counts_list = searcher.getGraph().mapPartitions(
                 new PartitionCountFunction(), true).collect();
 
-        return counts.toArray(new Long[counts.size()]);
+        long[] result = new long[counts_list.size()];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = counts_list.get(i);
+        }
+        return result;
     }
 
     /**

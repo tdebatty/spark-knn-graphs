@@ -19,7 +19,7 @@ All algorithms support custom classes as value. See [an example with custom clas
 
 ## Installation and requirements
 
-spark-knn-graphs requires **spark version 1.4.0** or later.
+spark-knn-graphs requires **spark version 1.5.0** or later.
 
 Installation using Maven:
 ```
