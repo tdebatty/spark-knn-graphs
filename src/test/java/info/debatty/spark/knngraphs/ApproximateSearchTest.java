@@ -64,7 +64,7 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
      * Test of search method, of class ApproximateSearch.
      * @throws java.lang.Exception
      */
-    public void testSearch_3args() throws Exception {
+    public void testSearch() throws Exception {
         System.out.println("search");
         
         Logger.getLogger("org").setLevel(Level.WARN);
@@ -122,15 +122,17 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
         for (int i = 0; i < 100; i++) {
             Node<Double> query = new Node<Double>("", 400.0 * rand.nextDouble());
             //System.out.println(query);
-            NeighborList approximate_result = approximate_search.search(query, 1, n / 10);
+            NeighborList approximate_result = approximate_search.search(
+                    query,
+                    1,
+                    4);
             NeighborList exhaustive_result = exhaustive_search.search(query, 1);
             
             correct += approximate_result.CountCommons(exhaustive_result);
         }
         System.out.println("Found " + correct + " correct responses");
-        assertTrue(correct > 50);
         sc.close();
-        
+        assertTrue(correct > 10);
     }
     
 }

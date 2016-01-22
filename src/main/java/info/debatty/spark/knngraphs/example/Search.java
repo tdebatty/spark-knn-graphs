@@ -44,21 +44,28 @@ import org.apache.spark.api.java.JavaSparkContext;
  *
  * @author Thibault Debatty
  */
-public class Search {
+public final class Search {
+
+    /**
+     *
+     */
+    private Search() {
+    }
 
     /**
      * @param args the command line arguments
      * @throws java.io.IOException
+     * @throws Exception
      */
-    public static void main(String[] args) throws IOException, Exception {
+    public static void main(final String[] args) throws IOException, Exception {
         if (args.length != 1) {
             System.out.println(
-                    "Usage: spark-submit --class " +
-                    Search.class.getCanonicalName() + " " +
-                    "<dataset>");
+                    "Usage: spark-submit --class "
+                    + Search.class.getCanonicalName() + " "
+                    + "<dataset>");
         }
-        
-        String file =  args[0];
+
+        String file = args[0];
 
         // Graph building parameters
         int k = 10;
@@ -68,20 +75,22 @@ public class Search {
         int partitioning_medoids = 4;
 
         // Search parameters
-        final int search_k = 10;
-        final int max_similarities = 400;
+        int search_k = 10;
+        double speedup = 4.0;
 
         int search_queries = 10;
 
         // Similarity measure
-        final SimilarityInterface<String> similarity = 
-                new SimilarityInterface<String>() {
+        final SimilarityInterface<String> similarity
+                = new SimilarityInterface<String>() {
 
-            public double similarity(String value1, String value2) {
-                JaroWinkler jw = new JaroWinkler();
-                return jw.similarity(value1, value2);
-            }
-        };
+                    public double similarity(
+                            final String value1,
+                            final String value2) {
+                        JaroWinkler jw = new JaroWinkler();
+                        return jw.similarity(value1, value2);
+                    }
+                };
 
         // Read the dataset file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
@@ -91,7 +100,7 @@ public class Search {
         conf.setAppName("SparkTest");
         conf.setIfMissing("spark.master", "local[*]");
         JavaSparkContext sc = new JavaSparkContext(conf);
-        
+
         // Convert to nodes
         List<Node<String>> dataset = new ArrayList<Node<String>>();
         for (String s : strings) {
@@ -100,9 +109,11 @@ public class Search {
 
         // Split the dataset between training and validation
         Random rand = new Random();
-        ArrayList<Node<String>> validation_dataset = new ArrayList<Node<String>>(search_queries);
+        ArrayList<Node<String>> validation_dataset
+                = new ArrayList<Node<String>>(search_queries);
         for (int i = 0; i < search_queries; i++) {
-            validation_dataset.add(dataset.remove(rand.nextInt(dataset.size())));
+            validation_dataset.add(
+                    dataset.remove(rand.nextInt(dataset.size())));
         }
 
         // Parallelize the dataset and force execution
@@ -114,45 +125,45 @@ public class Search {
         DistributedGraphBuilder<String> builder = new Brute<String>();
         builder.setK(k);
         builder.setSimilarity(similarity);
-        JavaPairRDD<Node<String>, NeighborList> graph = builder.computeGraph(nodes);
+        JavaPairRDD<Node<String>, NeighborList> graph
+                = builder.computeGraph(nodes);
         graph.cache();
         graph.first();
 
         // Prepare the graph for approximate graph based search
         // (and force execution)
-        ApproximateSearch approximate_search_algorithm = 
-                new ApproximateSearch(
-                        graph, 
-                        partitioning_iterations, 
-                        partitioning_medoids, 
+        ApproximateSearch approximate_search_algorithm
+                = new ApproximateSearch(
+                        graph,
+                        partitioning_iterations,
+                        partitioning_medoids,
                         similarity);
 
         // Prepare exhaustive search
-        ExhaustiveSearch exhaustive_search = 
-                new ExhaustiveSearch(graph, similarity);
+        ExhaustiveSearch exhaustive_search
+                = new ExhaustiveSearch(graph, similarity);
         graph.cache();
         graph.first();
-
 
         // Perform some search...
         for (final Node<String> query : validation_dataset) {
             System.out.println("Search query: " + query.value);
 
             // Using distributed graph based NN-search
-            NeighborList neighborlist_graph = 
-                    approximate_search_algorithm.search(
-                            query, 
-                            search_k, 
-                            max_similarities);
+            NeighborList neighborlist_graph
+                    = approximate_search_algorithm.search(
+                            query,
+                            search_k,
+                            speedup);
             System.out.println(
                     "Using graph: " + neighborlist_graph.element().node.value);
 
             // Using distributed exhaustive search
-            NeighborList neighborlist_exhaustive = 
-                    exhaustive_search.search(query, search_k);
+            NeighborList neighborlist_exhaustive
+                    = exhaustive_search.search(query, search_k);
             System.out.println(
-                    "Using exhaustive search: " + 
-                            neighborlist_exhaustive.element().node.value);
+                    "Using exhaustive search: "
+                    + neighborlist_exhaustive.element().node.value);
         }
     }
 }
