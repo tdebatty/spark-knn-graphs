@@ -291,7 +291,7 @@ public class Online<T> {
             implements PairFlatMapFunction
             <Iterator<Tuple2<Node<U>, NeighborList>>, Node<U>, NeighborList> {
 
-        private final static double IMBALANCE = 1.1;
+        private static final double IMBALANCE = 1.1;
 
         private final List<Node<U>> medoids;
         private final long[] counts;
