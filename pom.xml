@@ -1,6 +1,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    
+
     <groupId>info.debatty</groupId>
     <artifactId>spark-knn-graphs</artifactId>
     <version>0.10-SNAPSHOT</version>
@@ -9,11 +9,11 @@
     <name>spark-knn-graphs</name>
     <url>https://github.com/tdebatty/spark-knn-graphs</url>
     <description>Spark algorithms for building k-nn graphs</description>
-  
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
-  
+
     <licenses>
         <license>
             <name>MIT</name>
@@ -29,14 +29,14 @@
             <organizationUrl>http://debatty.info</organizationUrl>
         </developer>
     </developers>
-    
+
     <scm>
         <connection>scm:git:git@github.com:tdebatty/spark-knn-graphs.git</connection>
         <developerConnection>scm:git:git@github.com:tdebatty/spark-knn-graphs.git</developerConnection>
         <url>git@github.com:tdebatty/spark-knn-graphs.git</url>
         <tag>HEAD</tag>
     </scm>
-  
+
     <distributionManagement>
         <snapshotRepository>
             <id>ossrh</id>
@@ -47,7 +47,7 @@
             <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
         </repository>
     </distributionManagement>
-  
+
     <build>
         <plugins>
             <plugin>
@@ -61,7 +61,7 @@
                     <autoReleaseAfterClose>true</autoReleaseAfterClose>
                 </configuration>
             </plugin>
-      
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -75,7 +75,7 @@
                     </execution>
                 </executions>
             </plugin>
-            
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
@@ -89,7 +89,7 @@
                     </execution>
                 </executions>
             </plugin>
-            
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
@@ -107,7 +107,7 @@
                     </execution>
                 </executions>
             </plugin>
-            
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
@@ -122,7 +122,7 @@
                     </execution>
                 </executions>
             </plugin>
-            
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -142,7 +142,7 @@
                     <tagNameFormat>v@{project.version}</tagNameFormat>
                 </configuration>
             </plugin>
-            
+
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>cobertura-maven-plugin</artifactId>
@@ -163,7 +163,7 @@
                     </instrumentation>
                 </configuration>
             </plugin>
-            
+
             <plugin>
                 <groupId>info.debatty</groupId>
                 <artifactId>sparkpackage-maven-plugin</artifactId>
@@ -180,7 +180,7 @@
 
         </plugins>
     </build>
-    
+
     <dependencies>
         <dependency>
             <groupId>junit</groupId>
@@ -188,36 +188,36 @@
             <version>3.8.1</version>
             <scope>test</scope>
         </dependency>
-        
+
         <dependency>
             <groupId>info.debatty</groupId>
             <artifactId>java-lsh</artifactId>
             <version>0.6</version>
         </dependency>
-        
+
         <dependency>
             <groupId>info.debatty</groupId>
             <artifactId>java-string-similarity</artifactId>
             <version>0.12</version>
         </dependency>
-        
+
         <dependency>
             <groupId>info.debatty</groupId>
             <artifactId>java-spamsum</artifactId>
             <version>0.1</version>
         </dependency>
-        
+
         <dependency>
             <groupId>info.debatty</groupId>
             <artifactId>java-graphs</artifactId>
             <version>0.19</version>
         </dependency>
     </dependencies>
-    
+
     <profiles>
         <profile>
             <id>spark152</id>
-        
+
             <activation>
                 <activeByDefault>true</activeByDefault>
                 <property>
@@ -225,7 +225,7 @@
                     <value>1.5.2</value>
                 </property>
             </activation>
-        
+
             <dependencies>
                 <dependency>
                     <groupId>org.apache.spark</groupId>
@@ -235,17 +235,17 @@
                 </dependency>
             </dependencies>
         </profile>
-        
+
         <profile>
             <id>spark160</id>
-        
+
             <activation>
                 <property>
                     <name>env.SPARKVERSION</name>
                     <value>1.6.0</value>
                 </property>
             </activation>
-        
+
             <dependencies>
                 <dependency>
                     <groupId>org.apache.spark</groupId>
@@ -255,26 +255,5 @@
                 </dependency>
             </dependencies>
         </profile>
-        
-        <profile>
-            <id>spark141</id>
-        
-            <activation>
-                <property>
-                    <name>env.SPARKVERSION</name>
-                    <value>1.4.1</value>
-                </property>
-            </activation>
-        
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.spark</groupId>
-                    <artifactId>spark-core_2.11</artifactId>
-                    <version>1.4.1</version>
-                    <scope>provided</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-      
     </profiles>
 </project>
