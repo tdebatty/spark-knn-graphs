@@ -8,6 +8,7 @@ Currently implemented k-nn graph building algorithms:
 * NN-Descent (which supports any similarity)
 * LSH SuperBit (for cosine similarity)
 * NNCTPH (for text datasets)
+* Fast online graph building
 
 Implemented k-nn graph processing algorithms:
 * Distributed exhaustive nearest neighbor search
@@ -18,7 +19,7 @@ All algorithms support custom classes as value. See [an example with custom clas
 
 ## Installation and requirements
 
-spark-knn-graphs requires **spark version 1.4.0** or earlier.
+spark-knn-graphs requires **spark version 1.4.0** or later.
 
 Installation using Maven:
 ```
