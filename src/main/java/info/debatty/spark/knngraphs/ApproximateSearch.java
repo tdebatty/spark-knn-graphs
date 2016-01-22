@@ -73,8 +73,8 @@ public class ApproximateSearch<T> implements Serializable {
         this.graph.cache();
     }
 
-    public NodePartitioner getPartitioner() {
-        return partitioner.internal_partitioner;
+    public BalancedKMedoidsPartitioner getPartitioner() {
+        return partitioner;
     }
 
     public List<Node<T>> getMedoids() {

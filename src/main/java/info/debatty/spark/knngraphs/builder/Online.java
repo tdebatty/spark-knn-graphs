@@ -50,6 +50,12 @@ import scala.Tuple2;
  */
 public class Online<T> {
 
+    private static final int PARTITIONING_ITERATIONS = 5;
+    private static final int PARTITIONING_MEDOIDS = 4;
+    private static final int SEARCH_SPEEDUP = 4;
+    private static final int ITERATIONS_FOR_CHECKPOINT = 20;
+    private static final int ITERATIONS_FOR_CENTROIDS = 100;
+
     private final ApproximateSearch<T> searcher;
     private final int k;
     private final JavaSparkContext sc;
@@ -76,8 +82,8 @@ public class Online<T> {
         this.sc = sc;
         this.searcher = new ApproximateSearch<T>(
                 initial,
-                5, // Partitioning iterations
-                4, // partitioning medoids
+                PARTITIONING_ITERATIONS,
+                PARTITIONING_MEDOIDS,
                 similarity);
 
         this.counts = getCounts();
@@ -91,7 +97,7 @@ public class Online<T> {
         iteration++;
 
         // Find the neighbors of this node
-        NeighborList neighborlist = searcher.search(node, k, 4);
+        NeighborList neighborlist = searcher.search(node, k, SEARCH_SPEEDUP);
 
         // Parallelize the pair node => neighborlist
         LinkedList<Tuple2<Node<T>, NeighborList>> list
@@ -105,7 +111,8 @@ public class Online<T> {
                 new_graph_piece,
                 searcher.getMedoids(),
                 counts,
-                searcher.getPartitioner());
+                searcher.getPartitioner().getInternalPartitioner());
+        partitioned_piece.cache();
 
         // bookkeeping: update the counts
         Node<T> partitioned_node = partitioned_piece.collect().get(0)._1;
@@ -122,8 +129,13 @@ public class Online<T> {
                 updated_graph.union(partitioned_piece);
         union.cache();
 
-        if ((iteration % 20) == 0) {
+        //  truncate RDD DAG (would cause a stack overflow, even with caching)
+        if ((iteration % ITERATIONS_FOR_CHECKPOINT) == 0) {
             union.rdd().localCheckpoint();
+        }
+
+        if ((iteration % ITERATIONS_FOR_CENTROIDS) == 0) {
+            searcher.getPartitioner().computeNewMedoids(union);
         }
 
         // From now on, use the new graph...
@@ -156,6 +168,7 @@ public class Online<T> {
             implements PairFlatMapFunction
             <Iterator<Tuple2<Node<U>, NeighborList>>, Node<U>, NeighborList> {
 
+        private static final int EXPANSION_LEVELS = 3;
         private final NeighborList neighborlist;
         private final SimilarityInterface<U> similarity;
         private final Node<U> node;
@@ -173,8 +186,6 @@ public class Online<T> {
         public Iterable<Tuple2<Node<U>, NeighborList>> call(
                 final Iterator<Tuple2<Node<U>, NeighborList>> iterator)
                 throws Exception {
-
-            int expansion_levels = 3;
 
             // Rebuild the local graph
             Graph<U> local_graph = new Graph<U>();
@@ -198,7 +209,7 @@ public class Online<T> {
                 analyze.add(neighbor.node);
             }
 
-            for (int level = 0; level < expansion_levels; level++) {
+            for (int level = 0; level < EXPANSION_LEVELS; level++) {
                 while (!analyze.isEmpty()) {
                     Node other = analyze.pop();
                     NeighborList other_neighborlist = local_graph.get(other);
@@ -280,6 +291,8 @@ public class Online<T> {
             implements PairFlatMapFunction
             <Iterator<Tuple2<Node<U>, NeighborList>>, Node<U>, NeighborList> {
 
+        private final static double IMBALANCE = 1.1;
+
         private final List<Node<U>> medoids;
         private final long[] counts;
         private final SimilarityInterface<U> similarity;
@@ -299,9 +312,8 @@ public class Online<T> {
 
             // Total number of elements
             long n = sum(counts) + 1;
-            double imbalance = 1.1;
             int partitions = medoids.size();
-            int partition_constraint = (int) (imbalance * n / partitions);
+            int partition_constraint = (int) (IMBALANCE * n / partitions);
 
             // fetch all tuples in this partition
             // to compute the partition_constraint

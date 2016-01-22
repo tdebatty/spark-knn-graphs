@@ -141,6 +141,7 @@ public class OnlineTest extends TestCase implements Serializable {
 
         assertEquals(data.size(), local_approximate_graph.size());
         assertEquals(online_graph.getGraph().partitions().size(), partitions);
+        assertTrue(ratio > 0.6);
 
     }
 
