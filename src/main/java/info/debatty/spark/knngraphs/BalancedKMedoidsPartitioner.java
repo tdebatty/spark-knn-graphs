@@ -179,7 +179,7 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
 
             // this could be estimated with total_n / partitions
             int partition_n = tuples.size();
-            int partition_constraint = (int) (imbalance * partition_n / partitions);
+            double partition_constraint = imbalance * partition_n / partitions;
             int[] partitions_size = new int[partitions];
 
             for (Tuple2<Node<T>, NeighborList> tuple : tuples) {
@@ -193,10 +193,12 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
                             tuple._1.value);
                 }
 
-                // 2. value to maximize = similarity * (1 - cluster_size / capacity_constraint)
+                // 2. value to maximize =
+                // similarity * (1 - cluster_size / capacity_constraint)
                 for (int center_id = 0; center_id < partitions; center_id++) {
-                    values[center_id] = similarities[center_id] *
-                            (1 - partitions_size[center_id] / partition_constraint);
+                    values[center_id] =
+                            similarities[center_id]
+                            * (1 - partitions_size[center_id] / partition_constraint);
                 }
 
                 // 3. choose partition that minimizes compute value
