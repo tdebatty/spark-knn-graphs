@@ -51,9 +51,14 @@ import scala.Tuple2;
 public class Online<T> {
 
     private static final int PARTITIONING_ITERATIONS = 5;
-    private static final int PARTITIONING_MEDOIDS = 4;
-    private static final int SEARCH_SPEEDUP = 4;
+    private static final int DEFAULT_SEARCH_SPEEDUP = 4;
+
+    // Number of nodes to add before performing a checkpoint
+    // (to strip RDD DAG)
     private static final int ITERATIONS_FOR_CHECKPOINT = 20;
+
+    // Number of nodes to add before recomputing centroids
+    // TODO: this should be a ratio (e.g: 10%)
     private static final int ITERATIONS_FOR_CENTROIDS = 100;
 
     private final ApproximateSearch<T> searcher;
@@ -61,7 +66,10 @@ public class Online<T> {
     private final JavaSparkContext sc;
     private final SimilarityInterface<T> similarity;
     private final long[] counts;
+    private final LinkedList<JavaPairRDD<Node<T>, NeighborList>> previous_rdds;
+
     private int iteration;
+    private int search_speedup = DEFAULT_SEARCH_SPEEDUP;
 
     /**
      *
@@ -69,12 +77,14 @@ public class Online<T> {
      * @param similarity similarity to use for computing edges
      * @param sc spark context
      * @param initial initial graph
+     * @param partitioning_medoids number of partitions
      */
     public Online(
             final int k,
             final SimilarityInterface<T> similarity,
             final JavaSparkContext sc,
-            final JavaPairRDD<Node<T>, NeighborList> initial) {
+            final JavaPairRDD<Node<T>, NeighborList> initial,
+            final int partitioning_medoids) {
 
         this.iteration = 0;
         this.similarity = similarity;
@@ -83,10 +93,19 @@ public class Online<T> {
         this.searcher = new ApproximateSearch<T>(
                 initial,
                 PARTITIONING_ITERATIONS,
-                PARTITIONING_MEDOIDS,
+                partitioning_medoids,
                 similarity);
 
         this.counts = getCounts();
+        previous_rdds = new LinkedList<JavaPairRDD<Node<T>, NeighborList>>();
+    }
+
+    /**
+     * Set the speedup of the search step to add a node (default: 4).
+     * @param search_speedup speedup
+     */
+    public final void setSearchSpeedup(final int search_speedup) {
+        this.search_speedup = search_speedup;
     }
 
     /**
@@ -94,10 +113,9 @@ public class Online<T> {
      * @param node to add to the graph
      */
     public final void addNode(final Node<T> node) {
-        iteration++;
 
         // Find the neighbors of this node
-        NeighborList neighborlist = searcher.search(node, k, SEARCH_SPEEDUP);
+        NeighborList neighborlist = searcher.search(node, k, search_speedup);
 
         // Parallelize the pair node => neighborlist
         LinkedList<Tuple2<Node<T>, NeighborList>> list
@@ -112,7 +130,6 @@ public class Online<T> {
                 searcher.getMedoids(),
                 counts,
                 searcher.getPartitioner().getInternalPartitioner());
-        partitioned_piece.cache();
 
         // bookkeeping: update the counts
         Node<T> partitioned_node = partitioned_piece.collect().get(0)._1;
@@ -134,12 +151,20 @@ public class Online<T> {
             union.rdd().localCheckpoint();
         }
 
+        // From now on, use the new graph...
+        searcher.setGraph(union);
+
+        // Keep a track of union RDD to unpersist after two iterations
+        previous_rdds.add(union);
+        if (iteration > 2) {
+            previous_rdds.pop().unpersist();
+        }
+
         if ((iteration % ITERATIONS_FOR_CENTROIDS) == 0) {
             searcher.getPartitioner().computeNewMedoids(union);
         }
 
-        // From now on, use the new graph...
-        searcher.setGraph(union);
+        iteration++;
     }
 
     /**

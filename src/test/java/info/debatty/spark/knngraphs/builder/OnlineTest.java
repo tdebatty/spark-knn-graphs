@@ -46,6 +46,18 @@ import scala.Tuple2;
  */
 public class OnlineTest extends TestCase implements Serializable {
 
+    // Number of nodes in the initial graph
+    static final int N = 1000;
+
+    // Number of nodes to add to the graph
+    static final int N_ADD = 200;
+
+    static final int PARTITIONS = 6;
+
+    static final int K = 10;
+
+    static final double SUCCESS_RATIO = 0.5;
+
     /**
      * Test of addNode method, of class Online.
      *
@@ -56,13 +68,6 @@ public class OnlineTest extends TestCase implements Serializable {
 
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
-
-        // Number of nodes in the initial graph
-        int n = 1000;
-
-        // Number of nodes to add to the graph
-        int n_add = 1000;
-        int partitions = 4;
 
         SimilarityInterface<Double> similarity =
                 new SimilarityInterface<Double>() {
@@ -75,7 +80,7 @@ public class OnlineTest extends TestCase implements Serializable {
         System.out.println("Create some random nodes");
         Random rand = new Random();
         List<Node<Double>> data = new ArrayList<Node<Double>>();
-        while (data.size() < n) {
+        while (data.size() < N) {
             data.add(new Node<Double>(
                     String.valueOf(data.size()),
                     100.0 + 100.0 * rand.nextGaussian()));
@@ -94,10 +99,10 @@ public class OnlineTest extends TestCase implements Serializable {
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Parallelize the dataset in Spark
-        JavaRDD<Node<Double>> nodes = sc.parallelize(data, partitions);
+        JavaRDD<Node<Double>> nodes = sc.parallelize(data);
 
         Brute brute = new Brute();
-        brute.setK(10);
+        brute.setK(K);
         brute.setSimilarity(similarity);
 
         System.out.println("Compute the graph and force execution");
@@ -107,10 +112,10 @@ public class OnlineTest extends TestCase implements Serializable {
 
         System.out.println("Prepare the graph for online processing");
         Online<Double> online_graph =
-                new Online<Double>(10, similarity, sc, graph);
+                new Online<Double>(K, similarity, sc, graph, PARTITIONS);
 
         System.out.println("Add some nodes...");
-        for (int i = 0; i < n_add; i++) {
+        for (int i = 0; i < N_ADD; i++) {
             Node<Double> new_node =
                     new Node<Double>(
                             String.valueOf(data.size()),
@@ -136,12 +141,12 @@ public class OnlineTest extends TestCase implements Serializable {
                     local_approximate_graph.get(node));
         }
         System.out.println("Found " + correct + " correct edges");
-        double ratio = 1.0 * correct / (data.size() * 10);
+        double ratio = 1.0 * correct / (data.size() * K);
         System.out.println("= " + ratio * 100 + " %");
 
         assertEquals(data.size(), local_approximate_graph.size());
-        assertEquals(online_graph.getGraph().partitions().size(), partitions);
-        assertTrue(ratio > 0.6);
+        assertEquals(online_graph.getGraph().partitions().size(), PARTITIONS);
+        assertTrue(ratio > SUCCESS_RATIO);
 
     }
 
