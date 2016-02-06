@@ -201,7 +201,7 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
                             * (1 - partitions_size[center_id] / partition_constraint);
                 }
 
-                // 3. choose partition that minimizes compute value
+                // 3. choose partition that maximizes computed value
                 int partition = argmax(values);
                 partitions_size[partition]++;
                 tuple._1.setAttribute(PARTITION_KEY, partition);
