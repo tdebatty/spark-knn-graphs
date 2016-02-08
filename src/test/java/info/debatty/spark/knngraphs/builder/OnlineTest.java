@@ -95,7 +95,7 @@ public class OnlineTest extends TestCase implements Serializable {
         // Configure spark instance
         SparkConf conf = new SparkConf();
         conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[4]");
+        conf.setIfMissing("spark.master", "local[2]");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Parallelize the dataset in Spark
