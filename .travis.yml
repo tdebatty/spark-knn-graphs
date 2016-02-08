@@ -1,5 +1,6 @@
 language: java
 install: mvn --quiet install -DskipTests=true -Dmaven.javadoc.skip=true -Dgpg.skip=true
+script: mvn test -Dmaven.javadoc.skip=true -DargLine="-Xmx1G"
 
 env:
   - SPARKVERSION="1.5.2"
