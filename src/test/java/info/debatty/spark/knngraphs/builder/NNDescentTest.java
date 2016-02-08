@@ -45,16 +45,16 @@ import org.apache.spark.api.java.JavaSparkContext;
  * @author Thibault Debatty
  */
 public class NNDescentTest extends TestCase implements Serializable {
-    
+
     public NNDescentTest(String testName) {
         super(testName);
     }
-    
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
     }
-    
+
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
@@ -65,16 +65,16 @@ public class NNDescentTest extends TestCase implements Serializable {
      * @throws java.io.IOException
      */
     public void testComputeGraph() throws IOException, Exception {
-        
+
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
-        
+
         String file =  getClass().getClassLoader().
                 getResource("726-unique-spams").getPath();
-        
+
         // Read the file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
-        
+
         // Convert to nodes
         List<Node<String>> data = new ArrayList<Node<String>>();
         for (String s : strings) {
@@ -84,12 +84,12 @@ public class NNDescentTest extends TestCase implements Serializable {
         // Configure spark instance
         SparkConf conf = new SparkConf();
         conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
+        conf.setIfMissing("spark.master", "local[4]");
         JavaSparkContext sc = new JavaSparkContext(conf);
-        
+
         // Parallelize the dataset in Spark
         JavaRDD<Node<String>> nodes = sc.parallelize(data);
-        
+
         NNDescent builder = new NNDescent();
         builder.setK(10);
         builder.setSimilarity(new SimilarityInterface<String>() {
@@ -99,12 +99,12 @@ public class NNDescentTest extends TestCase implements Serializable {
                 return jw.similarity(value1, value2);
             }
         });
-        
+
         // Compute the graph and force execution
-        JavaPairRDD<Node<String>, NeighborList> graph = 
+        JavaPairRDD<Node<String>, NeighborList> graph =
                 builder.computeGraph(nodes);
         graph.first();
         sc.close();
     }
-    
+
 }
