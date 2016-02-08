@@ -80,7 +80,7 @@ public class BruteTest extends TestCase implements Serializable {
         // Configure spark instance
         SparkConf conf = new SparkConf();
         conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[2]");
+        conf.setIfMissing("spark.master", "local[*]");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Parallelize the dataset in Spark
