@@ -96,6 +96,8 @@ public class Online<T> {
                 partitioning_medoids,
                 similarity);
 
+        sc.setCheckpointDir("/tmp/checkpoints");
+
         this.counts = getCounts();
         previous_rdds = new LinkedList<JavaPairRDD<Node<T>, NeighborList>>();
     }
@@ -146,13 +148,13 @@ public class Online<T> {
                 updated_graph.union(partitioned_piece);
         union.cache();
 
-        //  truncate RDD DAG (would cause a stack overflow, even with caching)
-        if ((iteration % ITERATIONS_FOR_CHECKPOINT) == 0) {
-            union.rdd().localCheckpoint();
-        }
-
         // From now on, use the new graph...
         searcher.setGraph(union);
+
+        //  truncate RDD DAG (would cause a stack overflow, even with caching)
+        if ((iteration % ITERATIONS_FOR_CHECKPOINT) == 0) {
+            union.checkpoint();
+        }
 
         // Keep a track of union RDD to unpersist after two iterations
         previous_rdds.add(union);
