@@ -52,24 +52,25 @@ public class Online<T> {
 
     private static final int PARTITIONING_ITERATIONS = 5;
     private static final int DEFAULT_SEARCH_SPEEDUP = 4;
+    private static final double DEFAULT_MEDOID_UPDATE_RATIO = 0.1;
 
     // Number of nodes to add before performing a checkpoint
     // (to strip RDD DAG)
     private static final int ITERATIONS_FOR_CHECKPOINT = 20;
 
-    // Number of nodes to add before recomputing centroids
-    // TODO: this should be a ratio (e.g: 10%)
-    private static final int ITERATIONS_FOR_CENTROIDS = 100;
-
     private final ApproximateSearch<T> searcher;
     private final int k;
     private final JavaSparkContext sc;
     private final SimilarityInterface<T> similarity;
+    // Number of nodes to add before recomputing centroids
+    private double medoid_update_ratio;
+
     private final long[] counts;
     private final LinkedList<JavaPairRDD<Node<T>, NeighborList>> previous_rdds;
 
-    private int iteration;
     private int search_speedup = DEFAULT_SEARCH_SPEEDUP;
+    private long nodes_added;
+    private long nodes_before_update_medoids;
 
     /**
      *
@@ -86,10 +87,11 @@ public class Online<T> {
             final JavaPairRDD<Node<T>, NeighborList> initial,
             final int partitioning_medoids) {
 
-        this.iteration = 0;
+        this.nodes_added = 0;
         this.similarity = similarity;
         this.k = k;
         this.sc = sc;
+        this.medoid_update_ratio = DEFAULT_MEDOID_UPDATE_RATIO;
         this.searcher = new ApproximateSearch<T>(
                 initial,
                 PARTITIONING_ITERATIONS,
@@ -100,6 +102,17 @@ public class Online<T> {
 
         this.counts = getCounts();
         previous_rdds = new LinkedList<JavaPairRDD<Node<T>, NeighborList>>();
+        this.nodes_before_update_medoids =
+                (long) (getCount() * medoid_update_ratio);
+    }
+
+    public final long getCount() {
+        long agg = 0;
+        for (long value : counts) {
+            agg += value;
+        }
+        return agg;
+
     }
 
     /**
@@ -108,6 +121,17 @@ public class Online<T> {
      */
     public final void setSearchSpeedup(final int search_speedup) {
         this.search_speedup = search_speedup;
+    }
+
+    /**
+     * Set the ratio of nodes to add to the graph before recomputing the
+     * medoids.
+     * @param update_ratio [0.0 ...]
+     */
+    public final void setMedoidUpdateRatio(final double update_ratio) {
+        this.medoid_update_ratio = update_ratio;
+        this.nodes_before_update_medoids =
+                (long) (getCount() * medoid_update_ratio);
     }
 
     /**
@@ -152,21 +176,25 @@ public class Online<T> {
         searcher.setGraph(union);
 
         //  truncate RDD DAG (would cause a stack overflow, even with caching)
-        if ((iteration % ITERATIONS_FOR_CHECKPOINT) == 0) {
+        if ((nodes_added % ITERATIONS_FOR_CHECKPOINT) == 0) {
             union.checkpoint();
         }
 
         // Keep a track of union RDD to unpersist after two iterations
         previous_rdds.add(union);
-        if (iteration > 2) {
+        if (nodes_added > 2) {
             previous_rdds.pop().unpersist();
         }
 
-        if ((iteration % ITERATIONS_FOR_CENTROIDS) == 0) {
+        nodes_before_update_medoids--;
+        if (nodes_before_update_medoids == 0) {
             searcher.getPartitioner().computeNewMedoids(union);
+
+            this.nodes_before_update_medoids =
+                (long) (getCount() * medoid_update_ratio);
         }
 
-        iteration++;
+        nodes_added++;
     }
 
     /**
@@ -195,7 +223,7 @@ public class Online<T> {
             implements PairFlatMapFunction
             <Iterator<Tuple2<Node<U>, NeighborList>>, Node<U>, NeighborList> {
 
-        private static final int EXPANSION_LEVELS = 3;
+        private static final int UPDATE_DEPTH = 2;
         private final NeighborList neighborlist;
         private final SimilarityInterface<U> similarity;
         private final Node<U> node;
@@ -236,7 +264,7 @@ public class Online<T> {
                 analyze.add(neighbor.node);
             }
 
-            for (int level = 0; level < EXPANSION_LEVELS; level++) {
+            for (int depth = 0; depth < UPDATE_DEPTH; depth++) {
                 while (!analyze.isEmpty()) {
                     Node other = analyze.pop();
                     NeighborList other_neighborlist = local_graph.get(other);
