@@ -30,7 +30,7 @@ import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.spark.knngraphs.ApproximateSearch;
 import info.debatty.spark.knngraphs.BalancedKMedoidsPartitioner;
-import java.io.Serializable;
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -102,17 +102,19 @@ public class Online<T> {
 
         this.counts = getCounts();
         previous_rdds = new LinkedList<JavaRDD<Graph<T>>>();
-        this.nodes_before_update_medoids =
-                (long) (getCount() * medoid_update_ratio);
+        computeNodesBeforeUpdate();
     }
 
-    public final long getCount() {
+    /**
+     * Get the total number of nodes in the online graph.
+     * @return total number of nodes in the graph
+     */
+    public final long getSize() {
         long agg = 0;
         for (long value : counts) {
             agg += value;
         }
         return agg;
-
     }
 
     /**
@@ -125,13 +127,15 @@ public class Online<T> {
 
     /**
      * Set the ratio of nodes to add to the graph before recomputing the
-     * medoids.
-     * @param update_ratio [0.0 ...]
+     * medoids (default: 0.1).
+     * @param update_ratio [0.0 ...] (0 = disable medoid update)
      */
     public final void setMedoidUpdateRatio(final double update_ratio) {
+        if (update_ratio < 0) {
+            throw new InvalidParameterException("Update ratio must be >= 0!");
+        }
         this.medoid_update_ratio = update_ratio;
-        this.nodes_before_update_medoids =
-                (long) (getCount() * medoid_update_ratio);
+        computeNodesBeforeUpdate();
     }
 
     /**
@@ -175,9 +179,7 @@ public class Online<T> {
         nodes_before_update_medoids--;
         if (nodes_before_update_medoids == 0) {
             searcher.getPartitioner().computeNewMedoids(updated_graph);
-
-            this.nodes_before_update_medoids =
-                (long) (getCount() * medoid_update_ratio);
+            computeNodesBeforeUpdate();
         }
 
         nodes_added++;
@@ -205,6 +207,13 @@ public class Online<T> {
             result[i] = counts_list.get(i);
         }
         return result;
+    }
+
+    private void computeNodesBeforeUpdate() {
+        if (medoid_update_ratio == 0.0) {
+            nodes_before_update_medoids = Long.MAX_VALUE;
+        }
+        nodes_before_update_medoids = (long) (getSize() * medoid_update_ratio);
     }
 
     /**
