@@ -36,10 +36,13 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import scala.Tuple2;
 
@@ -66,7 +69,7 @@ public class Online<T> {
     private double medoid_update_ratio;
 
     private final long[] counts;
-    private final LinkedList<JavaPairRDD<Node<T>, NeighborList>> previous_rdds;
+    private final LinkedList<JavaRDD<Graph<T>>> previous_rdds;
 
     private int search_speedup = DEFAULT_SEARCH_SPEEDUP;
     private long nodes_added;
@@ -101,7 +104,7 @@ public class Online<T> {
         sc.setCheckpointDir("/tmp/checkpoints");
 
         this.counts = getCounts();
-        previous_rdds = new LinkedList<JavaPairRDD<Node<T>, NeighborList>>();
+        previous_rdds = new LinkedList<JavaRDD<Graph<T>>>();
         this.nodes_before_update_medoids =
                 (long) (getCount() * medoid_update_ratio);
     }
@@ -143,52 +146,38 @@ public class Online<T> {
         // Find the neighbors of this node
         NeighborList neighborlist = searcher.search(node, k, search_speedup);
 
-        // Parallelize the pair node => neighborlist
-        LinkedList<Tuple2<Node<T>, NeighborList>> list
-                = new LinkedList<Tuple2<Node<T>, NeighborList>>();
-        list.add(new Tuple2<Node<T>, NeighborList>(node, neighborlist));
-        JavaPairRDD<Node<T>, NeighborList> new_graph_piece
-                = sc.parallelizePairs(list);
-
-        // Partition the pair
-        JavaPairRDD<Node<T>, NeighborList> partitioned_piece = partition(
-                new_graph_piece,
-                searcher.getMedoids(),
-                counts,
-                searcher.getPartitioner().getInternalPartitioner());
+        // Assign the node to a partition (most similar medoid, with partition
+        // size constraint)
+        searcher.assign(node, counts);
 
         // bookkeeping: update the counts
-        Node<T> partitioned_node = partitioned_piece.collect().get(0)._1;
-        counts[(Integer)
-                partitioned_node
+        counts[(Integer) node
                 .getAttribute(BalancedKMedoidsPartitioner.PARTITION_KEY)]++;
 
-        // update the existing graph
-        JavaPairRDD<Node<T>, NeighborList> updated_graph =
-                update(searcher.getGraph(), node, neighborlist);
+        // update the existing graph edges
+        JavaRDD<Graph<T>> updated_graph = searcher.getGraph().map(
+                    new UpdateFunction<T>(node, neighborlist, similarity));
 
-        // The new graph is the union of Java RDD's
-        JavaPairRDD<Node<T>, NeighborList> union =
-                updated_graph.union(partitioned_piece);
-        union.cache();
+        // Add the new <Node, NeighborList> to the distributed graph
+        updated_graph = updated_graph.map(new AddNode(node, neighborlist));
 
         // From now on, use the new graph...
-        searcher.setGraph(union);
+        searcher.setGraph(updated_graph);
 
         //  truncate RDD DAG (would cause a stack overflow, even with caching)
         if ((nodes_added % ITERATIONS_FOR_CHECKPOINT) == 0) {
-            union.checkpoint();
+            updated_graph.checkpoint();
         }
 
-        // Keep a track of union RDD to unpersist after two iterations
-        previous_rdds.add(union);
+        // Keep a track of updated RDD to unpersist after two iterations
+        previous_rdds.add(updated_graph);
         if (nodes_added > 2) {
             previous_rdds.pop().unpersist();
         }
 
         nodes_before_update_medoids--;
         if (nodes_before_update_medoids == 0) {
-            searcher.getPartitioner().computeNewMedoids(union);
+            searcher.getPartitioner().computeNewMedoids(updated_graph);
 
             this.nodes_before_update_medoids =
                 (long) (getCount() * medoid_update_ratio);
@@ -201,244 +190,14 @@ public class Online<T> {
      *
      * @return the current graph
      */
-    public final JavaPairRDD<Node<T>, NeighborList> getGraph() {
+    public final JavaRDD<Graph<T>> getDistributedGraph() {
         return searcher.getGraph();
     }
 
-    private JavaPairRDD<Node<T>, NeighborList> update(
-            final JavaPairRDD<Node<T>, NeighborList> graph,
-            final Node<T> node,
-            final NeighborList neighborlist) {
-
-        return graph.mapPartitionsToPair(
-                new UpdateFunction<T>(node, neighborlist, similarity),
-                true);
+    public final JavaPairRDD<Node<T>, NeighborList> getGraph() {
+        return searcher.getGraph().flatMapToPair(new MergeGraphs());
     }
 
-    /**
-     *
-     * @param <U>
-     */
-    private static class UpdateFunction<U>
-            implements PairFlatMapFunction
-            <Iterator<Tuple2<Node<U>, NeighborList>>, Node<U>, NeighborList> {
-
-        private static final int UPDATE_DEPTH = 2;
-        private final NeighborList neighborlist;
-        private final SimilarityInterface<U> similarity;
-        private final Node<U> node;
-
-        public UpdateFunction(
-                final Node<U> node,
-                final NeighborList neighborlist,
-                final SimilarityInterface<U> similarity) {
-
-            this.node = node;
-            this.neighborlist = neighborlist;
-            this.similarity = similarity;
-        }
-
-        public Iterable<Tuple2<Node<U>, NeighborList>> call(
-                final Iterator<Tuple2<Node<U>, NeighborList>> iterator)
-                throws Exception {
-
-            // Rebuild the local graph
-            Graph<U> local_graph = new Graph<U>();
-            while (iterator.hasNext()) {
-                Tuple2<Node<U>, NeighborList> tuple = iterator.next();
-                local_graph.put(
-                        tuple._1, tuple._2);
-            }
-
-            // Nodes to analyze at this iteration
-            LinkedList<Node<U>> analyze = new LinkedList<Node<U>>();
-
-            // Nodes to analyze at next iteration
-            LinkedList<Node<U>> next_analyze = new LinkedList<Node<U>>();
-
-            // List of already analyzed nodes
-            HashMap<Node<U>, Boolean> visited = new HashMap<Node<U>, Boolean>();
-
-            // Fill the list of nodes to analyze
-            for (Neighbor neighbor : neighborlist) {
-                analyze.add(neighbor.node);
-            }
-
-            for (int depth = 0; depth < UPDATE_DEPTH; depth++) {
-                while (!analyze.isEmpty()) {
-                    Node other = analyze.pop();
-                    NeighborList other_neighborlist = local_graph.get(other);
-
-                    // This part of the graph is in another partition :-(
-                    if (other_neighborlist == null) {
-                        continue;
-                    }
-
-                    // Add neighbors to the list of nodes to analyze
-                    // at next iteration
-                    for (Neighbor other_neighbor : other_neighborlist) {
-                        if (!visited.containsKey(other_neighbor.node)) {
-                            next_analyze.add(other_neighbor.node);
-                        }
-                    }
-
-                    // Try to add the new node (if sufficiently similar)
-                    other_neighborlist.add(new Neighbor(
-                            node,
-                            similarity.similarity(
-                                    node.value,
-                                    (U) other.value)));
-
-                    visited.put(other, Boolean.TRUE);
-                }
-
-                analyze = next_analyze;
-                next_analyze = new LinkedList<Node<U>>();
-            }
-
-            // Return the resulting nodes => neighborlist
-            ArrayList<Tuple2<Node<U>, NeighborList>> r =
-                    new ArrayList<Tuple2<Node<U>, NeighborList>>(
-                            local_graph.size());
-
-            for (Node<U> n : local_graph.getNodes()) {
-                r.add(new Tuple2<Node<U>, NeighborList>(n, local_graph.get(n)));
-            }
-
-            return r;
-        }
-
-    }
-
-    /**
-     * Perform a single iteration of partitioning, without recomputing new
-     * medoids.
-     *
-     * @param piece RDD containing subgraph to partition
-     * @param medoids medoids to use for partitioning
-     * @param counts current number of nodes per partition (used for bounding)
-     * @param internal_partitioner internal spark partitioner object
-     * @return a copy of the RDD, partitioned
-     */
-    private JavaPairRDD<Node<T>, NeighborList> partition(
-            final JavaPairRDD<Node<T>, NeighborList> piece,
-            final List<Node<T>> medoids,
-            final long[] counts,
-            final NodePartitioner internal_partitioner) {
-
-        // Assign each node to a partition id
-        JavaPairRDD<Node<T>, NeighborList> partitioned_graph
-                = piece.mapPartitionsToPair(
-                        new AssignFunction<T>(medoids, counts, similarity),
-                        true);
-
-        // Partition
-        partitioned_graph = partitioned_graph.partitionBy(internal_partitioner);
-
-        return partitioned_graph;
-    }
-
-    /**
-     *
-     * @param <U>
-     */
-    private static class AssignFunction<U>
-            implements PairFlatMapFunction
-            <Iterator<Tuple2<Node<U>, NeighborList>>, Node<U>, NeighborList> {
-
-        private static final double IMBALANCE = 1.1;
-
-        private final List<Node<U>> medoids;
-        private final long[] counts;
-        private final SimilarityInterface<U> similarity;
-
-        public AssignFunction(
-                final List<Node<U>> medoids,
-                final long[] counts,
-                final SimilarityInterface<U> similarity) {
-            this.medoids = medoids;
-            this.counts = counts;
-            this.similarity = similarity;
-        }
-
-        public Iterable<Tuple2<Node<U>, NeighborList>>
-                call(final Iterator<Tuple2<Node<U>, NeighborList>> iterator)
-                throws Exception {
-
-            // Total number of elements
-            long n = sum(counts) + 1;
-            int partitions = medoids.size();
-            int partition_constraint = (int) (IMBALANCE * n / partitions);
-
-            // fetch all tuples in this partition
-            // to compute the partition_constraint
-            ArrayList<Tuple2<Node<U>, NeighborList>> tuples
-                    = new ArrayList<Tuple2<Node<U>, NeighborList>>();
-
-            while (iterator.hasNext()) {
-                Tuple2<Node<U>, NeighborList> tuple = iterator.next();
-                tuples.add(tuple);
-
-                double[] similarities = new double[partitions];
-                double[] values = new double[partitions];
-
-                // 1. similarities
-                for (int center_id = 0; center_id < partitions; center_id++) {
-                    similarities[center_id] = similarity.similarity(
-                            medoids.get(center_id).value,
-                            tuple._1.value);
-                }
-
-                // 2. value to maximize :
-                // similarity * (1 - cluster_size / capacity_constraint)
-                for (int center_id = 0; center_id < partitions; center_id++) {
-                    values[center_id] = similarities[center_id]
-                            * (1 - counts[center_id] / partition_constraint);
-                }
-
-                // 3. choose partition that minimizes compute value
-                int partition = argmax(values);
-                counts[partition]++;
-                tuple._1.setAttribute(
-                        BalancedKMedoidsPartitioner.PARTITION_KEY,
-                        partition);
-            }
-
-            return tuples;
-        }
-
-        private static long sum(final long[] values) {
-            long agg = 0;
-            for (long value : values) {
-                agg += value;
-            }
-            return agg;
-        }
-
-        private static int argmax(final double[] values) {
-            double max_value = -1.0 * Double.MAX_VALUE;
-            ArrayList<Integer> ties = new ArrayList<Integer>();
-
-            for (int i = 0; i < values.length; i++) {
-                if (values[i] > max_value) {
-                    max_value = values[i];
-                    ties = new ArrayList<Integer>();
-                    ties.add(i);
-
-                } else if (values[i] == max_value) {
-                    // add a tie
-                    ties.add(i);
-                }
-            }
-
-            if (ties.size() == 1) {
-                return ties.get(0);
-            }
-
-            Random rand = new Random();
-            return ties.get(rand.nextInt(ties.size()));
-        }
-    }
 
     private long[] getCounts() {
         List<Long> counts_list = searcher.getGraph().mapPartitions(
@@ -478,5 +237,119 @@ public class Online<T> {
             result.add(count);
             return result;
         }
+    }
+}
+
+/**
+ *
+ * @author Thibault Debatty
+ * @param <T>
+ */
+class AddNode<T> implements Function<Graph<T>, Graph<T>> {
+    private final Node<T> node;
+    private final NeighborList neighborlist;
+
+    AddNode(final Node<T> node, final NeighborList neighborlist) {
+        this.node = node;
+        this.neighborlist = neighborlist;
+    }
+
+    public Graph<T> call(final Graph<T> graph) throws Exception {
+        Node<T> one_node = graph.getNodes().iterator().next();
+
+        if (node.getAttribute(BalancedKMedoidsPartitioner.PARTITION_KEY).equals(
+                one_node.getAttribute(
+                        BalancedKMedoidsPartitioner.PARTITION_KEY))) {
+            graph.put(node, neighborlist);
+        }
+
+        return graph;
+    }
+}
+
+class UpdateFunction<T>
+        implements Function<Graph<T>, Graph<T>> {
+
+    private static final int UPDATE_DEPTH = 2;
+
+    private final NeighborList neighborlist;
+    private final SimilarityInterface<T> similarity;
+    private final Node<T> node;
+
+    public UpdateFunction(
+            final Node<T> node,
+            final NeighborList neighborlist,
+            final SimilarityInterface<T> similarity) {
+
+        this.node = node;
+        this.neighborlist = neighborlist;
+        this.similarity = similarity;
+    }
+
+    public Graph<T> call(final Graph<T> local_graph) throws Exception {
+
+        // Nodes to analyze at this iteration
+        LinkedList<Node<T>> analyze = new LinkedList<Node<T>>();
+
+        // Nodes to analyze at next iteration
+        LinkedList<Node<T>> next_analyze = new LinkedList<Node<T>>();
+
+        // List of already analyzed nodes
+        HashMap<Node<T>, Boolean> visited = new HashMap<Node<T>, Boolean>();
+
+        // Fill the list of nodes to analyze
+        for (Neighbor neighbor : neighborlist) {
+            analyze.add(neighbor.node);
+        }
+
+        for (int depth = 0; depth < UPDATE_DEPTH; depth++) {
+            while (!analyze.isEmpty()) {
+                Node other = analyze.pop();
+                NeighborList other_neighborlist = local_graph.get(other);
+
+                // This part of the graph is in another partition :-(
+                if (other_neighborlist == null) {
+                    continue;
+                }
+
+                // Add neighbors to the list of nodes to analyze
+                // at next iteration
+                for (Neighbor other_neighbor : other_neighborlist) {
+                    if (!visited.containsKey(other_neighbor.node)) {
+                        next_analyze.add(other_neighbor.node);
+                    }
+                }
+
+                // Try to add the new node (if sufficiently similar)
+                other_neighborlist.add(new Neighbor(
+                        node,
+                        similarity.similarity(
+                                node.value,
+                                (T) other.value)));
+
+                visited.put(other, Boolean.TRUE);
+            }
+
+            analyze = next_analyze;
+            next_analyze = new LinkedList<Node<T>>();
+        }
+
+        return local_graph;
+    }
+}
+
+class MergeGraphs<T> implements PairFlatMapFunction<Graph<T>, Node<T>, NeighborList> {
+
+    public Iterable<Tuple2<Node<T>, NeighborList>> call(Graph<T> graph) throws Exception {
+        ArrayList<Tuple2<Node<T>, NeighborList>> list =
+                new ArrayList<Tuple2<Node<T>, NeighborList>>(graph.size());
+
+        for (Map.Entry<Node<T>, NeighborList> entry : graph.entrySet()) {
+            list.add(new Tuple2<Node<T>, NeighborList>(
+                    entry.getKey(),
+                    entry.getValue()));
+        }
+
+        return list;
     }
 }

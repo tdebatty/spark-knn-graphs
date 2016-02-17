@@ -51,12 +51,9 @@ public class OnlineTest extends TestCase implements Serializable {
 
     // Number of nodes to add to the graph
     static final int N_ADD = 200;
-
     static final int PARTITIONS = 4;
-
     static final int K = 10;
-
-    static final double SUCCESS_RATIO = 0.5;
+    static final double SUCCESS_RATIO = 0.8;
 
     /**
      * Test of addNode method, of class Online.
@@ -137,8 +134,12 @@ public class OnlineTest extends TestCase implements Serializable {
 
         int correct = 0;
         for (Node<Double> node : local_exact_graph.getNodes()) {
+            try {
             correct += local_exact_graph.get(node).CountCommons(
                     local_approximate_graph.get(node));
+            } catch (Exception ex) {
+                System.out.println("Null neighborlist!");
+            }
         }
         System.out.println("Found " + correct + " correct edges");
         double ratio = 1.0 * correct / (data.size() * K);
@@ -147,7 +148,6 @@ public class OnlineTest extends TestCase implements Serializable {
         assertEquals(data.size(), local_approximate_graph.size());
         assertEquals(online_graph.getGraph().partitions().size(), PARTITIONS);
         assertTrue(ratio > SUCCESS_RATIO);
-
     }
 
     private Graph<Double> list2graph(

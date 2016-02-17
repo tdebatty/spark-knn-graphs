@@ -27,23 +27,21 @@ import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
-import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Random;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.function.FlatMapFunction;
-import scala.Tuple2;
+import org.apache.spark.api.java.function.Function;
 
 /**
  *
  * @author Thibault Debatty
  * @param <T>
  */
-public class ApproximateSearch<T> implements Serializable {
+public class ApproximateSearch<T> {
 
-    private JavaPairRDD<Node<T>, NeighborList> graph;
+    private JavaRDD<Graph<T>> distributed_graph;
     private final SimilarityInterface<T> similarity;
     private final BalancedKMedoidsPartitioner partitioner;
 
@@ -69,8 +67,8 @@ public class ApproximateSearch<T> implements Serializable {
         partitioner.similarity = similarity;
         partitioner.imbalance = 1.1;
 
-        this.graph = partitioner.partition(graph);
-        this.graph.cache();
+        this.distributed_graph = partitioner.partition(graph);
+        this.distributed_graph.cache();
     }
 
     public BalancedKMedoidsPartitioner getPartitioner() {
@@ -79,6 +77,10 @@ public class ApproximateSearch<T> implements Serializable {
 
     public List<Node<T>> getMedoids() {
         return partitioner.medoids;
+    }
+
+    public void assign(Node<T> node, long[] counts) {
+        partitioner.assign(node, counts);
     }
 
     /**
@@ -93,48 +95,50 @@ public class ApproximateSearch<T> implements Serializable {
             final int k,
             final double speedup) {
 
-        JavaRDD<NeighborList> candidates_neighborlists_graph
-                = graph.mapPartitions(
-                        new FlatMapFunction<
-                                Iterator<Tuple2<Node<T>, NeighborList>>, NeighborList>() {
-
-                            public Iterable<NeighborList> call(
-                                    Iterator<Tuple2<Node<T>, NeighborList>> tuples)
-                            throws Exception {
-
-                                // Read all tuples to rebuild the subgraph
-                                Graph<T> local_graph = new Graph<T>();
-                                while (tuples.hasNext()) {
-                                    Tuple2<Node<T>, NeighborList> next = tuples.next();
-                                    local_graph.put(next._1, next._2);
-                                }
-
-                                local_graph.setSimilarity(similarity);
-
-                                // Search the local graph
-                                NeighborList nl = local_graph.search(
-                                        query.value,
-                                        k,
-                                        speedup);
-
-                                ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);
-                                result.add(nl);
-                                return result;
-                            }
-                        });
+        JavaRDD<NeighborList> candidates_neighborlists
+                = distributed_graph.map(
+                        new DistributedSearch(query, k, speedup));
 
         NeighborList final_neighborlist = new NeighborList(k);
-        for (NeighborList nl : candidates_neighborlists_graph.collect()) {
+        for (NeighborList nl : candidates_neighborlists.collect()) {
             final_neighborlist.addAll(nl);
         }
         return final_neighborlist;
     }
 
-    public JavaPairRDD<Node<T>, NeighborList> getGraph() {
-        return this.graph;
+
+    public JavaRDD<Graph<T>> getGraph() {
+        return this.distributed_graph;
     }
 
-    public void setGraph(JavaPairRDD<Node<T>, NeighborList> graph) {
-        this.graph = graph;
+
+    public void setGraph(JavaRDD<Graph<T>> graph) {
+        this.distributed_graph = graph;
+    }
+}
+
+/**
+ * Used for searching the distributed graph (RDD<Graph>).
+ * @author Thibault Debatty
+ * @param <T> Value of graph nodes
+ */
+class DistributedSearch<T>
+        implements Function<Graph<T>, NeighborList> {
+
+    private final double speedup;
+    private final int k;
+    private final Node<T> query;
+
+    DistributedSearch(final Node<T> query, final int k, final double speedup) {
+        this.query = query;
+        this.k = k;
+        this.speedup = speedup;
+    }
+
+    public NeighborList call(final Graph<T> local_graph) throws Exception {
+        return local_graph.search(
+                query.value,
+                k,
+                speedup);
     }
 }

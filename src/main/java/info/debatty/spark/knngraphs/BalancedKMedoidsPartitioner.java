@@ -37,6 +37,7 @@ import java.util.Random;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import scala.Tuple2;
 
@@ -55,9 +56,9 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
     List<Node<T>> medoids;
     NodePartitioner internal_partitioner;
 
-    public static final String PARTITION_KEY = "qsd6f4q3sd2f74_PARTITION_ID";
+    public static final String PARTITION_KEY = "BKMP_PARTITION_ID";
 
-    public JavaPairRDD<Node<T>, NeighborList> partition(JavaPairRDD<Node<T>, NeighborList> input_graph) {
+    public JavaRDD<Graph<T>> partition(JavaPairRDD<Node<T>, NeighborList> input_graph) {
 
         input_graph.cache();
         internal_partitioner = new NodePartitioner(partitions);
@@ -87,9 +88,78 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
 
         // Perform final partitioning of the input graph
         // Assign each node to a partition id and partition
-        return input_graph.mapPartitionsToPair(
+        JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
+                input_graph.mapPartitionsToPair(
                         new AssignFunction(medoids),
                         true).partitionBy(internal_partitioner);
+
+        // Transform the partitioned PairRDD<Node, Neighborlist>
+        // into a distributed graph RDD<Graph>
+        return partitioned_graph.mapPartitions(
+                new NeighborListToGraph(similarity));
+    }
+
+    private static long sum(final long[] values) {
+        long agg = 0;
+        for (long value : values) {
+            agg += value;
+        }
+        return agg;
+    }
+
+    private static int argmax(final double[] values) {
+        double max_value = -1.0 * Double.MAX_VALUE;
+        ArrayList<Integer> ties = new ArrayList<Integer>();
+
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] > max_value) {
+                max_value = values[i];
+                ties = new ArrayList<Integer>();
+                ties.add(i);
+
+            } else if (values[i] == max_value) {
+                // add a tie
+                ties.add(i);
+            }
+        }
+
+        if (ties.size() == 1) {
+            return ties.get(0);
+        }
+
+        Random rand = new Random();
+        return ties.get(rand.nextInt(ties.size()));
+    }
+
+    public void assign(Node<T> node, long[] counts) {
+                // Total number of elements
+        long n = sum(counts) + 1;
+        int partition_constraint = (int) (imbalance * n / partitions);
+
+
+        double[] similarities = new double[partitions];
+        double[] values = new double[partitions];
+
+        // 1. similarities
+        for (int center_id = 0; center_id < partitions; center_id++) {
+            similarities[center_id] = similarity.similarity(
+                    medoids.get(center_id).value,
+                    node.value);
+        }
+
+        // 2. value to maximize :
+        // similarity * (1 - cluster_size / capacity_constraint)
+        for (int center_id = 0; center_id < partitions; center_id++) {
+            values[center_id] = similarities[center_id]
+                    * (1 - counts[center_id] / partition_constraint);
+        }
+
+        // 3. choose partition that minimizes compute value
+        int partition = argmax(values);
+        counts[partition]++;
+        node.setAttribute(
+                BalancedKMedoidsPartitioner.PARTITION_KEY,
+                partition);
 
     }
 
@@ -97,8 +167,13 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
         return internal_partitioner;
     }
 
+    public void computeNewMedoids(final JavaRDD<Graph<T>> distributed_graph) {
+        medoids = distributed_graph.map(new ComputeMedoids()).collect();
+    }
+
     public void computeNewMedoids(
             final JavaPairRDD<Node<T>, NeighborList> partitioned_graph) {
+
         JavaRDD<Node<T>> new_medoids = partitioned_graph.mapPartitions(
                 new FlatMapFunction<Iterator<Tuple2<Node<T>, NeighborList>>, Node<T>>() {
 
@@ -210,29 +285,78 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
             return tuples;
         }
     }
+}
 
+class ComputeMedoids<T> implements Function<Graph<T>, Node<T>> {
 
-    private static int argmax(double[] values) {
-        double max_value = -1.0 * Double.MAX_VALUE;
-        ArrayList<Integer> ties = new ArrayList<Integer>();
+    public Node<T> call(Graph<T> graph) throws Exception {
+        if (graph.size() == 0) {
+            return null;
+        }
 
-        for (int i = 0; i < values.length; i++) {
-            if (values[i] > max_value) {
-                max_value = values[i];
-                ties = new ArrayList<Integer>();
-                ties.add(i);
-
-            } else if(values[i] == max_value) {
-                // add a tie
-                ties.add(i);
+        // This partition might contain multiple subgraphs => find largest subgraph
+        ArrayList<Graph<T>> stronglyConnectedComponents = graph.stronglyConnectedComponents();
+        int largest_subgraph_size = 0;
+        Graph<T> largest_subgraph = stronglyConnectedComponents.get(0);
+        for (Graph<T> subgraph : stronglyConnectedComponents) {
+            if (subgraph.size() > largest_subgraph_size) {
+                largest_subgraph = subgraph;
+                largest_subgraph_size = subgraph.size();
             }
         }
 
-        if (ties.size() == 1) {
-            return ties.get(0);
+        int largest_distance = Integer.MAX_VALUE;
+        Node medoid = (Node) largest_subgraph.getNodes().iterator().next();
+        for (Node n : largest_subgraph.getNodes()) {
+            //Node n = (Node) o;
+            Dijkstra dijkstra = new Dijkstra(largest_subgraph, n);
+
+            int node_largest_distance = dijkstra.getLargestDistance();
+
+            if (node_largest_distance == 0) {
+                continue;
+            }
+
+            if (node_largest_distance < largest_distance) {
+                largest_distance = node_largest_distance;
+                medoid = n;
+            }
         }
 
-        Random rand = new Random();
-        return ties.get(rand.nextInt(ties.size()));
+        return medoid;
+    }
+}
+
+class NeighborListToGraph<T>
+        implements FlatMapFunction<
+            Iterator<Tuple2<Node<T>, NeighborList>>,
+            Graph<T>> {
+
+    private final SimilarityInterface<T> similarity;
+
+    public NeighborListToGraph(final SimilarityInterface<T> similarity) {
+
+        this.similarity = similarity;
+    }
+
+
+
+    public Iterable<Graph<T>> call(
+            final Iterator<Tuple2<Node<T>, NeighborList>> iterator)
+            throws Exception {
+
+        Graph<T> graph = new Graph<T>();
+        while (iterator.hasNext()) {
+            Tuple2<Node<T>, NeighborList> next = iterator.next();
+            graph.put(next._1, next._2);
+        }
+
+        graph.setSimilarity(similarity);
+        graph.setK(graph.get(graph.getNodes().iterator().next()).size());
+
+        ArrayList<Graph<T>> list = new ArrayList<Graph<T>>(1);
+        list.add(graph);
+        return list;
+
     }
 }
