@@ -30,14 +30,13 @@ import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.spark.knngraphs.ApproximateSearch;
 import info.debatty.spark.knngraphs.BalancedKMedoidsPartitioner;
-import info.debatty.spark.knngraphs.NodePartitioner;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -63,7 +62,6 @@ public class Online<T> {
 
     private final ApproximateSearch<T> searcher;
     private final int k;
-    private final JavaSparkContext sc;
     private final SimilarityInterface<T> similarity;
     // Number of nodes to add before recomputing centroids
     private double medoid_update_ratio;
@@ -93,7 +91,6 @@ public class Online<T> {
         this.nodes_added = 0;
         this.similarity = similarity;
         this.k = k;
-        this.sc = sc;
         this.medoid_update_ratio = DEFAULT_MEDOID_UPDATE_RATIO;
         this.searcher = new ApproximateSearch<T>(
                 initial,
@@ -341,6 +338,7 @@ class UpdateFunction<T>
 class MergeGraphs<T> implements PairFlatMapFunction<Graph<T>, Node<T>, NeighborList> {
 
     public Iterable<Tuple2<Node<T>, NeighborList>> call(Graph<T> graph) throws Exception {
+
         ArrayList<Tuple2<Node<T>, NeighborList>> list =
                 new ArrayList<Tuple2<Node<T>, NeighborList>>(graph.size());
 
