@@ -128,7 +128,7 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
                     4);
             NeighborList exhaustive_result = exhaustive_search.search(query, 1);
 
-            correct += approximate_result.CountCommons(exhaustive_result);
+            correct += approximate_result.countCommons(exhaustive_result);
         }
         System.out.println("Found " + correct + " correct responses");
         sc.close();

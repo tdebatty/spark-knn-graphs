@@ -24,11 +24,13 @@
 package info.debatty.spark.knngraphs.builder;
 
 import info.debatty.java.graphs.Graph;
+import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import junit.framework.TestCase;
@@ -135,12 +137,112 @@ public class OnlineTest extends TestCase implements Serializable {
         int correct = 0;
         for (Node<Double> node : local_exact_graph.getNodes()) {
             try {
-            correct += local_exact_graph.get(node).CountCommons(
+            correct += local_exact_graph.get(node).countCommons(
                     local_approximate_graph.get(node));
             } catch (Exception ex) {
                 System.out.println("Null neighborlist!");
             }
         }
+        System.out.println("Found " + correct + " correct edges");
+        double ratio = 1.0 * correct / (data.size() * K);
+        System.out.println("= " + ratio * 100 + " %");
+
+        assertEquals(data.size(), local_approximate_graph.size());
+        assertEquals(online_graph.getGraph().partitions().size(), PARTITIONS);
+        assertTrue(ratio > SUCCESS_RATIO);
+    }
+
+    public final void testRemove() throws Exception {
+        System.out.println("Remove nodes");
+        System.out.println("============");
+
+        Logger.getLogger("org").setLevel(Level.WARN);
+        Logger.getLogger("akka").setLevel(Level.WARN);
+
+        SimilarityInterface<Double> similarity =
+                new SimilarityInterface<Double>() {
+
+            public double similarity(final Double value1, final Double value2) {
+                return 1.0 / (1 + Math.abs(value1 - value2));
+            }
+        };
+
+        System.out.println("Create some random nodes");
+        Random rand = new Random();
+        List<Node<Double>> data = new ArrayList<Node<Double>>();
+        while (data.size() < N) {
+            data.add(new Node<Double>(
+                    String.valueOf(data.size()),
+                    100.0 + 100.0 * rand.nextGaussian()));
+            data.add(new Node<Double>(
+                    String.valueOf(data.size()),
+                    150.0 + 100.0 * rand.nextGaussian()));
+            data.add(new Node<Double>(
+                    String.valueOf(data.size()),
+                    300.0 + 100.0 * rand.nextGaussian()));
+        }
+
+        // Configure spark instance
+        SparkConf conf = new SparkConf();
+        conf.setAppName("SparkTest");
+        conf.setIfMissing("spark.master", "local[*]");
+        JavaSparkContext sc = new JavaSparkContext(conf);
+
+        // Parallelize the dataset in Spark
+        JavaRDD<Node<Double>> nodes = sc.parallelize(data);
+
+        Brute brute = new Brute();
+        brute.setK(K);
+        brute.setSimilarity(similarity);
+
+        System.out.println("Compute the graph and force execution");
+        JavaPairRDD<Node<Double>, NeighborList> graph =
+                brute.computeGraph(nodes);
+        System.out.println(graph.first());
+
+        System.out.println("Prepare the graph for online processing");
+        Online<Double> online_graph =
+                new Online<Double>(K, similarity, sc, graph, PARTITIONS);
+
+        System.out.println("Remove some nodes...");
+        LinkedList<Node<Double>> removed_nodes = new LinkedList<Node<Double>>();
+
+        for (int i = 0; i < N_ADD; i++) {
+            Node query = data.get(rand.nextInt(data.size() - 1));
+            online_graph.fastRemove(query);
+            data.remove(query);
+            removed_nodes.add(query);
+        }
+        Graph<Double> local_approximate_graph =
+                list2graph(online_graph.getGraph().collect());
+
+        System.out.println("Compute the exact graph...");
+        Graph<Double> local_exact_graph =
+                list2graph(brute.computeGraph(sc.parallelize(data)).collect());
+
+        sc.close();
+
+        int correct = 0;
+        for (Node<Double> node : local_exact_graph.getNodes()) {
+            try {
+            correct += local_exact_graph.get(node).countCommons(
+                    local_approximate_graph.get(node));
+            } catch (Exception ex) {
+                System.out.println("Null neighborlist!");
+            }
+        }
+
+        // Check all nodes have K neighbors
+        for (Node<Double> node : local_approximate_graph.getNodes()) {
+            assertEquals(K, local_approximate_graph.get(node).size());
+
+            // Check the old nodes are completely removed
+            assertTrue(!node.equals(removed_nodes.get(0)));
+            for (Neighbor neighbor : local_approximate_graph.get(node)) {
+                assertTrue(!neighbor.node.equals(removed_nodes.get(0)));
+            }
+        }
+
         System.out.println("Found " + correct + " correct edges");
         double ratio = 1.0 * correct / (data.size() * K);
         System.out.println("= " + ratio * 100 + " %");

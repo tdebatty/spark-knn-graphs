@@ -230,11 +230,10 @@
             <artifactId>java-spamsum</artifactId>
             <version>0.1</version>
         </dependency>
-
         <dependency>
-            <groupId>info.debatty</groupId>
+            <groupId>${project.groupId}</groupId>
             <artifactId>java-graphs</artifactId>
-            <version>0.20</version>
+            <version>0.22-SNAPSHOT</version>
         </dependency>
     </dependencies>
 

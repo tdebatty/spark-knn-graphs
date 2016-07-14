@@ -60,13 +60,14 @@ public class Online<T> {
     // (to strip RDD DAG)
     private static final int ITERATIONS_FOR_CHECKPOINT = 20;
 
+    // the search algorithm also contains a reference to the current graph
     private final ApproximateSearch<T> searcher;
     private final int k;
     private final SimilarityInterface<T> similarity;
     // Number of nodes to add before recomputing centroids
-    private double medoid_update_ratio;
+    private double medoid_update_ratio = DEFAULT_MEDOID_UPDATE_RATIO;
 
-    private final long[] counts;
+    private final long[] partitions_size;
     private final LinkedList<JavaRDD<Graph<T>>> previous_rdds;
 
     private int search_speedup = DEFAULT_SEARCH_SPEEDUP;
@@ -91,7 +92,6 @@ public class Online<T> {
         this.nodes_added = 0;
         this.similarity = similarity;
         this.k = k;
-        this.medoid_update_ratio = DEFAULT_MEDOID_UPDATE_RATIO;
         this.searcher = new ApproximateSearch<T>(
                 initial,
                 PARTITIONING_ITERATIONS,
@@ -100,7 +100,7 @@ public class Online<T> {
 
         sc.setCheckpointDir("/tmp/checkpoints");
 
-        this.counts = getCounts();
+        this.partitions_size = getPartitionsSize();
         previous_rdds = new LinkedList<JavaRDD<Graph<T>>>();
         computeNodesBeforeUpdate();
     }
@@ -111,7 +111,7 @@ public class Online<T> {
      */
     public final long getSize() {
         long agg = 0;
-        for (long value : counts) {
+        for (long value : partitions_size) {
             agg += value;
         }
         return agg;
@@ -149,10 +149,10 @@ public class Online<T> {
 
         // Assign the node to a partition (most similar medoid, with partition
         // size constraint)
-        searcher.assign(node, counts);
+        searcher.assign(node, partitions_size);
 
         // bookkeeping: update the counts
-        counts[(Integer) node
+        partitions_size[(Integer) node
                 .getAttribute(BalancedKMedoidsPartitioner.PARTITION_KEY)]++;
 
         // update the existing graph edges
@@ -186,6 +186,36 @@ public class Online<T> {
     }
 
     /**
+     * Remove a node using fast approximate algorithm.
+     * @param node_to_remove
+     */
+    public final void fastRemove(final Node<T> node_to_remove) {
+        // find the list of nodes to update
+        List<Node<T>> nodes_to_update = searcher.getGraph()
+                .flatMap(new FindNodesToUpdate(node_to_remove))
+                .collect();
+
+        // build the list of candidates
+        LinkedList<Node<T>> initial_candidates = new LinkedList<Node<T>>();
+        initial_candidates.add(node_to_remove);
+        initial_candidates.addAll(nodes_to_update);
+        List<Node<T>> candidates  = searcher.getGraph()
+                .flatMap(new SearchNeighbors(initial_candidates))
+                .collect();
+        while (candidates.contains(node_to_remove)) {
+            candidates.remove(node_to_remove);
+        }
+
+        // update the graph and remove the node
+        searcher.setGraph(
+                searcher.getGraph()
+                        .map(new RemoveUpdate(
+                                node_to_remove,
+                                nodes_to_update,
+                                candidates)));
+    }
+
+    /**
      * Get the current graph, represented as a RDD of Graph.
      * @return the current graph
      */
@@ -201,7 +231,7 @@ public class Online<T> {
         return searcher.getGraph().flatMapToPair(new MergeGraphs());
     }
 
-    private long[] getCounts() {
+    private long[] getPartitionsSize() {
         List<Long> counts_list = searcher.getGraph().mapPartitions(
                 new PartitionCountFunction(), true).collect();
 
@@ -263,7 +293,7 @@ class AddNode<T> implements Function<Graph<T>, Graph<T>> {
         this.neighborlist = neighborlist;
     }
 
-    public Graph<T> call(final Graph<T> graph) throws Exception {
+    public Graph<T> call(final Graph<T> graph) {
         Node<T> one_node = graph.getNodes().iterator().next();
 
         if (node.getAttribute(BalancedKMedoidsPartitioner.PARTITION_KEY).equals(
@@ -300,7 +330,7 @@ class UpdateFunction<T>
         this.similarity = similarity;
     }
 
-    public Graph<T> call(final Graph<T> local_graph) throws Exception {
+    public Graph<T> call(final Graph<T> local_graph) {
 
         // Nodes to analyze at this iteration
         LinkedList<Node<T>> analyze = new LinkedList<Node<T>>();
@@ -363,8 +393,7 @@ class UpdateFunction<T>
 class MergeGraphs<T>
     implements PairFlatMapFunction<Graph<T>, Node<T>, NeighborList> {
 
-    public Iterable<Tuple2<Node<T>, NeighborList>> call(final Graph<T> graph)
-            throws Exception {
+    public Iterable<Tuple2<Node<T>, NeighborList>> call(final Graph<T> graph) {
 
         ArrayList<Tuple2<Node<T>, NeighborList>> list =
                 new ArrayList<Tuple2<Node<T>, NeighborList>>(graph.size());
@@ -376,5 +405,101 @@ class MergeGraphs<T>
         }
 
         return list;
+    }
+}
+
+/**
+ * Used by fastRemove to find the nodes that should be updated.
+ * @author Thibault Debatty
+ * @param <T>
+ */
+class FindNodesToUpdate<T> implements FlatMapFunction<Graph<T>, Node<T>> {
+    private final Node<T> node_to_remove;
+
+    FindNodesToUpdate(final Node<T> node_to_remove) {
+        this.node_to_remove = node_to_remove;
+    }
+
+    public Iterable<Node<T>> call(final Graph<T> subgraph) {
+        LinkedList<Node<T>> nodes_to_update = new LinkedList<Node<T>>();
+        for (Node<T> node : subgraph.getNodes()) {
+            if (subgraph.get(node).containsNode(node_to_remove)) {
+                nodes_to_update.add(node);
+            }
+        }
+
+        return nodes_to_update;
+    }
+}
+
+/**
+ * Search neighbors from a list of starting points, up to a fixed depth.
+ * Used in Online.fastRemove(node) to search the candidates.
+ * @author Thibault Debatty
+ * @param <T>
+ */
+class SearchNeighbors<T> implements FlatMapFunction<Graph<T>, Node<T>> {
+    private static final int SEARCH_DEPTH = 3;
+
+    private final LinkedList<Node<T>> starting_points;
+
+    SearchNeighbors(final LinkedList<Node<T>> initial_candidates) {
+        this.starting_points = initial_candidates;
+    }
+
+    public Iterable<Node<T>> call(final Graph<T> subgraph) {
+        return subgraph.findNeighbors(starting_points, SEARCH_DEPTH);
+    }
+}
+
+/**
+ * When removing a node, update the subgraphs: remove the node, and assign
+ * a new neighbor to nodes that had this node as neighbor.
+ * @author Thibault Debatty
+ * @param <T>
+ */
+class RemoveUpdate<T> implements Function<Graph<T>, Graph<T>> {
+    private final Node<T> node_to_remove;
+    private final List<Node<T>> nodes_to_update;
+    private final List<Node<T>> candidates;
+
+    RemoveUpdate(
+            final Node<T> node_to_remove,
+            final List<Node<T>> nodes_to_update,
+            final List<Node<T>> candidates) {
+
+        this.node_to_remove = node_to_remove;
+        this.nodes_to_update = nodes_to_update;
+        this.candidates = candidates;
+
+    }
+
+    public Graph<T> call(final Graph<T> subgraph) {
+
+        // Remove the node (if present in this subgraph)
+        subgraph.getHashMap().remove(node_to_remove);
+
+        for (Node<T> node_to_update : nodes_to_update) {
+            if (!subgraph.containsKey(node_to_update)) {
+                // This node belongs to another subgraph => skip
+                continue;
+            }
+
+            NeighborList nl_to_update = subgraph.get(node_to_update);
+
+            // Remove the old node
+            nl_to_update.removeNode(node_to_remove);
+
+            // Replace the old node by the best candidate
+            for (Node<T> candidate : candidates) {
+                double similarity = subgraph.getSimilarity().similarity(
+                        node_to_update.value,
+                        candidate.value);
+
+                nl_to_update.add(new Neighbor(candidate, similarity));
+            }
+        }
+
+        return subgraph;
     }
 }
