@@ -19,7 +19,7 @@ All algorithms support custom classes as value. See [an example with custom clas
 
 ## Installation and requirements
 
-spark-knn-graphs requires **Spark 1.4.0** or above.
+spark-knn-graphs requires **Spark 1.4.0** or above. It is currently tested with Spark versions **1.4.1**, **1.5.2**, **1.6.0** and **1.6.2**.
 
 Installation using Maven:
 ```
@@ -40,11 +40,11 @@ Here are only a few short examples. Check [the examples folder](https://github.c
 public class NNDescentExample {
 
     public static void main(String[] args) {
-        
+
         // Configure spark instance
         SparkConf conf = new SparkConf();
         JavaSparkContext sc = new JavaSparkContext(conf);
-        
+
         // Create some nodes
         // the value of the nodes will simply be an integer:
         List<Node<Integer>> data = new ArrayList<Node<Integer>>();
