@@ -199,9 +199,14 @@ public class Online<T> {
         LinkedList<Node<T>> initial_candidates = new LinkedList<Node<T>>();
         initial_candidates.add(node_to_remove);
         initial_candidates.addAll(nodes_to_update);
-        List<Node<T>> candidates  = searcher.getGraph()
-                .flatMap(new SearchNeighbors(initial_candidates))
-                .collect();
+
+        // In spark 1.6.0 the list returned by collect causes an
+        // UnsupportedOperationException when you try to remove :(
+        LinkedList<Node<T>> candidates  =
+                new LinkedList<Node<T>>(
+                        searcher.getGraph()
+                        .flatMap(new SearchNeighbors(initial_candidates))
+                        .collect());
         while (candidates.contains(node_to_remove)) {
             candidates.remove(node_to_remove);
         }
