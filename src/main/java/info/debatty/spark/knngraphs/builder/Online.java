@@ -186,17 +186,20 @@ public class Online<T> {
     }
 
     /**
-     *
+     * Get the current graph, represented as a RDD of Graph.
      * @return the current graph
      */
     public final JavaRDD<Graph<T>> getDistributedGraph() {
         return searcher.getGraph();
     }
 
+    /**
+     * Get the current graph, converted to a RDD of Tuples (Node, NeighborList).
+     * @return
+     */
     public final JavaPairRDD<Node<T>, NeighborList> getGraph() {
         return searcher.getGraph().flatMapToPair(new MergeGraphs());
     }
-
 
     private long[] getCounts() {
         List<Long> counts_list = searcher.getGraph().mapPartitions(
@@ -273,6 +276,11 @@ class AddNode<T> implements Function<Graph<T>, Graph<T>> {
     }
 }
 
+/**
+ * Update the graph when adding a node.
+ * @author Thibault Debatty
+ * @param <T>
+ */
 class UpdateFunction<T>
         implements Function<Graph<T>, Graph<T>> {
 
@@ -282,7 +290,7 @@ class UpdateFunction<T>
     private final SimilarityInterface<T> similarity;
     private final Node<T> node;
 
-    public UpdateFunction(
+    UpdateFunction(
             final Node<T> node,
             final NeighborList neighborlist,
             final SimilarityInterface<T> similarity) {
@@ -344,9 +352,19 @@ class UpdateFunction<T>
     }
 }
 
-class MergeGraphs<T> implements PairFlatMapFunction<Graph<T>, Node<T>, NeighborList> {
+/**
+ * In this Spark implementation, the distributed graph is stored as a RDD of
+ * subgraphs, this function collects the subgraphs and returns a single graph,
+ * represented as an RDD of tuples (Node, NeighborList).
+ * This function is used by the method Online.getGraph().
+ * @author Thibault Debatty
+ * @param <T>
+ */
+class MergeGraphs<T>
+    implements PairFlatMapFunction<Graph<T>, Node<T>, NeighborList> {
 
-    public Iterable<Tuple2<Node<T>, NeighborList>> call(Graph<T> graph) throws Exception {
+    public Iterable<Tuple2<Node<T>, NeighborList>> call(final Graph<T> graph)
+            throws Exception {
 
         ArrayList<Tuple2<Node<T>, NeighborList>> list =
                 new ArrayList<Tuple2<Node<T>, NeighborList>>(graph.size());
