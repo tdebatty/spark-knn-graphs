@@ -27,9 +27,7 @@ import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
@@ -41,45 +39,82 @@ import org.apache.spark.api.java.function.Function;
  */
 public class ApproximateSearch<T> {
 
+    private static final double DEFAULT_IMBALANCE = 1.1;
+
     private JavaRDD<Graph<T>> distributed_graph;
-    private final SimilarityInterface<T> similarity;
     private final BalancedKMedoidsPartitioner partitioner;
 
     /**
-     *
+     * Prepare the graph for distributed search using default imbalance.
+     * Default imbalance = 1.1
      * @param graph
      * @param partitioning_iterations
      * @param partitioning_medoids
      * @param similarity
      */
     public ApproximateSearch(
-            JavaPairRDD<Node<T>, NeighborList> graph,
-            int partitioning_iterations,
-            int partitioning_medoids,
-            SimilarityInterface<T> similarity) {
+            final JavaPairRDD<Node<T>, NeighborList> graph,
+            final int partitioning_iterations,
+            final int partitioning_medoids,
+            final SimilarityInterface<T> similarity) {
 
-        this.similarity = similarity;
+        this(
+                graph,
+                partitioning_iterations,
+                partitioning_medoids,
+                similarity,
+                DEFAULT_IMBALANCE);
+    }
+
+    /**
+     * Prepare the graph for distributed search.
+     *
+     * @param graph
+     * @param partitioning_iterations
+     * @param partitioning_medoids
+     * @param similarity
+     * @param imbalance
+     */
+    public ApproximateSearch(
+            final JavaPairRDD<Node<T>, NeighborList> graph,
+            final int partitioning_iterations,
+            final int partitioning_medoids,
+            final SimilarityInterface<T> similarity,
+            final double imbalance) {
 
         // Partition the graph
         this.partitioner = new BalancedKMedoidsPartitioner();
         partitioner.iterations = partitioning_iterations;
         partitioner.partitions = partitioning_medoids;
         partitioner.similarity = similarity;
-        partitioner.imbalance = 1.1;
+        partitioner.imbalance = imbalance;
 
         this.distributed_graph = partitioner.partition(graph);
         this.distributed_graph.cache();
     }
 
-    public BalancedKMedoidsPartitioner getPartitioner() {
+    /**
+     *
+     * @return
+     */
+    public final BalancedKMedoidsPartitioner getPartitioner() {
         return partitioner;
     }
 
-    public List<Node<T>> getMedoids() {
+    /**
+     *
+     * @return
+     */
+    public final List<Node<T>> getMedoids() {
         return partitioner.medoids;
     }
 
-    public void assign(Node<T> node, long[] counts) {
+    /**
+     * Assign the node to correct partition.
+     * @param node
+     * @param counts
+     */
+    public final void assign(Node<T> node, long[] counts) {
         partitioner.assign(node, counts);
     }
 
@@ -90,7 +125,7 @@ public class ApproximateSearch<T> {
      * @param speedup
      * @return
      */
-    public NeighborList search(
+    public final NeighborList search(
             final Node<T> query,
             final int k,
             final double speedup) {
@@ -106,13 +141,19 @@ public class ApproximateSearch<T> {
         return final_neighborlist;
     }
 
-
-    public JavaRDD<Graph<T>> getGraph() {
+    /**
+     *
+     * @return
+     */
+    public final JavaRDD<Graph<T>> getGraph() {
         return this.distributed_graph;
     }
 
-
-    public void setGraph(JavaRDD<Graph<T>> graph) {
+    /**
+     *
+     * @param graph
+     */
+    public final void setGraph(final JavaRDD<Graph<T>> graph) {
         this.distributed_graph = graph;
     }
 }
@@ -136,7 +177,7 @@ class DistributedSearch<T>
     }
 
     public NeighborList call(final Graph<T> local_graph) throws Exception {
-        return local_graph.search(
+        return local_graph.fastSearch(
                 query.value,
                 k,
                 speedup);
