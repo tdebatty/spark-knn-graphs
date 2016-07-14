@@ -6,5 +6,6 @@ env:
   - SPARKVERSION="1.5.2"
   - SPARKVERSION="1.6.0"
   - SPARKVERSION="1.4.1"
+  - SPARKVERSION="1.6.2"
 #after_success:
 #  - mvn clean cobertura:cobertura coveralls:report
