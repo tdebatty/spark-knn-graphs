@@ -233,7 +233,7 @@
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>java-graphs</artifactId>
-            <version>0.22-SNAPSHOT</version>
+            <version>0.22</version>
         </dependency>
     </dependencies>
 
