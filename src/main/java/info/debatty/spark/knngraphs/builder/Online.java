@@ -58,7 +58,7 @@ public class Online<T> {
 
     // Number of nodes to add before performing a checkpoint
     // (to strip RDD DAG)
-    private static final int ITERATIONS_FOR_CHECKPOINT = 20;
+    private static final int ITERATIONS_BETWEEN_CHECKPOINTS = 100;
 
     // the search algorithm also contains a reference to the current graph
     private final ApproximateSearch<T> searcher;
@@ -101,8 +101,8 @@ public class Online<T> {
         sc.setCheckpointDir("/tmp/checkpoints");
 
         this.partitions_size = getPartitionsSize();
-        previous_rdds = new LinkedList<JavaRDD<Graph<T>>>();
-        computeNodesBeforeUpdate();
+        this.previous_rdds = new LinkedList<JavaRDD<Graph<T>>>();
+        this.nodes_before_update_medoids = computeNodesBeforeUpdate();
     }
 
     /**
@@ -135,7 +135,7 @@ public class Online<T> {
             throw new InvalidParameterException("Update ratio must be >= 0!");
         }
         this.medoid_update_ratio = update_ratio;
-        computeNodesBeforeUpdate();
+        this.nodes_before_update_medoids = computeNodesBeforeUpdate();
     }
 
     /**
@@ -166,7 +166,7 @@ public class Online<T> {
         searcher.setGraph(updated_graph);
 
         //  truncate RDD DAG (would cause a stack overflow, even with caching)
-        if ((nodes_added % ITERATIONS_FOR_CHECKPOINT) == 0) {
+        if ((nodes_added % ITERATIONS_BETWEEN_CHECKPOINTS) == 0) {
             updated_graph.checkpoint();
         }
 
@@ -179,7 +179,7 @@ public class Online<T> {
         nodes_before_update_medoids--;
         if (nodes_before_update_medoids == 0) {
             searcher.getPartitioner().computeNewMedoids(updated_graph);
-            computeNodesBeforeUpdate();
+            this.nodes_before_update_medoids = computeNodesBeforeUpdate();
         }
 
         nodes_added++;
@@ -247,40 +247,48 @@ public class Online<T> {
         return result;
     }
 
-    private void computeNodesBeforeUpdate() {
+    /**
+     * Compute the number of nodes that can be added before we recompute the
+     * medoids (depends on current size and medoid_update_ratio).
+     */
+    private long computeNodesBeforeUpdate() {
         if (medoid_update_ratio == 0.0) {
-            nodes_before_update_medoids = Long.MAX_VALUE;
+            return Long.MAX_VALUE;
         }
-        nodes_before_update_medoids = (long) (getSize() * medoid_update_ratio);
+
+        return (long) (getSize() * medoid_update_ratio);
+
     }
+}
+
+/**
+ * Used to count the number of items in each partition, when we initialize the
+ * distributed online graph.
+ * @author Thibault Debatty
+ * @param <T>
+ */
+class PartitionCountFunction<T>
+        implements FlatMapFunction
+        <Iterator<Tuple2<Node<T>, NeighborList>>, Long> {
 
     /**
      *
-     * @param <U>
+     * @param iterator
+     * @return
+     * @throws Exception
      */
-    private static class PartitionCountFunction<U>
-            implements FlatMapFunction
-            <Iterator<Tuple2<Node<U>, NeighborList>>, Long> {
-
-        /**
-         *
-         * @param iterator
-         * @return
-         * @throws Exception
-         */
-        public Iterable<Long> call(
-                final Iterator<Tuple2<Node<U>, NeighborList>> iterator)
-                throws Exception {
-            long count = 0;
-            while (iterator.hasNext()) {
-                iterator.next();
-                count++;
-            }
-
-            ArrayList<Long> result = new ArrayList<Long>(1);
-            result.add(count);
-            return result;
+    public Iterable<Long> call(
+            final Iterator<Tuple2<Node<T>, NeighborList>> iterator)
+            throws Exception {
+        long count = 0;
+        while (iterator.hasNext()) {
+            iterator.next();
+            count++;
         }
+
+        ArrayList<Long> result = new ArrayList<Long>(1);
+        result.add(count);
+        return result;
     }
 }
 
