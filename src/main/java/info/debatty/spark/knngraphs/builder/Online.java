@@ -600,6 +600,10 @@ class RemoveUpdate<T> implements Function<Graph<T>, Graph<T>> {
 
             // Replace the old node by the best candidate
             for (Node<T> candidate : candidates) {
+                if (candidate.equals(node_to_update)) {
+                    continue;
+                }
+                
                 double similarity = subgraph.getSimilarity().similarity(
                         node_to_update.value,
                         candidate.value);
