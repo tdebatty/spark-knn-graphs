@@ -48,21 +48,9 @@ import scala.Tuple2;
  */
 public class BruteTest extends TestCase implements Serializable {
 
-    public BruteTest(String testName) {
-        super(testName);
-    }
+    private static final int K = 10;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-    }
-
-    public void testComputeGraph() throws IOException, Exception {
+    public final void testComputeGraph() throws IOException, Exception {
 
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
@@ -89,17 +77,12 @@ public class BruteTest extends TestCase implements Serializable {
         JavaRDD<Node<String>> nodes = sc.parallelize(data);
 
         Brute brute = new Brute();
-        brute.setK(10);
-        brute.setSimilarity(new SimilarityInterface<String>() {
-
-            public double similarity(String value1, String value2) {
-                JaroWinkler jw = new JaroWinkler();
-                return jw.similarity(value1, value2);
-            }
-        });
+        brute.setK(K);
+        brute.setSimilarity(new JaroStringSimilarity());
 
         // Compute the graph and force execution
-        JavaPairRDD<Node<String>, NeighborList> graph = brute.computeGraph(nodes);
+        JavaPairRDD<Node<String>, NeighborList> graph =
+                brute.computeGraph(nodes);
         graph.first();
         List<Tuple2<Node<String>, NeighborList>> local_graph = graph.collect();
 
@@ -115,4 +98,15 @@ public class BruteTest extends TestCase implements Serializable {
         }
     }
 
+}
+
+/**
+ *
+ * @author Thibault Debatty
+ */
+class JaroStringSimilarity implements SimilarityInterface<String> {
+    public double similarity(final String value1, final String value2) {
+        JaroWinkler jw = new JaroWinkler();
+        return jw.similarity(value1, value2);
+    }
 }
