@@ -24,6 +24,7 @@
 
 package info.debatty.spark.knngraphs.builder;
 
+import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
@@ -39,6 +40,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import scala.Tuple2;
 
 /**
  *
@@ -99,7 +101,18 @@ public class BruteTest extends TestCase implements Serializable {
         // Compute the graph and force execution
         JavaPairRDD<Node<String>, NeighborList> graph = brute.computeGraph(nodes);
         graph.first();
+        List<Tuple2<Node<String>, NeighborList>> local_graph = graph.collect();
+
         sc.close();
+
+
+        // Check wether a node receives himself as neighbor...
+        for (Tuple2<Node<String>, NeighborList> tuple : local_graph) {
+            Node<String> node = tuple._1;
+            for (Neighbor neighbor : tuple._2) {
+                assertTrue(!node.equals(neighbor.node));
+            }
+        }
     }
 
 }

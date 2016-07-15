@@ -39,36 +39,66 @@ import scala.Tuple2;
  * @author Thibault Debatty
  * @param <T>
  */
-public class Brute<T> extends DistributedGraphBuilder<T> implements Serializable {
+public class Brute<T> extends DistributedGraphBuilder<T>
+        implements Serializable {
 
     @Override
-    protected JavaPairRDD<Node<T>, NeighborList> _computeGraph(JavaRDD<Node<T>> nodes) throws Exception {
-        JavaPairRDD<Node<T>, Node<T>> pairs = nodes.cartesian(nodes);
-        JavaPairRDD<Node<T>, Neighbor> allsimilarities = pairs.mapToPair(new PairFunction<Tuple2<Node<T>, Node<T>>, Node<T>, Neighbor>() {
+    protected final JavaPairRDD<Node<T>, NeighborList> _computeGraph(
+            final JavaRDD<Node<T>> nodes) {
 
-            public Tuple2<Node<T>, Neighbor> call(Tuple2<Node<T>, Node<T>> tuple) throws Exception {
+        JavaPairRDD<Node<T>, Node<T>> pairs = nodes.cartesian(nodes);
+
+        // Compute all pairwize similarities
+        JavaPairRDD<Node<T>, Neighbor> allsimilarities = pairs.mapToPair(
+                new PairFunction<
+                        Tuple2<Node<T>, Node<T>>,
+                        Node<T>,
+                        Neighbor>() {
+
+            public Tuple2<Node<T>, Neighbor> call(
+                    final Tuple2<Node<T>, Node<T>> tuple) {
+
+                // Compute the similarity only if the nodes are different
+                // to avoid a node receives himself as neighbor...
+                double sim = 0;
+                if (!tuple._1.equals(tuple._2)) {
+                    sim = similarity.similarity(
+                                        tuple._1.value,
+                                        tuple._2.value);
+                }
+
                 return new Tuple2<Node<T>, Neighbor>(
                         tuple._1,
-                        new Neighbor(
-                                tuple._2,
-                                similarity.similarity(tuple._1.value, tuple._2.value)));
+                        new Neighbor(tuple._2, sim));
             }
         });
 
-        JavaPairRDD<Node<T>, NeighborList> graph = allsimilarities.aggregateByKey(
-                new NeighborList(k),
-                new  Function2<NeighborList, Neighbor, NeighborList>() {public NeighborList call(NeighborList nl, Neighbor n) throws Exception {
-                    nl.add(n);
-                    return nl;
-                }
-                },
-                new  Function2<NeighborList, NeighborList, NeighborList>() {
+        JavaPairRDD<Node<T>, NeighborList> graph =
+                allsimilarities.aggregateByKey(
 
-                    public NeighborList call(NeighborList nl1, NeighborList nl2) throws Exception {
-                        nl1.addAll(nl2);
-                        return nl1;
-                    }
-                });
+                    // Init : empty neighborlist
+                    new NeighborList(k),
+
+                    // Add neighbor to neighborlist
+                    new  Function2<NeighborList, Neighbor, NeighborList>() {
+                        public NeighborList call(
+                                final NeighborList nl,
+                                final Neighbor n) {
+                            nl.add(n);
+                            return nl;
+                        }
+                    },
+
+                    // Combine neighborlists
+                    new  Function2<NeighborList, NeighborList, NeighborList>() {
+
+                        public NeighborList call(
+                                final NeighborList nl1,
+                                final NeighborList nl2) {
+                            nl1.addAll(nl2);
+                            return nl1;
+                        }
+                    });
 
         return graph;
     }
