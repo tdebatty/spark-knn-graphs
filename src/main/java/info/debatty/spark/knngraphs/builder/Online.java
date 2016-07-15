@@ -33,7 +33,6 @@ import info.debatty.spark.knngraphs.BalancedKMedoidsPartitioner;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +50,12 @@ import scala.Tuple2;
  * @param <T>
  */
 public class Online<T> {
+
+    /**
+     * Key used to store the sequence number of the nodes. Used by the window
+     * algorithm to remove the nodes.
+     */
+    public static final String NODE_SEQUENCE_KEY = "ONLINE_SEQ_KEY";
 
     private static final int PARTITIONING_ITERATIONS = 5;
     private static final int DEFAULT_SEARCH_SPEEDUP = 4;
@@ -71,38 +76,58 @@ public class Online<T> {
     private final LinkedList<JavaRDD<Graph<T>>> previous_rdds;
 
     private int search_speedup = DEFAULT_SEARCH_SPEEDUP;
-    private long nodes_added;
+    private long nodes_added_or_removed;
     private long nodes_before_update_medoids;
+    private int window_size = 0;
 
     /**
      *
      * @param k number of edges per node
      * @param similarity similarity to use for computing edges
      * @param sc spark context
-     * @param initial initial graph
+     * @param initial_graph initial graph
      * @param partitioning_medoids number of partitions
      */
     public Online(
             final int k,
             final SimilarityInterface<T> similarity,
             final JavaSparkContext sc,
-            final JavaPairRDD<Node<T>, NeighborList> initial,
+            final JavaPairRDD<Node<T>, NeighborList> initial_graph,
             final int partitioning_medoids) {
 
-        this.nodes_added = 0;
+        this.nodes_added_or_removed = 0;
         this.similarity = similarity;
         this.k = k;
+
+        // Use the distributed search algorithm to partition the graph
         this.searcher = new ApproximateSearch<T>(
-                initial,
+                initial_graph,
                 PARTITIONING_ITERATIONS,
                 partitioning_medoids,
                 similarity);
 
         sc.setCheckpointDir("/tmp/checkpoints");
 
-        this.partitions_size = getPartitionsSize();
+        this.partitions_size = getPartitionsSize(searcher.getGraph());
         this.previous_rdds = new LinkedList<JavaRDD<Graph<T>>>();
         this.nodes_before_update_medoids = computeNodesBeforeUpdate();
+    }
+
+    /**
+     * Get the size of the window.
+     * @return
+     */
+    public final int getWindowSize() {
+        return window_size;
+    }
+
+    /**
+     * Set the size of the window (for removing a point when a new point is
+     * added to graph).
+     * @param window_size
+     */
+    public final void setWindowSize(final int window_size) {
+        this.window_size = window_size;
     }
 
     /**
@@ -139,10 +164,15 @@ public class Online<T> {
     }
 
     /**
-     *
+     * Add a node to the graph using fast distributed algorithm.
      * @param node to add to the graph
      */
-    public final void addNode(final Node<T> node) {
+    public final void fastAdd(final Node<T> node) {
+
+        if (window_size != 0) {
+            fastRemove(
+                (Integer) node.getAttribute(NODE_SEQUENCE_KEY) - window_size);
+        }
 
         // Find the neighbors of this node
         NeighborList neighborlist = searcher.search(node, k, search_speedup);
@@ -166,23 +196,23 @@ public class Online<T> {
         searcher.setGraph(updated_graph);
 
         //  truncate RDD DAG (would cause a stack overflow, even with caching)
-        if ((nodes_added % ITERATIONS_BETWEEN_CHECKPOINTS) == 0) {
+        if ((nodes_added_or_removed % ITERATIONS_BETWEEN_CHECKPOINTS) == 0) {
             updated_graph.checkpoint();
         }
 
         // Keep a track of updated RDD to unpersist after two iterations
         previous_rdds.add(updated_graph);
-        if (nodes_added > 2) {
+        if (nodes_added_or_removed > 2) {
             previous_rdds.pop().unpersist();
         }
+
+        nodes_added_or_removed++;
 
         nodes_before_update_medoids--;
         if (nodes_before_update_medoids == 0) {
             searcher.getPartitioner().computeNewMedoids(updated_graph);
-            this.nodes_before_update_medoids = computeNodesBeforeUpdate();
+            nodes_before_update_medoids = computeNodesBeforeUpdate();
         }
-
-        nodes_added++;
     }
 
     /**
@@ -207,17 +237,70 @@ public class Online<T> {
                         searcher.getGraph()
                         .flatMap(new SearchNeighbors(initial_candidates))
                         .collect());
+
+        // Find the partition corresponding to node_to_remove
+        // The balanced kmedoids partitioner wrote this information in the
+        // attributes of the node, in the distributed graph
+        // hence not necessarily in node_to_remove provided as parameter...
+        // This is dirty :(
+        int partition_of_node_to_remove = 0;
+        for (Node<T> node : candidates) {
+            if (node.equals(node_to_remove)) {
+                if (null != node.getAttribute(
+                                BalancedKMedoidsPartitioner.PARTITION_KEY)) {
+                    partition_of_node_to_remove =
+                            (Integer) node.getAttribute(
+                                BalancedKMedoidsPartitioner.PARTITION_KEY);
+                    break;
+                }
+            }
+        }
+
         while (candidates.contains(node_to_remove)) {
             candidates.remove(node_to_remove);
         }
-
         // update the graph and remove the node
-        searcher.setGraph(
-                searcher.getGraph()
-                        .map(new RemoveUpdate(
-                                node_to_remove,
-                                nodes_to_update,
-                                candidates)));
+        JavaRDD<Graph<T>> updated_graph = searcher.getGraph()
+                .map(new RemoveUpdate(
+                        node_to_remove,
+                        nodes_to_update,
+                        candidates));
+        searcher.setGraph(updated_graph);
+
+        // bookkeeping: update the counts
+        partitions_size[partition_of_node_to_remove]--;
+
+        //  truncate RDD DAG (would cause a stack overflow, even with caching)
+        if ((nodes_added_or_removed % ITERATIONS_BETWEEN_CHECKPOINTS) == 0) {
+            updated_graph.checkpoint();
+        }
+
+        // Keep a track of updated RDD to unpersist after two iterations
+        previous_rdds.add(updated_graph);
+        if (nodes_added_or_removed > 2) {
+            previous_rdds.pop().unpersist();
+        }
+
+        nodes_added_or_removed++;
+    }
+
+    /**
+     * Remove a node using the node sequence number instead of the node itself.
+     * Used by the sliding window algorithm.
+     * @param node_sequence
+     */
+    private void fastRemove(final long node_sequence) {
+        // This is not really efficient :(
+        List<Node<T>> nodes = searcher.getGraph()
+                .flatMap(new FindNode(node_sequence))
+                .collect();
+
+        if (nodes.isEmpty()) {
+            System.out.println("Node sequence not found: " + node_sequence);
+            return;
+        }
+
+        fastRemove(nodes.get(0));
     }
 
     /**
@@ -236,9 +319,10 @@ public class Online<T> {
         return searcher.getGraph().flatMapToPair(new MergeGraphs());
     }
 
-    private long[] getPartitionsSize() {
-        List<Long> counts_list = searcher.getGraph().mapPartitions(
-                new PartitionCountFunction(), true).collect();
+    private long[] getPartitionsSize(final JavaRDD<Graph<T>> graph) {
+
+        List<Long> counts_list = graph.map(
+                new SubgraphSizeFunction()).collect();
 
         long[] result = new long[counts_list.size()];
         for (int i = 0; i < result.length; i++) {
@@ -262,33 +346,16 @@ public class Online<T> {
 }
 
 /**
- * Used to count the number of items in each partition, when we initialize the
- * distributed online graph.
+ * Used to count the number of nodes in each partition, when we initialize the
+ * distributed online graph. Returns the size of each subgraph.
  * @author Thibault Debatty
  * @param <T>
  */
-class PartitionCountFunction<T>
-        implements FlatMapFunction
-        <Iterator<Tuple2<Node<T>, NeighborList>>, Long> {
+class SubgraphSizeFunction<T> implements Function<Graph<T>, Long> {
 
-    /**
-     *
-     * @param iterator
-     * @return
-     * @throws Exception
-     */
-    public Iterable<Long> call(
-            final Iterator<Tuple2<Node<T>, NeighborList>> iterator)
-            throws Exception {
-        long count = 0;
-        while (iterator.hasNext()) {
-            iterator.next();
-            count++;
-        }
 
-        ArrayList<Long> result = new ArrayList<Long>(1);
-        result.add(count);
-        return result;
+    public Long call(final Graph<T> subgraph) {
+        return new Long(subgraph.size());
     }
 }
 
@@ -316,6 +383,34 @@ class AddNode<T> implements Function<Graph<T>, Graph<T>> {
         }
 
         return graph;
+    }
+}
+
+/**
+ * Used to find the node corresponding to a given sequence number.
+ * @author Thibault Debatty
+ * @param <T>
+ */
+class FindNode<T> implements FlatMapFunction<Graph<T>, Node<T>> {
+    private final long sequence_number;
+
+    FindNode(final long sequence_number) {
+        this.sequence_number = sequence_number;
+    }
+
+    public Iterable<Node<T>> call(final Graph<T> subgraph) {
+
+        LinkedList<Node<T>> result = new LinkedList<Node<T>>();
+        for (Node<T> node : subgraph.getNodes()) {
+            Integer node_sequence = (Integer) node.getAttribute(
+                    Online.NODE_SEQUENCE_KEY);
+            //System.out.println(node_sequence);
+            if (node_sequence == sequence_number) {
+                result.add(node);
+                return result;
+            }
+        }
+        return result;
     }
 }
 

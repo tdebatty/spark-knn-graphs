@@ -29,7 +29,6 @@ import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -46,7 +45,7 @@ import scala.Tuple2;
  * @author Thibault Debatty
  * @param <T>
  */
-public class BalancedKMedoidsPartitioner<T> implements Serializable {
+public class BalancedKMedoidsPartitioner<T>  {
 
     public SimilarityInterface<T> similarity;
     public int iterations = 5;
@@ -74,12 +73,15 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
 
         // Perform iterations
         for (int iteration = 0; iteration < iterations; iteration++) {
-            //System.out.println("Iteration: " + iteration);
 
             // Assign each node to a partition id and partition
             JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
                     input_graph.mapPartitionsToPair(
-                            new AssignFunction(medoids),
+                            new AssignFunction(
+                                    medoids,
+                                    imbalance,
+                                    partitions,
+                                    similarity),
                             true).partitionBy(internal_partitioner);
 
             // Compute new medoids
@@ -90,13 +92,19 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
         // Assign each node to a partition id and partition
         JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
                 input_graph.mapPartitionsToPair(
-                        new AssignFunction(medoids),
+                        new AssignFunction(
+                                medoids,
+                                imbalance,
+                                partitions,
+                                similarity),
                         true).partitionBy(internal_partitioner);
 
         // Transform the partitioned PairRDD<Node, Neighborlist>
         // into a distributed graph RDD<Graph>
-        return partitioned_graph.mapPartitions(
+        JavaRDD<Graph<T>> distributed_graph = partitioned_graph.mapPartitions(
                 new NeighborListToGraph(similarity));
+
+        return distributed_graph;
     }
 
     private static long sum(final long[] values) {
@@ -107,7 +115,7 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
         return agg;
     }
 
-    private static int argmax(final double[] values) {
+    static int argmax(final double[] values) {
         double max_value = -1.0 * Double.MAX_VALUE;
         ArrayList<Integer> ties = new ArrayList<Integer>();
 
@@ -132,7 +140,7 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
     }
 
     public void assign(Node<T> node, long[] counts) {
-                // Total number of elements
+        // Total number of elements
         long n = sum(counts) + 1;
         int partition_constraint = (int) (imbalance * n / partitions);
 
@@ -175,115 +183,134 @@ public class BalancedKMedoidsPartitioner<T> implements Serializable {
             final JavaPairRDD<Node<T>, NeighborList> partitioned_graph) {
 
         JavaRDD<Node<T>> new_medoids = partitioned_graph.mapPartitions(
-                new FlatMapFunction<Iterator<Tuple2<Node<T>, NeighborList>>, Node<T>>() {
-
-            public Iterable<Node<T>>
-                call(Iterator<Tuple2<Node<T>, NeighborList>> t)
-                        throws Exception {
-
-                // Build the partition
-                Graph partition = new Graph();
-                while (t.hasNext()) {
-                    Tuple2<Node<T>, NeighborList> tuple = t.next();
-                    partition.put(tuple._1(), tuple._2());
-                }
-
-                if (partition.size() == 0) {
-                    return new ArrayList<Node<T>>();
-                }
-
-                // This partition might contain multiple subgraphs => find largest subgraph
-                ArrayList<Graph<T>> stronglyConnectedComponents = partition.stronglyConnectedComponents();
-                int largest_subgraph_size = 0;
-                Graph<T> largest_subgraph = stronglyConnectedComponents.get(0);
-                for (Graph<T> subgraph : stronglyConnectedComponents) {
-                    if (subgraph.size() > largest_subgraph_size) {
-                        largest_subgraph = subgraph;
-                        largest_subgraph_size = subgraph.size();
-                    }
-                }
-
-                int largest_distance = Integer.MAX_VALUE;
-                Node medoid = (Node) largest_subgraph.getNodes().iterator().next();
-                for (Node n : largest_subgraph.getNodes()) {
-                    //Node n = (Node) o;
-                    Dijkstra dijkstra = new Dijkstra(largest_subgraph, n);
-
-                    int node_largest_distance = dijkstra.getLargestDistance();
-
-                    if (node_largest_distance == 0) {
-                        continue;
-                    }
-
-                    if (node_largest_distance < largest_distance) {
-                        largest_distance = node_largest_distance;
-                        medoid = n;
-                    }
-                }
-                ArrayList<Node<T>> list = new ArrayList<Node<T>>(1);
-                list.add(medoid);
-
-                return list;
-            }
-        });
+                new UpdateMedoidsFunction());
         medoids = new_medoids.collect();
     }
+}
 
-    private  class AssignFunction
-        implements PairFlatMapFunction<Iterator<Tuple2<Node<T>, NeighborList>>, Node<T>, NeighborList> {
-        private final List<Node<T>> medoids;
+class UpdateMedoidsFunction<T>
+        implements FlatMapFunction<
+            Iterator<Tuple2<Node<T>, NeighborList>>,
+            Node<T>> {
 
+    public Iterable<Node<T>>
+        call(Iterator<Tuple2<Node<T>, NeighborList>> t)
+                throws Exception {
 
-        public AssignFunction(List<Node<T>> medoids) {
-            this.medoids = medoids;
+        // Build the partition
+        Graph partition = new Graph();
+        while (t.hasNext()) {
+            Tuple2<Node<T>, NeighborList> tuple = t.next();
+            partition.put(tuple._1(), tuple._2());
         }
 
-        public Iterable<Tuple2<Node<T>, NeighborList>>
-            call(Iterator<Tuple2<Node<T>, NeighborList>> iterator)
-                    throws Exception {
-
-
-            // fetch all tuples in this partition
-            // to compute the partition_constraint
-            ArrayList<Tuple2<Node<T>, NeighborList>> tuples =
-                    new ArrayList<Tuple2<Node<T>, NeighborList>>();
-
-            while (iterator.hasNext()) {
-                tuples.add(iterator.next());
-            }
-
-            // this could be estimated with total_n / partitions
-            int partition_n = tuples.size();
-            double partition_constraint = imbalance * partition_n / partitions;
-            int[] partitions_size = new int[partitions];
-
-            for (Tuple2<Node<T>, NeighborList> tuple : tuples) {
-                double[] similarities = new double[partitions];
-                double[] values = new double[partitions];
-
-                // 1. similarities
-                for (int center_id = 0; center_id < partitions; center_id++) {
-                    similarities[center_id] = similarity.similarity(
-                            medoids.get(center_id).value,
-                            tuple._1.value);
-                }
-
-                // 2. value to maximize =
-                // similarity * (1 - cluster_size / capacity_constraint)
-                for (int center_id = 0; center_id < partitions; center_id++) {
-                    values[center_id] =
-                            similarities[center_id]
-                            * (1 - partitions_size[center_id] / partition_constraint);
-                }
-
-                // 3. choose partition that maximizes computed value
-                int partition = argmax(values);
-                partitions_size[partition]++;
-                tuple._1.setAttribute(PARTITION_KEY, partition);
-            }
-
-            return tuples;
+        if (partition.size() == 0) {
+            return new ArrayList<Node<T>>();
         }
+
+        // This partition might contain multiple subgraphs => find largest subgraph
+        ArrayList<Graph<T>> stronglyConnectedComponents = partition.stronglyConnectedComponents();
+        int largest_subgraph_size = 0;
+        Graph<T> largest_subgraph = stronglyConnectedComponents.get(0);
+        for (Graph<T> subgraph : stronglyConnectedComponents) {
+            if (subgraph.size() > largest_subgraph_size) {
+                largest_subgraph = subgraph;
+                largest_subgraph_size = subgraph.size();
+            }
+        }
+
+        int largest_distance = Integer.MAX_VALUE;
+        Node medoid = (Node) largest_subgraph.getNodes().iterator().next();
+        for (Node n : largest_subgraph.getNodes()) {
+            //Node n = (Node) o;
+            Dijkstra dijkstra = new Dijkstra(largest_subgraph, n);
+
+            int node_largest_distance = dijkstra.getLargestDistance();
+
+            if (node_largest_distance == 0) {
+                continue;
+            }
+
+            if (node_largest_distance < largest_distance) {
+                largest_distance = node_largest_distance;
+                medoid = n;
+            }
+        }
+        ArrayList<Node<T>> list = new ArrayList<Node<T>>(1);
+        list.add(medoid);
+
+        return list;
+    }
+}
+
+class AssignFunction<T>
+    implements PairFlatMapFunction<
+        Iterator<Tuple2<Node<T>, NeighborList>>,
+        Node<T>,
+        NeighborList> {
+
+    private final List<Node<T>> medoids;
+    private final double imbalance;
+    private final int partitions;
+    private final SimilarityInterface<T> similarity;
+
+
+    AssignFunction(
+            final List<Node<T>> medoids,
+            final double imbalance,
+            final int partitions,
+            final SimilarityInterface<T> similarity) {
+
+        this.medoids = medoids;
+        this.imbalance = imbalance;
+        this.partitions = partitions;
+        this.similarity = similarity;
+    }
+
+    public Iterable<Tuple2<Node<T>, NeighborList>> call(
+            final Iterator<Tuple2<Node<T>, NeighborList>> iterator) {
+
+        // fetch all tuples in this partition
+        // to compute the partition_constraint
+        ArrayList<Tuple2<Node<T>, NeighborList>> tuples =
+                new ArrayList<Tuple2<Node<T>, NeighborList>>();
+
+        while (iterator.hasNext()) {
+            tuples.add(iterator.next());
+        }
+
+        // this could be estimated with total_n / partitions
+        int partition_n = tuples.size();
+        double partition_constraint = imbalance * partition_n / partitions;
+        int[] partitions_size = new int[partitions];
+
+        for (Tuple2<Node<T>, NeighborList> tuple : tuples) {
+            double[] similarities = new double[partitions];
+            double[] values = new double[partitions];
+
+            // 1. similarities
+            for (int center_id = 0; center_id < partitions; center_id++) {
+                similarities[center_id] = similarity.similarity(
+                        medoids.get(center_id).value,
+                        tuple._1.value);
+            }
+
+            // 2. value to maximize =
+            // similarity * (1 - cluster_size / capacity_constraint)
+            for (int center_id = 0; center_id < partitions; center_id++) {
+                values[center_id] =
+                        similarities[center_id]
+                        * (1 - partitions_size[center_id] / partition_constraint);
+            }
+
+            // 3. choose partition that maximizes computed value
+            int partition = BalancedKMedoidsPartitioner.argmax(values);
+            partitions_size[partition]++;
+            tuple._1.setAttribute(
+                    BalancedKMedoidsPartitioner.PARTITION_KEY, partition);
+        }
+
+        return tuples;
     }
 }
 

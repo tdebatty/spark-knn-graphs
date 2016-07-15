@@ -45,7 +45,7 @@ public class Brute<T> extends DistributedGraphBuilder<T> implements Serializable
     protected JavaPairRDD<Node<T>, NeighborList> _computeGraph(JavaRDD<Node<T>> nodes) throws Exception {
         JavaPairRDD<Node<T>, Node<T>> pairs = nodes.cartesian(nodes);
         JavaPairRDD<Node<T>, Neighbor> allsimilarities = pairs.mapToPair(new PairFunction<Tuple2<Node<T>, Node<T>>, Node<T>, Neighbor>() {
-            
+
             public Tuple2<Node<T>, Neighbor> call(Tuple2<Node<T>, Node<T>> tuple) throws Exception {
                 return new Tuple2<Node<T>, Neighbor>(
                         tuple._1,
@@ -54,7 +54,7 @@ public class Brute<T> extends DistributedGraphBuilder<T> implements Serializable
                                 similarity.similarity(tuple._1.value, tuple._2.value)));
             }
         });
-        
+
         JavaPairRDD<Node<T>, NeighborList> graph = allsimilarities.aggregateByKey(
                 new NeighborList(k),
                 new  Function2<NeighborList, Neighbor, NeighborList>() {public NeighborList call(NeighborList nl, Neighbor n) throws Exception {
@@ -63,14 +63,14 @@ public class Brute<T> extends DistributedGraphBuilder<T> implements Serializable
                 }
                 },
                 new  Function2<NeighborList, NeighborList, NeighborList>() {
-                    
+
                     public NeighborList call(NeighborList nl1, NeighborList nl2) throws Exception {
                         nl1.addAll(nl2);
                         return nl1;
                     }
                 });
-        
+
         return graph;
     }
-    
+
 }

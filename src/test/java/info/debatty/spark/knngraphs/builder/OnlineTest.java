@@ -23,6 +23,7 @@
  */
 package info.debatty.spark.knngraphs.builder;
 
+import info.debatty.java.datasets.gaussian.Dataset;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
@@ -52,7 +53,7 @@ public class OnlineTest extends TestCase implements Serializable {
     static final int N = 1000;
 
     // Number of nodes to add to the graph
-    static final int N_ADD = 200;
+    static final int N_TEST = 200;
     static final int PARTITIONS = 4;
     static final int K = 10;
     static final double SUCCESS_RATIO = 0.8;
@@ -63,7 +64,8 @@ public class OnlineTest extends TestCase implements Serializable {
      * @throws java.lang.Exception if the initial graph cannot be computed
      */
     public final void testAddNode() throws Exception {
-        System.out.println("addNode");
+        System.out.println("Add nodes");
+        System.out.println("=========");
 
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
@@ -114,13 +116,13 @@ public class OnlineTest extends TestCase implements Serializable {
                 new Online<Double>(K, similarity, sc, graph, PARTITIONS);
 
         System.out.println("Add some nodes...");
-        for (int i = 0; i < N_ADD; i++) {
+        for (int i = 0; i < N_TEST; i++) {
             Node<Double> new_node =
                     new Node<Double>(
                             String.valueOf(data.size()),
                             400.0 * rand.nextDouble());
 
-            online_graph.addNode(new_node);
+            online_graph.fastAdd(new_node);
 
             // keep the node for later testing
             data.add(new_node);
@@ -207,7 +209,7 @@ public class OnlineTest extends TestCase implements Serializable {
         System.out.println("Remove some nodes...");
         LinkedList<Node<Double>> removed_nodes = new LinkedList<Node<Double>>();
 
-        for (int i = 0; i < N_ADD; i++) {
+        for (int i = 0; i < N_TEST; i++) {
             Node query = data.get(rand.nextInt(data.size() - 1));
             online_graph.fastRemove(query);
             data.remove(query);
@@ -250,6 +252,88 @@ public class OnlineTest extends TestCase implements Serializable {
         assertEquals(data.size(), local_approximate_graph.size());
         assertEquals(online_graph.getGraph().partitions().size(), PARTITIONS);
         assertTrue(ratio > SUCCESS_RATIO);
+    }
+
+    public static final int DIMENSIONALITY = 1;
+    public static final int NUM_CENTERS = 4;
+
+    public final void testWindow() throws Exception {
+        System.out.println("Sliding window");
+        System.out.println("==============");
+
+        Logger.getLogger("org").setLevel(Level.WARN);
+        Logger.getLogger("akka").setLevel(Level.WARN);
+
+        SimilarityInterface<Double> similarity =
+                new SimilarityInterface<Double>() {
+
+            public double similarity(final Double value1, final Double value2) {
+                return 1.0 / (1 + Math.abs(value1 - value2));
+            }
+        };
+
+        System.out.println("Create some random nodes");
+        Random rand = new Random();
+        List<Node<Double>> data = new ArrayList<Node<Double>>();
+        Dataset dataset = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
+                .setOverlap(Dataset.Builder.Overlap.MEDIUM)
+                .build();
+
+        int sequence_number = 0;
+        for (Double[] point : dataset) {
+            if (sequence_number == N) {
+                break;
+            }
+
+            Node<Double> node = new Node<Double>(
+                    String.valueOf(sequence_number),
+                    point[0]);
+            node.setAttribute(Online.NODE_SEQUENCE_KEY, sequence_number);
+            data.add(node);
+            sequence_number++;
+        }
+
+        // Configure spark instance
+        SparkConf conf = new SparkConf();
+        conf.setAppName("SparkTest");
+        conf.setIfMissing("spark.master", "local[*]");
+        JavaSparkContext sc = new JavaSparkContext(conf);
+
+        // Parallelize the dataset in Spark
+        JavaRDD<Node<Double>> nodes = sc.parallelize(data);
+
+        Brute brute = new Brute();
+        brute.setK(K);
+        brute.setSimilarity(similarity);
+
+        System.out.println("Compute the graph and force execution");
+        JavaPairRDD<Node<Double>, NeighborList> graph =
+                brute.computeGraph(nodes);
+        System.out.println(graph.first());
+
+        System.out.println("Prepare the graph for online processing");
+        Online<Double> online_graph =
+                new Online<Double>(K, similarity, sc, graph, PARTITIONS);
+        online_graph.setWindowSize(N);
+
+        System.out.println("Add some extra nodes...");
+        for (int i = 0; i < N_TEST; i++) {
+            Double[] point = dataset.iterator().next();
+            Node<Double> new_node =
+                    new Node<Double>(
+                            String.valueOf(sequence_number),
+                            point[0]);
+            new_node.setAttribute(Online.NODE_SEQUENCE_KEY, sequence_number);
+
+            online_graph.fastAdd(new_node);
+            sequence_number++;
+        }
+        Graph<Double> local_approximate_graph =
+                list2graph(online_graph.getGraph().collect());
+        sc.close();
+
+        assertEquals(N, local_approximate_graph.size());
+        assertEquals(online_graph.getGraph().partitions().size(), PARTITIONS);
     }
 
     private Graph<Double> list2graph(
