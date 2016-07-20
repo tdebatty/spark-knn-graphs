@@ -121,8 +121,8 @@ public class OnlineTest extends TestCase implements Serializable {
                     new Node<Double>(
                             String.valueOf(data.size()),
                             400.0 * rand.nextDouble());
-
-            online_graph.fastAdd(new_node);
+            int computed_similarities = online_graph.fastAdd(new_node);
+            System.out.println("Computed similarities: " + computed_similarities);
 
             // keep the node for later testing
             data.add(new_node);
@@ -211,7 +211,9 @@ public class OnlineTest extends TestCase implements Serializable {
 
         for (int i = 0; i < N_TEST; i++) {
             Node query = data.get(rand.nextInt(data.size() - 1));
-            online_graph.fastRemove(query);
+            int computed_similarities = online_graph.fastRemove(query);
+            System.out.println("Computed similarities: "
+                    + computed_similarities);
             data.remove(query);
             removed_nodes.add(query);
         }

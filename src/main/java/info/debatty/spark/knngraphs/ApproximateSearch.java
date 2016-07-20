@@ -114,7 +114,7 @@ public class ApproximateSearch<T> {
      * @param node
      * @param counts
      */
-    public final void assign(Node<T> node, long[] counts) {
+    public final void assign(final Node<T> node, final long[] counts) {
         partitioner.assign(node, counts);
     }
 

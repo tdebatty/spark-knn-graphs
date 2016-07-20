@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import org.apache.spark.Accumulator;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -79,6 +80,7 @@ public class Online<T> {
     private long nodes_added_or_removed;
     private long nodes_before_update_medoids;
     private int window_size = 0;
+    private final JavaSparkContext spark_context;
 
     /**
      *
@@ -105,6 +107,8 @@ public class Online<T> {
                 PARTITIONING_ITERATIONS,
                 partitioning_medoids,
                 similarity);
+
+        this.spark_context = sc;
 
         sc.setCheckpointDir("/tmp/checkpoints");
 
@@ -166,34 +170,41 @@ public class Online<T> {
     /**
      * Add a node to the graph using fast distributed algorithm.
      * @param node to add to the graph
+     * @return number of computed similarities
      */
-    public final void fastAdd(final Node<T> node) {
+    public final int fastAdd(final Node<T> node) {
+
+        int similarities = 0;
 
         if (window_size != 0) {
-            fastRemove(
+            similarities += fastRemove(
                 (Integer) node.getAttribute(NODE_SEQUENCE_KEY) - window_size);
         }
 
         // Find the neighbors of this node
         NeighborList neighborlist = searcher.search(node, k, search_speedup);
+        similarities += getSize() / search_speedup;
 
         // Assign the node to a partition (most similar medoid, with partition
         // size constraint)
         searcher.assign(node, partitions_size);
+        similarities += k;
 
         // bookkeeping: update the counts
         partitions_size[(Integer) node
                 .getAttribute(BalancedKMedoidsPartitioner.PARTITION_KEY)]++;
-
         // update the existing graph edges
+        Accumulator<Integer> similarities_accumulator
+                = spark_context.accumulator(0);
         JavaRDD<Graph<T>> updated_graph = searcher.getGraph().map(
-                    new UpdateFunction<T>(node, neighborlist, similarity));
+                    new UpdateFunction<T>(
+                            node,
+                            neighborlist,
+                            similarity,
+                            similarities_accumulator));
 
         // Add the new <Node, NeighborList> to the distributed graph
         updated_graph = updated_graph.map(new AddNode(node, neighborlist));
-
-        // From now on, use the new graph...
-        searcher.setGraph(updated_graph);
 
         //  truncate RDD DAG (would cause a stack overflow, even with caching)
         if ((nodes_added_or_removed % ITERATIONS_BETWEEN_CHECKPOINTS) == 0) {
@@ -206,20 +217,27 @@ public class Online<T> {
             previous_rdds.pop().unpersist();
         }
 
-        nodes_added_or_removed++;
+        // From now on use the new graph...
+        searcher.setGraph(updated_graph);
 
+        nodes_added_or_removed++;
         nodes_before_update_medoids--;
         if (nodes_before_update_medoids == 0) {
+            // TODO: count number of computed similarities here!!
             searcher.getPartitioner().computeNewMedoids(updated_graph);
             nodes_before_update_medoids = computeNodesBeforeUpdate();
         }
+
+        similarities += similarities_accumulator.value();
+        return similarities;
     }
 
     /**
      * Remove a node using fast approximate algorithm.
      * @param node_to_remove
+     * @return number of computed similarities
      */
-    public final void fastRemove(final Node<T> node_to_remove) {
+    public final int fastRemove(final Node<T> node_to_remove) {
         // find the list of nodes to update
         List<Node<T>> nodes_to_update = searcher.getGraph()
                 .flatMap(new FindNodesToUpdate(node_to_remove))
@@ -259,13 +277,17 @@ public class Online<T> {
         while (candidates.contains(node_to_remove)) {
             candidates.remove(node_to_remove);
         }
-        // update the graph and remove the node
+
+        // Update the graph and remove the node
+        Accumulator<Integer> similarities_accumulator
+                = spark_context.accumulator(0);
         JavaRDD<Graph<T>> updated_graph = searcher.getGraph()
                 .map(new RemoveUpdate(
                         node_to_remove,
                         nodes_to_update,
-                        candidates));
-        searcher.setGraph(updated_graph);
+                        candidates,
+                        similarities_accumulator))
+                .cache();
 
         // bookkeeping: update the counts
         partitions_size[partition_of_node_to_remove]--;
@@ -282,6 +304,12 @@ public class Online<T> {
         }
 
         nodes_added_or_removed++;
+
+        // Force execution and use updated graph
+        updated_graph.count();
+        searcher.setGraph(updated_graph);
+
+        return similarities_accumulator.value();
     }
 
     /**
@@ -289,7 +317,7 @@ public class Online<T> {
      * Used by the sliding window algorithm.
      * @param node_sequence
      */
-    private void fastRemove(final long node_sequence) {
+    private int fastRemove(final long node_sequence) {
         // This is not really efficient :(
         List<Node<T>> nodes = searcher.getGraph()
                 .flatMap(new FindNode(node_sequence))
@@ -297,10 +325,10 @@ public class Online<T> {
 
         if (nodes.isEmpty()) {
             System.out.println("Node sequence not found: " + node_sequence);
-            return;
+            return 0;
         }
 
-        fastRemove(nodes.get(0));
+        return fastRemove(nodes.get(0));
     }
 
     /**
@@ -427,15 +455,18 @@ class UpdateFunction<T>
     private final NeighborList neighborlist;
     private final SimilarityInterface<T> similarity;
     private final Node<T> node;
+    private final Accumulator<Integer> similarities_accumulator;
 
     UpdateFunction(
             final Node<T> node,
             final NeighborList neighborlist,
-            final SimilarityInterface<T> similarity) {
+            final SimilarityInterface<T> similarity,
+            final Accumulator<Integer> similarities_accumulator) {
 
         this.node = node;
         this.neighborlist = neighborlist;
         this.similarity = similarity;
+        this.similarities_accumulator = similarities_accumulator;
     }
 
     public Graph<T> call(final Graph<T> local_graph) {
@@ -478,6 +509,7 @@ class UpdateFunction<T>
                         similarity.similarity(
                                 node.value,
                                 (T) other.value)));
+                similarities_accumulator.add(1);
 
                 visited.put(other, Boolean.TRUE);
             }
@@ -570,15 +602,18 @@ class RemoveUpdate<T> implements Function<Graph<T>, Graph<T>> {
     private final Node<T> node_to_remove;
     private final List<Node<T>> nodes_to_update;
     private final List<Node<T>> candidates;
+    private final Accumulator<Integer> similarities_accumulator;
 
     RemoveUpdate(
             final Node<T> node_to_remove,
             final List<Node<T>> nodes_to_update,
-            final List<Node<T>> candidates) {
+            final List<Node<T>> candidates,
+            final Accumulator<Integer> similarities_accumulator) {
 
         this.node_to_remove = node_to_remove;
         this.nodes_to_update = nodes_to_update;
         this.candidates = candidates;
+        this.similarities_accumulator = similarities_accumulator;
 
     }
 
@@ -603,10 +638,11 @@ class RemoveUpdate<T> implements Function<Graph<T>, Graph<T>> {
                 if (candidate.equals(node_to_update)) {
                     continue;
                 }
-                
+
                 double similarity = subgraph.getSimilarity().similarity(
                         node_to_update.value,
                         candidate.value);
+                similarities_accumulator.add(1);
 
                 nl_to_update.add(new Neighbor(candidate, similarity));
             }
