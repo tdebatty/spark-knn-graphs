@@ -1,6 +1,6 @@
 language: java
 install: cd spark-knn-graphs && mvn --quiet install -DskipTests=true -Dmaven.javadoc.skip=true -Dgpg.skip=true
-script: cd spark-knn-graphs && mvn test -Dmaven.javadoc.skip=true -DargLine="-Xmx2G"
+script: mvn test -Dmaven.javadoc.skip=true -DargLine="-Xmx2G"
 
 env:
   - SPARKVERSION="1.5.2"
