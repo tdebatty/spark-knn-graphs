@@ -58,8 +58,8 @@ public class Online<T> {
      */
     public static final String NODE_SEQUENCE_KEY = "ONLINE_SEQ_KEY";
 
-    private static final int PARTITIONING_ITERATIONS = 5;
-    private static final int DEFAULT_SEARCH_SPEEDUP = 4;
+    private static final int DEFAULT_PARTITIONING_ITERATIONS = 5;
+    private static final int DEFAULT_UPDATE_DEPTH = 2;
     private static final double DEFAULT_MEDOID_UPDATE_RATIO = 0.1;
 
     // Number of nodes to add before performing a checkpoint
@@ -76,11 +76,15 @@ public class Online<T> {
     private final long[] partitions_size;
     private final LinkedList<JavaRDD<Graph<T>>> previous_rdds;
 
-    private int search_speedup = DEFAULT_SEARCH_SPEEDUP;
+    private double search_speedup = ApproximateSearch.DEFAULT_SPEEDUP;
+    private int search_random_jumps = ApproximateSearch.DEFAULT_JUMPS;
+    private double search_expansion = ApproximateSearch.DEFAULT_EXPANSION;
+
     private long nodes_added_or_removed;
     private long nodes_before_update_medoids;
     private int window_size = 0;
     private final JavaSparkContext spark_context;
+    private int update_depth = DEFAULT_UPDATE_DEPTH;
 
     /**
      *
@@ -97,6 +101,32 @@ public class Online<T> {
             final JavaPairRDD<Node<T>, NeighborList> initial_graph,
             final int partitioning_medoids) {
 
+        this(
+                k,
+                similarity,
+                sc,
+                initial_graph,
+                partitioning_medoids,
+                DEFAULT_PARTITIONING_ITERATIONS);
+    }
+
+    /**
+     *
+     * @param k
+     * @param similarity
+     * @param sc
+     * @param initial_graph
+     * @param partitioning_medoids
+     * @param partitioning_iterations
+     */
+    public Online(
+            final int k,
+            final SimilarityInterface<T> similarity,
+            final JavaSparkContext sc,
+            final JavaPairRDD<Node<T>, NeighborList> initial_graph,
+            final int partitioning_medoids,
+            final int partitioning_iterations) {
+
         this.nodes_added_or_removed = 0;
         this.similarity = similarity;
         this.k = k;
@@ -104,7 +134,7 @@ public class Online<T> {
         // Use the distributed search algorithm to partition the graph
         this.searcher = new ApproximateSearch<T>(
                 initial_graph,
-                PARTITIONING_ITERATIONS,
+                partitioning_iterations,
                 partitioning_medoids,
                 similarity);
 
@@ -115,6 +145,15 @@ public class Online<T> {
         this.partitions_size = getPartitionsSize(searcher.getGraph());
         this.previous_rdds = new LinkedList<JavaRDD<Graph<T>>>();
         this.nodes_before_update_medoids = computeNodesBeforeUpdate();
+
+    }
+
+    /**
+     * Set the update depth for fast adding or removing nodes (default is 2).
+     * @param update_depth
+     */
+    public final void setUpdateDepth(final int update_depth) {
+        this.update_depth = update_depth;
     }
 
     /**
@@ -150,8 +189,24 @@ public class Online<T> {
      * Set the speedup of the search step to add a node (default: 4).
      * @param search_speedup speedup
      */
-    public final void setSearchSpeedup(final int search_speedup) {
+    public final void setSearchSpeedup(final double search_speedup) {
         this.search_speedup = search_speedup;
+    }
+
+    /**
+     *
+     * @param search_random_jumps
+     */
+    public final void setSearchRandomJumps(final int search_random_jumps) {
+        this.search_random_jumps = search_random_jumps;
+    }
+
+    /**
+     *
+     * @param search_expansion
+     */
+    public final void setSearchExpansion(final double search_expansion) {
+        this.search_expansion = search_expansion;
     }
 
     /**
@@ -182,7 +237,12 @@ public class Online<T> {
         }
 
         // Find the neighbors of this node
-        NeighborList neighborlist = searcher.search(node, k, search_speedup);
+        NeighborList neighborlist = searcher.search(
+                node,
+                k,
+                search_speedup,
+                search_random_jumps,
+                search_expansion);
         similarities += getSize() / search_speedup;
 
         // Assign the node to a partition (most similar medoid, with partition
@@ -201,7 +261,8 @@ public class Online<T> {
                             node,
                             neighborlist,
                             similarity,
-                            similarities_accumulator));
+                            similarities_accumulator,
+                            update_depth));
 
         // Add the new <Node, NeighborList> to the distributed graph
         updated_graph = updated_graph.map(new AddNode(node, neighborlist));
@@ -253,7 +314,9 @@ public class Online<T> {
         LinkedList<Node<T>> candidates  =
                 new LinkedList<Node<T>>(
                         searcher.getGraph()
-                        .flatMap(new SearchNeighbors(initial_candidates))
+                        .flatMap(new SearchNeighbors(
+                                initial_candidates,
+                                update_depth))
                         .collect());
 
         // Find the partition corresponding to node_to_remove
@@ -432,7 +495,6 @@ class FindNode<T> implements FlatMapFunction<Graph<T>, Node<T>> {
         for (Node<T> node : subgraph.getNodes()) {
             Integer node_sequence = (Integer) node.getAttribute(
                     Online.NODE_SEQUENCE_KEY);
-            //System.out.println(node_sequence);
             if (node_sequence == sequence_number) {
                 result.add(node);
                 return result;
@@ -450,8 +512,7 @@ class FindNode<T> implements FlatMapFunction<Graph<T>, Node<T>> {
 class UpdateFunction<T>
         implements Function<Graph<T>, Graph<T>> {
 
-    private static final int UPDATE_DEPTH = 2;
-
+    private final int update_depth;
     private final NeighborList neighborlist;
     private final SimilarityInterface<T> similarity;
     private final Node<T> node;
@@ -461,12 +522,14 @@ class UpdateFunction<T>
             final Node<T> node,
             final NeighborList neighborlist,
             final SimilarityInterface<T> similarity,
-            final Accumulator<Integer> similarities_accumulator) {
+            final Accumulator<Integer> similarities_accumulator,
+            final int update_depth) {
 
         this.node = node;
         this.neighborlist = neighborlist;
         this.similarity = similarity;
         this.similarities_accumulator = similarities_accumulator;
+        this.update_depth = update_depth;
     }
 
     public Graph<T> call(final Graph<T> local_graph) {
@@ -485,7 +548,7 @@ class UpdateFunction<T>
             analyze.add(neighbor.node);
         }
 
-        for (int depth = 0; depth < UPDATE_DEPTH; depth++) {
+        for (int depth = 0; depth < update_depth; depth++) {
             while (!analyze.isEmpty()) {
                 Node other = analyze.pop();
                 NeighborList other_neighborlist = local_graph.get(other);
@@ -579,16 +642,20 @@ class FindNodesToUpdate<T> implements FlatMapFunction<Graph<T>, Node<T>> {
  * @param <T>
  */
 class SearchNeighbors<T> implements FlatMapFunction<Graph<T>, Node<T>> {
-    private static final int SEARCH_DEPTH = 3;
+    private final int search_depth;
 
     private final LinkedList<Node<T>> starting_points;
 
-    SearchNeighbors(final LinkedList<Node<T>> initial_candidates) {
+    SearchNeighbors(
+            final LinkedList<Node<T>> initial_candidates,
+            final int search_depth) {
+
         this.starting_points = initial_candidates;
+        this.search_depth = search_depth;
     }
 
     public Iterable<Node<T>> call(final Graph<T> subgraph) {
-        return subgraph.findNeighbors(starting_points, SEARCH_DEPTH);
+        return subgraph.findNeighbors(starting_points, search_depth);
     }
 }
 

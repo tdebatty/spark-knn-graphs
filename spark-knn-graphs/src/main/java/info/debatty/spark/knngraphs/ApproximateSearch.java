@@ -41,6 +41,21 @@ public class ApproximateSearch<T> {
 
     private static final double DEFAULT_IMBALANCE = 1.1;
 
+    /**
+     * Default speedup compared to exhaustive search.
+     */
+    public static final int DEFAULT_SPEEDUP = 10;
+
+    /**
+     * Default number of random jumps per node when searching.
+     */
+    public static final int DEFAULT_JUMPS = 2;
+
+    /**
+     * Default value for search expansion parameter.
+     */
+    public static final double DEFAULT_EXPANSION = 1.2;
+
     private JavaRDD<Graph<T>> distributed_graph;
     private final BalancedKMedoidsPartitioner partitioner;
 
@@ -84,13 +99,12 @@ public class ApproximateSearch<T> {
 
         // Partition the graph
         this.partitioner = new BalancedKMedoidsPartitioner();
-        partitioner.iterations = partitioning_iterations;
-        partitioner.partitions = partitioning_medoids;
-        partitioner.similarity = similarity;
-        partitioner.imbalance = imbalance;
+        partitioner.setIterations(partitioning_iterations);
+        partitioner.setPartitions(partitioning_medoids);
+        partitioner.setSimilarity(similarity);
+        partitioner.setImbalance(imbalance);
 
-        this.distributed_graph = partitioner.partition(graph);
-        this.distributed_graph.cache();
+        this.distributed_graph = partitioner.partition(graph).cache();
     }
 
     /**
@@ -106,7 +120,7 @@ public class ApproximateSearch<T> {
      * @return
      */
     public final List<Node<T>> getMedoids() {
-        return partitioner.medoids;
+        return partitioner.getMedoids();
     }
 
     /**
@@ -119,20 +133,57 @@ public class ApproximateSearch<T> {
     }
 
     /**
-     *
+     * Fast distributed search with default number of random jumps (2) and
+     * expansion (1.2).
      * @param query
      * @param k
      * @param speedup
      * @return
      */
-    public final NeighborList search(
+   public final NeighborList search(
             final Node<T> query,
             final int k,
             final double speedup) {
+       return search(query, k, speedup, DEFAULT_JUMPS, DEFAULT_EXPANSION);
+   }
+
+   /**
+    * Fast distributed search with default speedup compared to exhaustive search
+    * (10), number of random jumps (2) and expansion (1.2).
+    * @param query
+    * @param k
+    * @return
+    */
+   public final NeighborList search(
+            final Node<T> query,
+            final int k) {
+       return search(query, k, DEFAULT_SPEEDUP);
+   }
+
+    /**
+     *
+     * @param query
+     * @param k
+     * @param speedup
+     * @param random_jumps
+     * @param expansion
+     * @return
+     */
+    public final NeighborList search(
+            final Node<T> query,
+            final int k,
+            final double speedup,
+            final int random_jumps,
+            final double expansion) {
 
         JavaRDD<NeighborList> candidates_neighborlists
                 = distributed_graph.map(
-                        new DistributedSearch(query, k, speedup));
+                        new DistributedSearch(
+                                query,
+                                k,
+                                speedup,
+                                random_jumps,
+                                expansion));
 
         NeighborList final_neighborlist = new NeighborList(k);
         for (NeighborList nl : candidates_neighborlists.collect()) {
@@ -169,17 +220,28 @@ class DistributedSearch<T>
     private final double speedup;
     private final int k;
     private final Node<T> query;
+    private final int random_jumps;
+    private final double expansion;
 
-    DistributedSearch(final Node<T> query, final int k, final double speedup) {
+    DistributedSearch(
+            final Node<T> query,
+            final int k,
+            final double speedup,
+            final int random_jumps,
+            final double expansion) {
         this.query = query;
         this.k = k;
         this.speedup = speedup;
+        this.random_jumps = random_jumps;
+        this.expansion = expansion;
     }
 
     public NeighborList call(final Graph<T> local_graph) throws Exception {
         return local_graph.fastSearch(
                 query.value,
                 k,
-                speedup);
+                speedup,
+                random_jumps,
+                expansion);
     }
 }

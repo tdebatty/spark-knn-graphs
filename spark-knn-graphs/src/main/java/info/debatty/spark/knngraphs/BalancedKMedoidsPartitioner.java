@@ -47,28 +47,95 @@ import scala.Tuple2;
  */
 public class BalancedKMedoidsPartitioner<T>  {
 
-    public SimilarityInterface<T> similarity;
-    public int iterations = 5;
-    public int partitions = 4;
-    public double imbalance = 1.1;
+    private static final int DEFAULT_PARTITIONING_ITERATIONS = 5;
+    private static final int DEFAULT_PARTITIONS = 8;
+    private static final double DEFAULT_IMBALANCE = 1.1;
+    private static final double OVERSAMPLING = 10.0;
 
-    List<Node<T>> medoids;
-    NodePartitioner internal_partitioner;
+    private SimilarityInterface<T> similarity;
+    private int iterations = DEFAULT_PARTITIONING_ITERATIONS;
+    private int partitions = DEFAULT_PARTITIONS;
+    private double imbalance = DEFAULT_IMBALANCE;
+    private List<Node<T>> medoids;
+    private NodePartitioner internal_partitioner;
 
+    /**
+     * Key used by the partitioner to store the partition id in the node
+     * attributes.
+     */
     public static final String PARTITION_KEY = "BKMP_PARTITION_ID";
 
-    public JavaRDD<Graph<T>> partition(JavaPairRDD<Node<T>, NeighborList> input_graph) {
+    /**
+     *
+     * @param similarity
+     */
+    public final void setSimilarity(final SimilarityInterface<T> similarity) {
+        this.similarity = similarity;
+    }
 
-        input_graph.cache();
+    /**
+     *
+     * @param iterations
+     */
+    public final void setIterations(final int iterations) {
+        this.iterations = iterations;
+    }
+
+    /**
+     *
+     * @param partitions
+     */
+    public final void setPartitions(final int partitions) {
+        this.partitions = partitions;
+    }
+
+    /**
+     *
+     * @param imbalance
+     */
+    public final void setImbalance(final double imbalance) {
+        this.imbalance = imbalance;
+    }
+
+    /**
+     * Get medoids used for partitioning.
+     * @return
+     */
+    public final List<Node<T>> getMedoids() {
+        return medoids;
+    }
+
+    /**
+     * Partition this graph using kmedoids clustering.
+     * @param input_graph
+     * @return
+     */
+    public final JavaRDD<Graph<T>> partition(
+            final JavaPairRDD<Node<T>, NeighborList> input_graph) {
+
         internal_partitioner = new NodePartitioner(partitions);
 
+        // Randomize the input graph
+        JavaPairRDD<Node<T>, NeighborList> randomized_graph = input_graph
+                .mapToPair(new RandomizeFunction(partitions))
+                .partitionBy(internal_partitioner)
+                .cache();
+
+        //randomized_graph = input_graph.cache();
+
         // Pick some random initial medoids
-        double fraction = 10.0 * partitions / input_graph.count();
+        double fraction = OVERSAMPLING * partitions / randomized_graph.count();
         Iterator<Tuple2<Node<T>, NeighborList>> sample_iterator =
-                input_graph.sample(false, fraction).collect().iterator();
+                randomized_graph.sample(false, fraction).collect().iterator();
         medoids = new ArrayList<Node<T>>();
         for (int i = 0; i < partitions; i++) {
             medoids.add(sample_iterator.next()._1);
+        }
+
+        if (iterations == 0) {
+            return randomized_graph.mapPartitions(
+                    new NeighborListToGraph(similarity),
+                    true);
         }
 
         // Perform iterations
@@ -76,33 +143,32 @@ public class BalancedKMedoidsPartitioner<T>  {
 
             // Assign each node to a partition id and partition
             JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
-                    input_graph.mapPartitionsToPair(
+                    randomized_graph.mapPartitionsToPair(
                             new AssignFunction(
                                     medoids,
                                     imbalance,
                                     partitions,
-                                    similarity),
-                            true).partitionBy(internal_partitioner);
+                                    similarity));
 
             // Compute new medoids
-            computeNewMedoids(partitioned_graph);
+            medoids = partitioned_graph.mapPartitions(
+                new UpdateMedoidsFunction()).collect();
         }
 
         // Perform final partitioning of the input graph
         // Assign each node to a partition id and partition
         JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
-                input_graph.mapPartitionsToPair(
+                randomized_graph.mapPartitionsToPair(
                         new AssignFunction(
                                 medoids,
                                 imbalance,
                                 partitions,
-                                similarity),
-                        true).partitionBy(internal_partitioner);
+                                similarity)).partitionBy(internal_partitioner);
 
         // Transform the partitioned PairRDD<Node, Neighborlist>
         // into a distributed graph RDD<Graph>
         JavaRDD<Graph<T>> distributed_graph = partitioned_graph.mapPartitions(
-                new NeighborListToGraph(similarity));
+                new NeighborListToGraph(similarity), true);
 
         return distributed_graph;
     }
@@ -139,7 +205,12 @@ public class BalancedKMedoidsPartitioner<T>  {
         return ties.get(rand.nextInt(ties.size()));
     }
 
-    public void assign(Node<T> node, long[] counts) {
+    /**
+     *
+     * @param node
+     * @param counts
+     */
+    public final void assign(final Node<T> node, final long[] counts) {
         // Total number of elements
         long n = sum(counts) + 1;
         int partition_constraint = (int) (imbalance * n / partitions);
@@ -162,7 +233,7 @@ public class BalancedKMedoidsPartitioner<T>  {
                     * (1 - counts[center_id] / partition_constraint);
         }
 
-        // 3. choose partition that minimizes compute value
+        // 3. choose partition that maximizes computed value
         int partition = argmax(values);
         counts[partition]++;
         node.setAttribute(
@@ -171,20 +242,22 @@ public class BalancedKMedoidsPartitioner<T>  {
 
     }
 
-    public NodePartitioner getInternalPartitioner() {
+    /**
+     *
+     * @return
+     */
+    public final NodePartitioner getInternalPartitioner() {
         return internal_partitioner;
     }
 
-    public void computeNewMedoids(final JavaRDD<Graph<T>> distributed_graph) {
-        medoids = distributed_graph.map(new ComputeMedoids()).collect();
-    }
-
-    public void computeNewMedoids(
-            final JavaPairRDD<Node<T>, NeighborList> partitioned_graph) {
-
-        JavaRDD<Node<T>> new_medoids = partitioned_graph.mapPartitions(
-                new UpdateMedoidsFunction());
-        medoids = new_medoids.collect();
+    /**
+     *
+     * @param distributed_graph
+     */
+    public final void computeNewMedoids(
+            final JavaRDD<Graph<T>> distributed_graph) {
+        medoids = distributed_graph.map(
+                new ComputeMedoids()).collect();
     }
 }
 

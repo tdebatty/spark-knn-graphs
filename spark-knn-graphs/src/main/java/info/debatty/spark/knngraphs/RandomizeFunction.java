@@ -24,33 +24,41 @@
 
 package info.debatty.spark.knngraphs;
 
+import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
-import org.apache.spark.Partitioner;
+import java.util.Random;
+import org.apache.spark.api.java.function.PairFunction;
+import scala.Tuple2;
 
 /**
  *
  * @author Thibault Debatty
  */
-public class NodePartitioner extends Partitioner {
-    private final int partitions;
+class RandomizeFunction<T>
+        implements PairFunction<
+            Tuple2<Node<T>, NeighborList>,
+            Node<T>,
+            NeighborList> {
 
-    /**
-     * 
-     * @param partitions
-     */
-    public NodePartitioner(final int partitions) {
+    private final int partitions;
+    private Random rand;
+
+    RandomizeFunction(final int partitions) {
         this.partitions = partitions;
     }
 
-    @Override
-    public final int numPartitions() {
-        return partitions;
+    public Tuple2<Node<T>, NeighborList> call(
+            final Tuple2<Node<T>, NeighborList> tuple) {
+
+        if (rand == null) {
+            rand = new Random();
+        }
+
+        tuple._1.setAttribute(
+                BalancedKMedoidsPartitioner.PARTITION_KEY,
+                rand.nextInt(partitions));
+        
+        return tuple;
     }
 
-    @Override
-    public final int getPartition(final Object obj) {
-        Node node = (Node) obj;
-        return (Integer) node.getAttribute(
-                BalancedKMedoidsPartitioner.PARTITION_KEY);
-    }
 }

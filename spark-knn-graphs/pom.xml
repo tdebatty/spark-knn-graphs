@@ -231,12 +231,12 @@
             <version>0.1</version>
         </dependency>
         <dependency>
-            <groupId>${project.groupId}</groupId>
+            <groupId>info.debatty</groupId>
             <artifactId>java-graphs</artifactId>
-            <version>0.22</version>
+            <version>0.24</version>
         </dependency>
         <dependency>
-            <groupId>${project.groupId}</groupId>
+            <groupId>info.debatty</groupId>
             <artifactId>java-datasets</artifactId>
             <version>0.8</version>
             <scope>test</scope>
