@@ -15,7 +15,7 @@ Implemented k-nn graph processing algorithms:
 * Distributed graph based nearest neighbor search
 
 
-All algorithms support custom classes as value. See [an example with custom class as value](https://github.com/tdebatty/spark-knn-graphs/blob/master/src/main/java/info/debatty/spark/knngraphs/example/NNDescentCustomValue.java).
+All algorithms support custom classes as value. See [an example with custom class as value](https://github.com/tdebatty/spark-knn-graphs/blob/master/spark-knn-graphs/src/main/java/info/debatty/spark/knngraphs/example/NNDescentCustomValue.java).
 
 ## Installation and requirements
 
@@ -33,7 +33,7 @@ Installation using Maven:
 Or check [Spark Packages](http://spark-packages.org/package/tdebatty/spark-knn-graphs)
 
 ## Examples
-Here are only a few short examples. Check [the examples folder](https://github.com/tdebatty/spark-knn-graphs/tree/master/src/main/java/info/debatty/spark/knngraphs/example) for more examples and complete code.
+Here are only a few short examples. Check [the examples folder](https://github.com/tdebatty/spark-knn-graphs/tree/master/spark-knn-graphs/src/main/java/info/debatty/spark/knngraphs/example) for more examples and complete code.
 
 ### NN-Descent
 ```java
