@@ -24,14 +24,15 @@
 
 package info.debatty.spark.knngraphs;
 
+import info.debatty.java.datasets.gaussian.Dataset;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.spark.knngraphs.builder.Brute;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Random;
 import junit.framework.TestCase;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -46,49 +47,49 @@ import org.apache.spark.api.java.JavaSparkContext;
  */
 public class ApproximateSearchTest extends TestCase implements Serializable {
 
-    public ApproximateSearchTest(String testName) {
-        super(testName);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-    }
+    private static final int N = 4000;
+    private static final int N_TEST = 100;
+    private static final int N_CORRECT = 50;
+    private static final int K = 10;
+    private static final int DIMENSIONALITY = 1;
+    private static final int NUM_CENTERS = 3;
+    private static final int PARTITIONS = 4;
+    private static final int ITERATIONS = 5;
+    private static final double SPEEDUP = 4;
 
     /**
      * Test of search method, of class ApproximateSearch.
-     * @throws java.lang.Exception
+     * @throws java.lang.Exception if we cannot build the graph
      */
-    public void testSearch() throws Exception {
-        System.out.println("search");
+    public final void testSearch() throws Exception {
+        System.out.println("Search");
+        System.out.println("======");
 
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
 
-        int n = 10000;
-        int partitions = 4;
+        SimilarityInterface<Double> similarity
+                = new SimilarityInterface<Double>() {
 
-        SimilarityInterface<Double> similarity = new SimilarityInterface<Double>() {
-
-            public double similarity(Double value1, Double value2) {
+            public double similarity(final Double value1, final Double value2) {
                 return 1.0 / (1 + Math.abs(value1 - value2));
             }
         };
 
         System.out.println("Create some random nodes");
-        Random rand = new Random();
         List<Node<Double>> data = new ArrayList<Node<Double>>();
-        while (data.size() < n) {
-            data.add(new Node<Double>(String.valueOf(data.size()), 100.0 + 100.0 * rand.nextGaussian()));
-            data.add(new Node<Double>(String.valueOf(data.size()), 150.0 + 100.0 * rand.nextGaussian()));
-            data.add(new Node<Double>(String.valueOf(data.size()), 300.0 + 100.0 * rand.nextGaussian()));
-        }
+        Iterator<Double[]> dataset
+                = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
+                .setOverlap(Dataset.Builder.Overlap.MEDIUM)
+                .build()
+                .iterator();
 
+        while (data.size() < N) {
+            Double[] point = dataset.next();
+            data.add(new Node<Double>(
+                    String.valueOf(data.size()),
+                    point[0]));
+        }
 
         // Configure spark instance
         SparkConf conf = new SparkConf();
@@ -97,42 +98,50 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Parallelize the dataset in Spark
-        JavaRDD<Node<Double>> nodes = sc.parallelize(data, partitions);
+        JavaRDD<Node<Double>> nodes = sc.parallelize(data, PARTITIONS);
 
         Brute brute = new Brute();
-        brute.setK(10);
+        brute.setK(K);
         brute.setSimilarity(similarity);
 
         System.out.println("Compute the graph and force execution");
-        JavaPairRDD<Node<Double>, NeighborList> graph = brute.computeGraph(nodes);
-        System.out.println(graph.first());
-
+        JavaPairRDD<Node<Double>, NeighborList> graph
+                = brute.computeGraph(nodes);
+        graph.count();
 
         ExhaustiveSearch<Double> exhaustive_search =
                 new ExhaustiveSearch<Double>(graph, similarity);
 
-
         System.out.println("Prepare the graph for approximate search");
         ApproximateSearch<Double> approximate_search =
-                new ApproximateSearch<Double>(graph, 5, partitions, similarity);
+                new ApproximateSearch<Double>(
+                        graph,
+                        ITERATIONS,
+                        PARTITIONS,
+                        similarity);
 
 
         System.out.println("Perform some search queries...");
         int correct = 0;
-        for (int i = 0; i < 100; i++) {
-            Node<Double> query = new Node<Double>("", 400.0 * rand.nextDouble());
-            //System.out.println(query);
+        for (int i = 0; i < N_TEST; i++) {
+            Double[] point = dataset.next();
+            Node<Double> query =
+                    new Node<Double>(
+                            String.valueOf(data.size()),
+                            point[0]);
+
+
             NeighborList approximate_result = approximate_search.search(
                     query,
                     1,
-                    4);
+                    SPEEDUP);
             NeighborList exhaustive_result = exhaustive_search.search(query, 1);
 
             correct += approximate_result.countCommons(exhaustive_result);
         }
         System.out.println("Found " + correct + " correct responses");
         sc.close();
-        assertTrue(correct > 10);
+        assertTrue(correct > N_CORRECT);
+        assertEquals(PARTITIONS, graph.partitions().size());
     }
-
 }
