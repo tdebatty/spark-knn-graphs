@@ -46,25 +46,13 @@ import org.apache.spark.api.java.JavaSparkContext;
  */
 public class NNDescentTest extends TestCase implements Serializable {
 
-    public NNDescentTest(String testName) {
-        super(testName);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-    }
-
     /**
      * Test of computeGraph method, of class NNDescent.
      * @throws java.io.IOException
      */
     public void testComputeGraph() throws IOException, Exception {
+        System.out.println("NNDescent");
+        System.out.println("=========");
 
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);

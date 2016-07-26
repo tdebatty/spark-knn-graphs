@@ -28,6 +28,7 @@ import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
+import info.debatty.java.graphs.StatisticsContainer;
 import info.debatty.spark.knngraphs.ApproximateSearch;
 import info.debatty.spark.knngraphs.BalancedKMedoidsPartitioner;
 import java.security.InvalidParameterException;
@@ -225,14 +226,24 @@ public class Online<T> {
     /**
      * Add a node to the graph using fast distributed algorithm.
      * @param node to add to the graph
-     * @return number of computed similarities
      */
-    public final int fastAdd(final Node<T> node) {
+    public final void fastAdd(final Node<T> node) {
+        fastAdd(node, null);
+    }
 
-        int similarities = 0;
+    /**
+     * Add a node to the graph using fast distributed algorithm.
+     * @param node to add to the graph
+     * @param stats_accumulator
+     */
+    public final void fastAdd(
+            final Node<T> node,
+            final Accumulator<StatisticsContainer> stats_accumulator) {
+
 
         if (window_size != 0) {
-            similarities += fastRemove(
+            // TODO: add stats_accumulator in fast remove!
+            fastRemove(
                 (Integer) node.getAttribute(NODE_SEQUENCE_KEY) - window_size);
         }
 
@@ -242,26 +253,25 @@ public class Online<T> {
                 k,
                 search_speedup,
                 search_random_jumps,
-                search_expansion);
-        similarities += getSize() / search_speedup;
+                search_expansion,
+                stats_accumulator);
 
         // Assign the node to a partition (most similar medoid, with partition
         // size constraint)
         searcher.assign(node, partitions_size);
-        similarities += k;
+        //similarities += k;
 
         // bookkeeping: update the counts
         partitions_size[(Integer) node
                 .getAttribute(BalancedKMedoidsPartitioner.PARTITION_KEY)]++;
         // update the existing graph edges
-        Accumulator<Integer> similarities_accumulator
-                = spark_context.accumulator(0);
+
         JavaRDD<Graph<T>> updated_graph = searcher.getGraph().map(
                     new UpdateFunction<T>(
                             node,
                             neighborlist,
                             similarity,
-                            similarities_accumulator,
+                            stats_accumulator,
                             update_depth));
 
         // Add the new <Node, NeighborList> to the distributed graph
@@ -278,6 +288,9 @@ public class Online<T> {
             previous_rdds.pop().unpersist();
         }
 
+        // Force execution
+        updated_graph.count();
+
         // From now on use the new graph...
         searcher.setGraph(updated_graph);
 
@@ -288,9 +301,6 @@ public class Online<T> {
             searcher.getPartitioner().computeNewMedoids(updated_graph);
             nodes_before_update_medoids = computeNodesBeforeUpdate();
         }
-
-        similarities += similarities_accumulator.value();
-        return similarities;
     }
 
     /**
@@ -444,7 +454,6 @@ public class Online<T> {
  */
 class SubgraphSizeFunction<T> implements Function<Graph<T>, Long> {
 
-
     public Long call(final Graph<T> subgraph) {
         return new Long(subgraph.size());
     }
@@ -516,19 +525,19 @@ class UpdateFunction<T>
     private final NeighborList neighborlist;
     private final SimilarityInterface<T> similarity;
     private final Node<T> node;
-    private final Accumulator<Integer> similarities_accumulator;
+    private final Accumulator<StatisticsContainer> stats_accumulator;
 
     UpdateFunction(
             final Node<T> node,
             final NeighborList neighborlist,
             final SimilarityInterface<T> similarity,
-            final Accumulator<Integer> similarities_accumulator,
+            final Accumulator<StatisticsContainer> stats_accumulator,
             final int update_depth) {
 
         this.node = node;
         this.neighborlist = neighborlist;
         this.similarity = similarity;
-        this.similarities_accumulator = similarities_accumulator;
+        this.stats_accumulator = stats_accumulator;
         this.update_depth = update_depth;
     }
 
@@ -547,6 +556,8 @@ class UpdateFunction<T>
         for (Neighbor neighbor : neighborlist) {
             analyze.add(neighbor.node);
         }
+
+        StatisticsContainer local_stats = new StatisticsContainer();
 
         for (int depth = 0; depth < update_depth; depth++) {
             while (!analyze.isEmpty()) {
@@ -572,13 +583,18 @@ class UpdateFunction<T>
                         similarity.similarity(
                                 node.value,
                                 (T) other.value)));
-                similarities_accumulator.add(1);
+
+                local_stats.incAddSimilarities();
 
                 visited.put(other, Boolean.TRUE);
             }
 
             analyze = next_analyze;
             next_analyze = new LinkedList<Node<T>>();
+        }
+
+        if (stats_accumulator != null) {
+            stats_accumulator.add(local_stats);
         }
 
         return local_graph;

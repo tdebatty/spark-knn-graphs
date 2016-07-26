@@ -233,7 +233,7 @@
         <dependency>
             <groupId>info.debatty</groupId>
             <artifactId>java-graphs</artifactId>
-            <version>0.24</version>
+            <version>0.26</version>
         </dependency>
         <dependency>
             <groupId>info.debatty</groupId>

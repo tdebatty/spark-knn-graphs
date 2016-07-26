@@ -27,7 +27,9 @@ import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
+import info.debatty.java.graphs.StatisticsContainer;
 import java.util.List;
+import org.apache.spark.Accumulator;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
@@ -160,7 +162,7 @@ public class ApproximateSearch<T> {
        return search(query, k, DEFAULT_SPEEDUP);
    }
 
-    /**
+   /**
      *
      * @param query
      * @param k
@@ -176,6 +178,27 @@ public class ApproximateSearch<T> {
             final int random_jumps,
             final double expansion) {
 
+        return search(query, k, speedup, random_jumps, expansion, null);
+    }
+
+    /**
+     *
+     * @param query
+     * @param k
+     * @param speedup
+     * @param random_jumps
+     * @param expansion
+     * @param stats_accumulator
+     * @return
+     */
+    public final NeighborList search(
+            final Node<T> query,
+            final int k,
+            final double speedup,
+            final int random_jumps,
+            final double expansion,
+            final Accumulator<StatisticsContainer> stats_accumulator) {
+
         JavaRDD<NeighborList> candidates_neighborlists
                 = distributed_graph.map(
                         new DistributedSearch(
@@ -183,7 +206,8 @@ public class ApproximateSearch<T> {
                                 k,
                                 speedup,
                                 random_jumps,
-                                expansion));
+                                expansion,
+                                stats_accumulator));
 
         NeighborList final_neighborlist = new NeighborList(k);
         for (NeighborList nl : candidates_neighborlists.collect()) {
@@ -222,26 +246,39 @@ class DistributedSearch<T>
     private final Node<T> query;
     private final int random_jumps;
     private final double expansion;
+    private final Accumulator<StatisticsContainer> stats_accumulator;
 
     DistributedSearch(
             final Node<T> query,
             final int k,
             final double speedup,
             final int random_jumps,
-            final double expansion) {
+            final double expansion,
+            final Accumulator<StatisticsContainer> stats_accumulator) {
+
         this.query = query;
         this.k = k;
         this.speedup = speedup;
         this.random_jumps = random_jumps;
         this.expansion = expansion;
+        this.stats_accumulator = stats_accumulator;
     }
 
     public NeighborList call(final Graph<T> local_graph) throws Exception {
-        return local_graph.fastSearch(
+        StatisticsContainer local_stats = new StatisticsContainer();
+
+        NeighborList local_results = local_graph.fastSearch(
                 query.value,
                 k,
                 speedup,
                 random_jumps,
-                expansion);
+                expansion,
+                local_stats);
+
+        if (stats_accumulator != null) {
+            stats_accumulator.add(local_stats);
+        }
+
+        return local_results;
     }
 }

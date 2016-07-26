@@ -29,6 +29,7 @@ import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
+import info.debatty.java.graphs.StatisticsContainer;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -38,6 +39,7 @@ import java.util.Random;
 import junit.framework.TestCase;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.apache.spark.Accumulator;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -57,7 +59,7 @@ public class OnlineTest extends TestCase implements Serializable {
     private static final int N_TEST = 200;
     private static final int PARTITIONS = 4;
     private static final int K = 10;
-    private static final double SUCCESS_RATIO = 0.8;
+    private static final double SUCCESS_RATIO = 0.7;
     private static final int DIMENSIONALITY = 1;
     private static final int NUM_CENTERS = 4;
 
@@ -127,7 +129,13 @@ public class OnlineTest extends TestCase implements Serializable {
                             String.valueOf(data.size()),
                             point[0]);
 
-            online_graph.fastAdd(new_node);
+            Accumulator<StatisticsContainer> stats_accumulator
+                    = sc.accumulator(
+                            new StatisticsContainer(),
+                            new StatisticsAccumulator());
+
+            online_graph.fastAdd(new_node, stats_accumulator);
+            System.out.println(stats_accumulator.value());
 
             // keep the node for later testing
             data.add(new_node);
@@ -147,13 +155,8 @@ public class OnlineTest extends TestCase implements Serializable {
 
         int correct = 0;
         for (Node<Double> node : local_exact_graph.getNodes()) {
-            try {
             correct += local_exact_graph.get(node).countCommons(
                     local_approximate_graph.get(node));
-            } catch (Exception ex) {
-                System.out.println("Null neighborlist!");
-                ex.printStackTrace();
-            }
         }
 
         double ratio = 1.0 * correct / (data.size() * K);
@@ -172,6 +175,7 @@ public class OnlineTest extends TestCase implements Serializable {
      * @throws Exception if we cannot build the graph.
      */
     public final void testWithoutPartitioning() throws Exception {
+
         System.out.println("Add nodes without partitioning");
         System.out.println("==============================");
 
@@ -247,13 +251,8 @@ public class OnlineTest extends TestCase implements Serializable {
 
         int correct = 0;
         for (Node<Double> node : local_exact_graph.getNodes()) {
-            try {
             correct += local_exact_graph.get(node).countCommons(
                     local_approximate_graph.get(node));
-            } catch (Exception ex) {
-                System.out.println("Null neighborlist!");
-                ex.printStackTrace();
-            }
         }
 
         double ratio = 1.0 * correct / (data.size() * K);
@@ -268,6 +267,7 @@ public class OnlineTest extends TestCase implements Serializable {
      * @throws Exception if we cannot build the graph.
      */
     public final void testRemove() throws Exception {
+
         System.out.println("Remove nodes");
         System.out.println("============");
 
@@ -372,6 +372,7 @@ public class OnlineTest extends TestCase implements Serializable {
      * @throws Exception if we cannot build the graph.
      */
     public final void testWindow() throws Exception {
+
         System.out.println("Sliding window");
         System.out.println("==============");
 
