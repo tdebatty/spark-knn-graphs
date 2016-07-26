@@ -31,22 +31,43 @@ import org.apache.spark.AccumulatorParam;
  *
  * @author Thibault Debatty
  */
-public class StatisticsAccumulator implements AccumulatorParam<StatisticsContainer> {
+public class StatisticsAccumulator
+        implements AccumulatorParam<StatisticsContainer> {
 
-    public StatisticsContainer addAccumulator(StatisticsContainer arg0, StatisticsContainer arg1) {
+    /**
+     *
+     * @param arg0
+     * @param arg1
+     * @return
+     */
+    public final StatisticsContainer addAccumulator(
+            final StatisticsContainer arg0, final StatisticsContainer arg1) {
         arg0.incAddSimilarities(arg1.getAddSimilarities());
         arg0.incRemoveSimilarities(arg1.getRemoveSimilarities());
-        arg0.incSearchCrossPartitionRestarts(arg1.getSearchCrossPartitionRestarts());
+        arg0.incSearchCrossPartitionRestarts(
+                arg1.getSearchCrossPartitionRestarts());
         arg0.incSearchRestarts(arg1.getSearchRestarts());
-        arg0.incSearchSimilarities(arg1.getSimilarities());
+        arg0.incSearchSimilarities(arg1.getSearchSimilarities());
         return arg0;
     }
 
-    public StatisticsContainer addInPlace(StatisticsContainer arg0, StatisticsContainer arg1) {
+    /**
+     *
+     * @param arg0
+     * @param arg1
+     * @return
+     */
+    public final StatisticsContainer addInPlace(
+            final StatisticsContainer arg0, final StatisticsContainer arg1) {
         return addAccumulator(arg0, arg1);
     }
 
-    public StatisticsContainer zero(StatisticsContainer arg0) {
+    /**
+     *
+     * @param arg0
+     * @return
+     */
+    public final StatisticsContainer zero(final StatisticsContainer arg0) {
         return new StatisticsContainer();
     }
 }
