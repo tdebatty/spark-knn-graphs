@@ -261,19 +261,24 @@ public class BalancedKMedoidsPartitioner<T>  {
     }
 }
 
+/**
+ * Used to choose the most central centroid from each partition during
+ * iterations. (the input is a PairRDD of Node, Neighborlist
+ * @author Thibault Debatty
+ * @param <T>
+ */
 class UpdateMedoidsFunction<T>
         implements FlatMapFunction<
             Iterator<Tuple2<Node<T>, NeighborList>>,
             Node<T>> {
 
     public Iterable<Node<T>>
-        call(Iterator<Tuple2<Node<T>, NeighborList>> t)
-                throws Exception {
+        call(final Iterator<Tuple2<Node<T>, NeighborList>> tuples) {
 
         // Build the partition
         Graph partition = new Graph();
-        while (t.hasNext()) {
-            Tuple2<Node<T>, NeighborList> tuple = t.next();
+        while (tuples.hasNext()) {
+            Tuple2<Node<T>, NeighborList> tuple = tuples.next();
             partition.put(tuple._1(), tuple._2());
         }
 
@@ -281,11 +286,13 @@ class UpdateMedoidsFunction<T>
             return new ArrayList<Node<T>>();
         }
 
-        // This partition might contain multiple subgraphs => find largest subgraph
-        ArrayList<Graph<T>> stronglyConnectedComponents = partition.stronglyConnectedComponents();
+        // This partition might contain multiple subgraphs
+        // => find largest subgraph
+        ArrayList<Graph<T>> strongly_connected_components
+                = partition.stronglyConnectedComponents();
         int largest_subgraph_size = 0;
-        Graph<T> largest_subgraph = stronglyConnectedComponents.get(0);
-        for (Graph<T> subgraph : stronglyConnectedComponents) {
+        Graph<T> largest_subgraph = strongly_connected_components.get(0);
+        for (Graph<T> subgraph : strongly_connected_components) {
             if (subgraph.size() > largest_subgraph_size) {
                 largest_subgraph = subgraph;
                 largest_subgraph_size = subgraph.size();
@@ -316,6 +323,11 @@ class UpdateMedoidsFunction<T>
     }
 }
 
+/**
+ * Used to assign each node to most similar medoid.
+ * @author Thibault Debatty
+ * @param <T>
+ */
 class AssignFunction<T>
     implements PairFlatMapFunction<
         Iterator<Tuple2<Node<T>, NeighborList>>,
@@ -371,9 +383,10 @@ class AssignFunction<T>
             // 2. value to maximize =
             // similarity * (1 - cluster_size / capacity_constraint)
             for (int center_id = 0; center_id < partitions; center_id++) {
-                values[center_id] =
-                        similarities[center_id]
-                        * (1 - partitions_size[center_id] / partition_constraint);
+                double constraint
+                        = 1.0
+                        - partitions_size[center_id] / partition_constraint;
+                values[center_id] = similarities[center_id] * constraint;
             }
 
             // 3. choose partition that maximizes computed value
@@ -387,18 +400,26 @@ class AssignFunction<T>
     }
 }
 
+/**
+ * Used to update medoids after nodes are added to the graph. The input is a
+ * RDD of Graph.
+ * @author Thibault Debatty
+ * @param <T>
+ */
 class ComputeMedoids<T> implements Function<Graph<T>, Node<T>> {
 
-    public Node<T> call(Graph<T> graph) throws Exception {
+    public Node<T> call(final Graph<T> graph) {
         if (graph.size() == 0) {
             return null;
         }
 
-        // This partition might contain multiple subgraphs => find largest subgraph
-        ArrayList<Graph<T>> stronglyConnectedComponents = graph.stronglyConnectedComponents();
+        // This partition might contain multiple subgraphs
+        // => find largest subgraph
+        ArrayList<Graph<T>> strongly_connected_components
+                = graph.stronglyConnectedComponents();
         int largest_subgraph_size = 0;
-        Graph<T> largest_subgraph = stronglyConnectedComponents.get(0);
-        for (Graph<T> subgraph : stronglyConnectedComponents) {
+        Graph<T> largest_subgraph = strongly_connected_components.get(0);
+        for (Graph<T> subgraph : strongly_connected_components) {
             if (subgraph.size() > largest_subgraph_size) {
                 largest_subgraph = subgraph;
                 largest_subgraph_size = subgraph.size();
@@ -427,23 +448,24 @@ class ComputeMedoids<T> implements Function<Graph<T>, Node<T>> {
     }
 }
 
+/**
+ * Used to convert a PairRDD Node,NeighborList to a RDD of Graph.
+ * @author Thibault Debatty
+ * @param <T>
+ */
 class NeighborListToGraph<T>
         implements FlatMapFunction<
-            Iterator<Tuple2<Node<T>, NeighborList>>,
-            Graph<T>> {
+            Iterator<Tuple2<Node<T>, NeighborList>>, Graph<T>> {
 
     private final SimilarityInterface<T> similarity;
 
-    public NeighborListToGraph(final SimilarityInterface<T> similarity) {
+     NeighborListToGraph(final SimilarityInterface<T> similarity) {
 
         this.similarity = similarity;
     }
 
-
-
     public Iterable<Graph<T>> call(
-            final Iterator<Tuple2<Node<T>, NeighborList>> iterator)
-            throws Exception {
+            final Iterator<Tuple2<Node<T>, NeighborList>> iterator) {
 
         Graph<T> graph = new Graph<T>();
         while (iterator.hasNext()) {
