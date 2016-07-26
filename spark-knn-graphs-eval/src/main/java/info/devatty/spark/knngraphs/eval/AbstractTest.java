@@ -27,9 +27,11 @@ import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
+import info.debatty.java.graphs.StatisticsContainer;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import info.debatty.spark.knngraphs.builder.Online;
+import info.debatty.spark.knngraphs.builder.StatisticsAccumulator;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -48,6 +50,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.apache.spark.Accumulator;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -185,11 +188,22 @@ public abstract class AbstractTest<T> {
         log("Add nodes...");
         int i = 0;
         long similarities = 0;
+        // search restarts due to cross partition edges
+        long xpartition_restarts = 0;
         start_time = System.currentTimeMillis();
         for (final Node<T> query : validation_dataset) {
             i++;
+            Accumulator<StatisticsContainer> stats_accumulator = sc.accumulator(
+                    new StatisticsContainer(),
+                    new StatisticsAccumulator());
 
-            similarities += online_graph.fastAdd(query);
+            online_graph.fastAdd(query,stats_accumulator);
+
+            StatisticsContainer global_stats = stats_accumulator.value();
+            similarities += global_stats.getSimilarities();
+            xpartition_restarts
+                    += global_stats.getSearchCrossPartitionRestarts();
+
             dataset.add(query);
 
             if (i % 10 == 0) {
@@ -213,7 +227,6 @@ public abstract class AbstractTest<T> {
                                 local_approximate_graph.get(node));
                     } catch (NullPointerException ex) {
                         log("Null neighborlist!!");
-                        ex.printStackTrace();
                     }
                 }
 
@@ -222,8 +235,14 @@ public abstract class AbstractTest<T> {
                         correct, 100 * correct / (k * (n + i)));
 
                 long time_add = System.currentTimeMillis() - start_time;
-                writeResult(i, correct, similarities, time_add);
+                writeResult(
+                        i,
+                        correct,
+                        similarities,
+                        time_add,
+                        xpartition_restarts);
                 similarities = 0;
+                xpartition_restarts = 0;
                 System.currentTimeMillis();
             }
         }
@@ -348,7 +367,8 @@ public abstract class AbstractTest<T> {
             final int n_added,
             final int correct,
             final long similarities,
-            final long time_add) throws IOException {
+            final long time_add,
+            final long xpartition_restarts) throws IOException {
 
         // Write results to file
         if (result_file_writer == null) {
@@ -384,7 +404,8 @@ public abstract class AbstractTest<T> {
         result_file_writer.printf("%f\t", quality);
         result_file_writer.printf("%d\t", similarities);
         result_file_writer.printf("%f\t", quality_equivalent_speedup);
-        result_file_writer.printf("%d\n", time_add);
+        result_file_writer.printf("%d\t", time_add);
+        result_file_writer.printf("%d\n", xpartition_restarts);
         result_file_writer.flush();
     }
 
@@ -405,7 +426,8 @@ public abstract class AbstractTest<T> {
         result_file_writer.printf("quality\t");
         result_file_writer.printf("similarities\t");
         result_file_writer.printf("quality_equivalent_speedup\t");
-        result_file_writer.printf("time_add\n");
+        result_file_writer.printf("time_add\t");
+        result_file_writer.printf("xpartition_restarts\n");
         result_file_writer.flush();
     }
 
