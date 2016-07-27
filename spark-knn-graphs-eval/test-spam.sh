@@ -14,20 +14,27 @@ DATASET="/home/tibo/Datasets/SPAM/spam-subject-200K.txt"
 #OPTS="--driver-memory 4g --num-executors 8 --executor-cores 4 --executor-memory 4g --master yarn-client --conf spark.eventLog.dir=/tmp/online/spark-events"
 #DATASET="../datasets/spam-subject-200K.txt"
 
+# Vary partitioning iterations
+$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 0 -pm 4 -ud 2 -ss 4 -srj 3 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 1 -pm 4 -ud 2 -ss 4 -srj 3 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 2 -pm 4 -ud 2 -ss 4 -srj 3 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 3 -pm 4 -ud 2 -ss 4 -srj 3 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 4 -pm 4 -ud 2 -ss 4 -srj 3 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+
 # Vary k
-$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 4 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
-$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 20 -pi 5 -pm 4 -ud 2 -ss 4 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
-$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 40 -pi 5 -pm 4 -ud 2 -ss 4 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+#$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 4 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+#$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 20 -pi 5 -pm 4 -ud 2 -ss 4 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+#$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 40 -pi 5 -pm 4 -ud 2 -ss 4 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
 
 # Vary random jumps
-$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 4 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
-$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 4 -srj 2 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
-$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 4 -srj 3 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+#$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 4 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+#$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 4 -srj 2 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+#$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 4 -srj 3 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
 
 # Vary search speedup
-$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 4 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
-$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 8 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
-$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 16 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+#$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 4 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+#$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 8 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
+#$SPARK $OPTS --class $CLASS $JAR -i $DATASET -o "test-spam.csv" -k 10 -pi 5 -pm 4 -ud 2 -ss 16 -srj 1 -se 1.2 -n 1000 -na 1000 -ne 1000 -mur 0 2&>> test-spam.log
 
 # Send e-mail when done
 #../sendmail.py "Test with spam dataset is done"

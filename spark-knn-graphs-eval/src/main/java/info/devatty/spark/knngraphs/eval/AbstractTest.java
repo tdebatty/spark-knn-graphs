@@ -64,6 +64,8 @@ import scala.Tuple2;
  */
 public abstract class AbstractTest<T> {
 
+    private static final int NODES_BEFORE_FEEDBACK = 10;
+
     private int k;
     private int partitioning_iterations;
     private int partitioning_medoids;
@@ -146,7 +148,7 @@ public abstract class AbstractTest<T> {
         log("Parallelize the training dataset and force execution...");
         JavaRDD<Node<T>> nodes = sc.parallelize(dataset);
         nodes.cache();
-        nodes.first();
+        nodes.count();
 
         log("Compute initial graph...");
         long start_time = System.currentTimeMillis();
@@ -156,7 +158,7 @@ public abstract class AbstractTest<T> {
         JavaPairRDD<Node<T>, NeighborList> graph
                 = builder.computeGraph(nodes);
         graph.cache();
-        graph.first();
+        graph.count();
         long time_build_graph = System.currentTimeMillis() - start_time;
         log("DONE!");
         System.out.printf(
@@ -189,6 +191,7 @@ public abstract class AbstractTest<T> {
         int i = 0;
         long similarities = 0;
         // search restarts due to cross partition edges
+        long restarts = 0;
         long xpartition_restarts = 0;
         start_time = System.currentTimeMillis();
         for (final Node<T> query : validation_dataset) {
@@ -197,16 +200,17 @@ public abstract class AbstractTest<T> {
                     new StatisticsContainer(),
                     new StatisticsAccumulator());
 
-            online_graph.fastAdd(query,stats_accumulator);
+            online_graph.fastAdd(query, stats_accumulator);
 
             StatisticsContainer global_stats = stats_accumulator.value();
             similarities += global_stats.getSimilarities();
+            restarts += global_stats.getSearchRestarts();
             xpartition_restarts
                     += global_stats.getSearchCrossPartitionRestarts();
 
             dataset.add(query);
 
-            if (i % 10 == 0) {
+            if (i % NODES_BEFORE_FEEDBACK == 0) {
                 log("" + i);
             }
 
@@ -215,6 +219,7 @@ public abstract class AbstractTest<T> {
                 Graph<T> local_approximate_graph
                         = list2graph(online_graph.getGraph().collect());
 
+                log("Compute verification graph");
                 Graph<T> local_exact_graph
                         = list2graph(
                                 builder.computeGraph(
@@ -222,17 +227,13 @@ public abstract class AbstractTest<T> {
 
                 int correct = 0;
                 for (Node<T> node : local_exact_graph.getNodes()) {
-                    try {
-                        correct += local_exact_graph.get(node).countCommons(
-                                local_approximate_graph.get(node));
-                    } catch (NullPointerException ex) {
-                        log("Null neighborlist!!");
-                    }
+                    correct += local_exact_graph.get(node).countCommons(
+                            local_approximate_graph.get(node));
                 }
 
                 System.out.printf(
-                        "%-30s %d (%d%%)\n", "Correct edges in online graph: ",
-                        correct, 100 * correct / (k * (n + i)));
+                        "%-30s %d (%f)\n", "Correct edges in online graph: ",
+                        correct, 1.0 * correct / (k * (n + i)));
 
                 long time_add = System.currentTimeMillis() - start_time;
                 writeResult(
@@ -240,8 +241,10 @@ public abstract class AbstractTest<T> {
                         correct,
                         similarities,
                         time_add,
+                        restarts,
                         xpartition_restarts);
                 similarities = 0;
+                restarts = 0;
                 xpartition_restarts = 0;
                 System.currentTimeMillis();
             }
@@ -368,6 +371,7 @@ public abstract class AbstractTest<T> {
             final int correct,
             final long similarities,
             final long time_add,
+            final long restarts,
             final long xpartition_restarts) throws IOException {
 
         // Write results to file
@@ -381,12 +385,14 @@ public abstract class AbstractTest<T> {
         System.out.println("Quality factor (Q): " + quality);
 
         double correct_ratio = 1.0 * correct / (k * (n_added + n));
-        int n_end = n + n_added;
-        int n_start = n_end - n_evaluation;
+
+        long n_end = n + n_added;
+        long n_start = n_end - n_evaluation;
         long similarities_naive
-                = n_end * (n_end + 1) / 2 - n_start * (n_start + 1) / 2;
-        double quality_equivalent_speedup
-                = correct_ratio * similarities_naive / similarities;
+                = n_end * (n_end - 1) / 2 - n_start * (n_start - 1) / 2;
+
+        double real_speedup = 1.0 * similarities_naive / similarities;
+        double quality_equivalent_speedup = correct_ratio * real_speedup;
 
         result_file_writer.printf("%d\t", n);
         result_file_writer.printf("%d\t", k);
@@ -403,8 +409,10 @@ public abstract class AbstractTest<T> {
         result_file_writer.printf("%f\t", correct_ratio);
         result_file_writer.printf("%f\t", quality);
         result_file_writer.printf("%d\t", similarities);
+        result_file_writer.printf("%f\t", real_speedup);
         result_file_writer.printf("%f\t", quality_equivalent_speedup);
         result_file_writer.printf("%d\t", time_add);
+        result_file_writer.printf("%d\t", restarts);
         result_file_writer.printf("%d\n", xpartition_restarts);
         result_file_writer.flush();
     }
@@ -425,8 +433,10 @@ public abstract class AbstractTest<T> {
         result_file_writer.printf("correct_ratio\t");
         result_file_writer.printf("quality\t");
         result_file_writer.printf("similarities\t");
+        result_file_writer.printf("real_speedup\t");
         result_file_writer.printf("quality_equivalent_speedup\t");
         result_file_writer.printf("time_add\t");
+        result_file_writer.printf("restarts\t");
         result_file_writer.printf("xpartition_restarts\n");
         result_file_writer.flush();
     }
