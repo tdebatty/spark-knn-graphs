@@ -106,7 +106,9 @@ public class ApproximateSearch<T> {
         partitioner.setSimilarity(similarity);
         partitioner.setImbalance(imbalance);
 
-        this.distributed_graph = partitioner.partition(graph).cache();
+        this.distributed_graph = partitioner.partition(graph);
+        this.distributed_graph.cache();
+        this.distributed_graph.count();
     }
 
     /**
@@ -265,6 +267,7 @@ class DistributedSearch<T>
     }
 
     public NeighborList call(final Graph<T> local_graph) throws Exception {
+
         StatisticsContainer local_stats = new StatisticsContainer();
 
         NeighborList local_results = local_graph.fastSearch(

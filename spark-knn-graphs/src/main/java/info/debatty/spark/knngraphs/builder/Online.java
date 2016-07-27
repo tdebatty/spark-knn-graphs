@@ -67,6 +67,9 @@ public class Online<T> {
     // (to strip RDD DAG)
     private static final int ITERATIONS_BETWEEN_CHECKPOINTS = 100;
 
+    // Number of RDD's to cache
+    private static final int RDDS_TO_CACHE = 5;
+
     // the search algorithm also contains a reference to the current graph
     private final ApproximateSearch<T> searcher;
     private final int k;
@@ -264,8 +267,8 @@ public class Online<T> {
         // bookkeeping: update the counts
         partitions_size[(Integer) node
                 .getAttribute(BalancedKMedoidsPartitioner.PARTITION_KEY)]++;
-        // update the existing graph edges
 
+        // update the existing graph edges
         JavaRDD<Graph<T>> updated_graph = searcher.getGraph().map(
                     new UpdateFunction<T>(
                             node,
@@ -284,11 +287,12 @@ public class Online<T> {
 
         // Keep a track of updated RDD to unpersist after two iterations
         previous_rdds.add(updated_graph);
-        if (nodes_added_or_removed > 2) {
+        if (nodes_added_or_removed > RDDS_TO_CACHE) {
             previous_rdds.pop().unpersist();
         }
 
-        // Force execution
+        // Force execution to get stats accumulator values
+        updated_graph.cache();
         updated_graph.count();
 
         // From now on use the new graph...

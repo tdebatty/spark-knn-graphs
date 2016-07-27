@@ -118,13 +118,14 @@ public class BalancedKMedoidsPartitioner<T>  {
         // Randomize the input graph
         JavaPairRDD<Node<T>, NeighborList> randomized_graph = input_graph
                 .mapToPair(new RandomizeFunction(partitions))
-                .partitionBy(internal_partitioner)
-                .cache();
+                .partitionBy(internal_partitioner);
 
-        //randomized_graph = input_graph.cache();
+        // Cache and force execution
+        randomized_graph.cache();
+        long count = randomized_graph.count();
 
         // Pick some random initial medoids
-        double fraction = OVERSAMPLING * partitions / randomized_graph.count();
+        double fraction = OVERSAMPLING * partitions / count;
         Iterator<Tuple2<Node<T>, NeighborList>> sample_iterator =
                 randomized_graph.sample(false, fraction).collect().iterator();
         medoids = new ArrayList<Node<T>>();
@@ -148,7 +149,8 @@ public class BalancedKMedoidsPartitioner<T>  {
                                     medoids,
                                     imbalance,
                                     partitions,
-                                    similarity));
+                                    similarity),
+                            true);
 
             // Compute new medoids
             medoids = partitioned_graph.mapPartitions(
@@ -214,7 +216,6 @@ public class BalancedKMedoidsPartitioner<T>  {
         // Total number of elements
         long n = sum(counts) + 1;
         int partition_constraint = (int) (imbalance * n / partitions);
-
 
         double[] similarities = new double[partitions];
         double[] values = new double[partitions];
