@@ -65,7 +65,7 @@ public class Online<T> {
 
     // Number of nodes to add before performing a checkpoint
     // (to strip RDD DAG)
-    private static final int ITERATIONS_BETWEEN_CHECKPOINTS = 100;
+    private static final int ITERATIONS_BEFORE_CHECKPOINT = 40;
 
     // Number of RDD's to cache
     private static final int RDDS_TO_CACHE = 5;
@@ -281,7 +281,7 @@ public class Online<T> {
         updated_graph = updated_graph.map(new AddNode(node, neighborlist));
 
         //  truncate RDD DAG (would cause a stack overflow, even with caching)
-        if ((nodes_added_or_removed % ITERATIONS_BETWEEN_CHECKPOINTS) == 0) {
+        if ((nodes_added_or_removed % ITERATIONS_BEFORE_CHECKPOINT) == 0) {
             updated_graph.checkpoint();
         }
 
@@ -370,7 +370,7 @@ public class Online<T> {
         partitions_size[partition_of_node_to_remove]--;
 
         //  truncate RDD DAG (would cause a stack overflow, even with caching)
-        if ((nodes_added_or_removed % ITERATIONS_BETWEEN_CHECKPOINTS) == 0) {
+        if ((nodes_added_or_removed % ITERATIONS_BEFORE_CHECKPOINT) == 0) {
             updated_graph.checkpoint();
         }
 

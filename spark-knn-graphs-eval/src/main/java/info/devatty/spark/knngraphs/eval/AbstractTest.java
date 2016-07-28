@@ -190,8 +190,8 @@ public abstract class AbstractTest<T> {
         log("Add nodes...");
         int i = 0;
         long similarities = 0;
-        // search restarts due to cross partition edges
         long restarts = 0;
+        // search restarts due to cross partition edges
         long xpartition_restarts = 0;
         start_time = System.currentTimeMillis();
         for (final Node<T> query : validation_dataset) {
@@ -215,7 +215,6 @@ public abstract class AbstractTest<T> {
             }
 
             if (i % n_evaluation == 0) {
-                log("" + i);
                 Graph<T> local_approximate_graph
                         = list2graph(online_graph.getGraph().collect());
 
@@ -224,6 +223,7 @@ public abstract class AbstractTest<T> {
                         = list2graph(
                                 builder.computeGraph(
                                         sc.parallelize(dataset)).collect());
+                log("done...");
 
                 int correct = 0;
                 for (Node<T> node : local_exact_graph.getNodes()) {
