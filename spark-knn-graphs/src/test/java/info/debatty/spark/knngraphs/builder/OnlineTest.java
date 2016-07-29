@@ -182,9 +182,6 @@ public class OnlineTest extends TestCase implements Serializable {
      * @throws Exception if we cannot build the graph.
      */
     public final void testWithoutPartitioning() throws Exception {
-        if (true) {
-            return;
-        }
 
         System.out.println("Add nodes without partitioning");
         System.out.println("==============================");
@@ -279,9 +276,6 @@ public class OnlineTest extends TestCase implements Serializable {
      * @throws Exception if we cannot build the graph.
      */
     public final void testRemove() throws Exception {
-        if (true) {
-            return;
-        }
 
         System.out.println("Remove nodes");
         System.out.println("============");
@@ -382,94 +376,6 @@ public class OnlineTest extends TestCase implements Serializable {
         assertEquals(data.size(), local_approximate_graph.size());
         assertEquals(online_graph.getGraph().partitions().size(), PARTITIONS);
         assertTrue(ratio > SUCCESS_RATIO);
-    }
-
-    /**
-     * Test add + remove (sliding window).
-     * @throws Exception if we cannot build the graph.
-     */
-    public final void testWindow() throws Exception {
-        if (true) {
-            return;
-        }
-
-        System.out.println("Sliding window");
-        System.out.println("==============");
-
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
-
-        SimilarityInterface<Double> similarity =
-                new SimilarityInterface<Double>() {
-
-            public double similarity(final Double value1, final Double value2) {
-                return 1.0 / (1 + Math.abs(value1 - value2));
-            }
-        };
-
-        System.out.println("Create some random nodes");
-        List<Node<Double>> data = new ArrayList<Node<Double>>();
-        Iterator<Double[]> dataset
-                = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
-                .setOverlap(Dataset.Builder.Overlap.MEDIUM)
-                .build()
-                .iterator();
-
-        int sequence_number = 0;
-        while (sequence_number < N) {
-            Double[] point = dataset.next();
-
-            Node<Double> node = new Node<Double>(
-                    String.valueOf(sequence_number),
-                    point[0]);
-            node.setAttribute(Online.NODE_SEQUENCE_KEY, sequence_number);
-            data.add(node);
-            sequence_number++;
-        }
-
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        JavaSparkContext sc = new JavaSparkContext(conf);
-
-        // Parallelize the dataset in Spark
-        JavaRDD<Node<Double>> nodes = sc.parallelize(data);
-
-        Brute brute = new Brute();
-        brute.setK(K);
-        brute.setSimilarity(similarity);
-
-        System.out.println("Compute the graph and force execution");
-        JavaPairRDD<Node<Double>, NeighborList> graph
-                = brute.computeGraph(nodes);
-        graph.cache();
-        graph.count();
-
-        System.out.println("Prepare the graph for online processing");
-        Online<Double> online_graph =
-                new Online<Double>(K, similarity, sc, graph, PARTITIONS);
-        online_graph.setSearchSpeedup(SPEEDUP);
-        online_graph.setWindowSize(N);
-
-        System.out.println("Add some nodes...");
-        for (int i = 0; i < N_TEST; i++) {
-            Double[] point = dataset.next();
-            Node<Double> new_node =
-                    new Node<Double>(
-                            String.valueOf(sequence_number),
-                            point[0]);
-            new_node.setAttribute(Online.NODE_SEQUENCE_KEY, sequence_number);
-
-            online_graph.fastAdd(new_node);
-            sequence_number++;
-        }
-        Graph<Double> local_approximate_graph =
-                list2graph(online_graph.getGraph().collect());
-        sc.close();
-
-        assertEquals(N, local_approximate_graph.size());
-        assertEquals(online_graph.getGraph().partitions().size(), PARTITIONS);
     }
 
     private Graph<Double> list2graph(

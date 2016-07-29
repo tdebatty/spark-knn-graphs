@@ -53,19 +53,13 @@ import scala.Tuple2;
  */
 public class Online<T> {
 
-    /**
-     * Key used to store the sequence number of the nodes. Used by the window
-     * algorithm to remove the nodes.
-     */
-    public static final String NODE_SEQUENCE_KEY = "ONLINE_SEQ_KEY";
-
     private static final int DEFAULT_PARTITIONING_ITERATIONS = 5;
     private static final int DEFAULT_UPDATE_DEPTH = 2;
     private static final double DEFAULT_MEDOID_UPDATE_RATIO = 0.1;
 
     // Number of nodes to add before performing a checkpoint
     // (to strip RDD DAG)
-    private static final int ITERATIONS_BEFORE_CHECKPOINT = 40;
+    private static final int ITERATIONS_BEFORE_CHECKPOINT = 100;
 
     // Number of RDD's to cache
     private static final int RDDS_TO_CACHE = 5;
@@ -86,7 +80,6 @@ public class Online<T> {
 
     private long nodes_added_or_removed;
     private long nodes_before_update_medoids;
-    private int window_size = 0;
     private final JavaSparkContext spark_context;
     private int update_depth = DEFAULT_UPDATE_DEPTH;
 
@@ -161,23 +154,6 @@ public class Online<T> {
     }
 
     /**
-     * Get the size of the window.
-     * @return
-     */
-    public final int getWindowSize() {
-        return window_size;
-    }
-
-    /**
-     * Set the size of the window (for removing a point when a new point is
-     * added to graph).
-     * @param window_size
-     */
-    public final void setWindowSize(final int window_size) {
-        this.window_size = window_size;
-    }
-
-    /**
      * Get the total number of nodes in the online graph.
      * @return total number of nodes in the graph
      */
@@ -243,13 +219,6 @@ public class Online<T> {
             final Node<T> node,
             final Accumulator<StatisticsContainer> stats_accumulator) {
 
-
-        if (window_size != 0) {
-            // TODO: add stats_accumulator in fast remove!
-            fastRemove(
-                (Integer) node.getAttribute(NODE_SEQUENCE_KEY) - window_size);
-        }
-
         // Find the neighbors of this node
         NeighborList neighborlist = searcher.search(
                 node,
@@ -279,6 +248,7 @@ public class Online<T> {
 
         // Add the new <Node, NeighborList> to the distributed graph
         updated_graph = updated_graph.map(new AddNode(node, neighborlist));
+        updated_graph = updated_graph.cache();
 
         //  truncate RDD DAG (would cause a stack overflow, even with caching)
         if ((nodes_added_or_removed % ITERATIONS_BEFORE_CHECKPOINT) == 0) {
@@ -292,7 +262,6 @@ public class Online<T> {
         }
 
         // Force execution to get stats accumulator values
-        updated_graph.cache();
         updated_graph.count();
 
         // From now on use the new graph...
@@ -309,6 +278,7 @@ public class Online<T> {
 
     /**
      * Remove a node using fast approximate algorithm.
+     * TODO: add stats_accumulator in fast remove!
      * @param node_to_remove
      * @return number of computed similarities
      */
@@ -390,25 +360,6 @@ public class Online<T> {
     }
 
     /**
-     * Remove a node using the node sequence number instead of the node itself.
-     * Used by the sliding window algorithm.
-     * @param node_sequence
-     */
-    private int fastRemove(final long node_sequence) {
-        // This is not really efficient :(
-        List<Node<T>> nodes = searcher.getGraph()
-                .flatMap(new FindNode(node_sequence))
-                .collect();
-
-        if (nodes.isEmpty()) {
-            System.out.println("Node sequence not found: " + node_sequence);
-            return 0;
-        }
-
-        return fastRemove(nodes.get(0));
-    }
-
-    /**
      * Get the current graph, represented as a RDD of Graph.
      * @return the current graph
      */
@@ -487,33 +438,6 @@ class AddNode<T> implements Function<Graph<T>, Graph<T>> {
         }
 
         return graph;
-    }
-}
-
-/**
- * Used to find the node corresponding to a given sequence number.
- * @author Thibault Debatty
- * @param <T>
- */
-class FindNode<T> implements FlatMapFunction<Graph<T>, Node<T>> {
-    private final long sequence_number;
-
-    FindNode(final long sequence_number) {
-        this.sequence_number = sequence_number;
-    }
-
-    public Iterable<Node<T>> call(final Graph<T> subgraph) {
-
-        LinkedList<Node<T>> result = new LinkedList<Node<T>>();
-        for (Node<T> node : subgraph.getNodes()) {
-            Integer node_sequence = (Integer) node.getAttribute(
-                    Online.NODE_SEQUENCE_KEY);
-            if (node_sequence == sequence_number) {
-                result.add(node);
-                return result;
-            }
-        }
-        return result;
     }
 }
 
