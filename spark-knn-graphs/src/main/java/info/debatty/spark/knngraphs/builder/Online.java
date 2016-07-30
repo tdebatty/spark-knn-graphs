@@ -62,7 +62,7 @@ public class Online<T> {
     private static final int ITERATIONS_BEFORE_CHECKPOINT = 100;
 
     // Number of RDD's to cache
-    private static final int RDDS_TO_CACHE = 5;
+    private static final int RDDS_TO_CACHE = 3;
 
     // the search algorithm also contains a reference to the current graph
     private final ApproximateSearch<T> searcher;
