@@ -113,6 +113,11 @@ public class BalancedKMedoidsPartitioner<T>  {
     public final JavaRDD<Graph<T>> partition(
             final JavaPairRDD<Node<T>, NeighborList> input_graph) {
 
+        if (this.partitions == 1) {
+            // Only one partition => no need to iteratate!
+            this.iterations = 0;
+        }
+
         internal_partitioner = new NodePartitioner(partitions);
 
         // Randomize the input graph
