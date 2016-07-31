@@ -147,7 +147,7 @@ public abstract class AbstractTest<T> {
 
         log("Parallelize the training dataset and force execution...");
         JavaRDD<Node<T>> nodes = sc.parallelize(dataset);
-        nodes.cache();
+        nodes = nodes.cache();
         nodes.count();
 
         log("Compute initial graph...");
@@ -157,7 +157,7 @@ public abstract class AbstractTest<T> {
         builder.setSimilarity(similarity);
         JavaPairRDD<Node<T>, NeighborList> graph
                 = builder.computeGraph(nodes);
-        graph.cache();
+        graph = graph.cache();
         graph.count();
         long time_build_graph = System.currentTimeMillis() - start_time;
         log("DONE!");
@@ -392,7 +392,7 @@ public abstract class AbstractTest<T> {
                 = n_end * (n_end - 1) / 2 - n_start * (n_start - 1) / 2;
 
         double real_speedup = 1.0 * similarities_naive / similarities;
-        double quality_equivalent_speedup = correct_ratio * real_speedup;
+        double quality_equivalent_speedup = quality * real_speedup;
 
         result_file_writer.printf("%d\t", n);
         result_file_writer.printf("%d\t", k);
