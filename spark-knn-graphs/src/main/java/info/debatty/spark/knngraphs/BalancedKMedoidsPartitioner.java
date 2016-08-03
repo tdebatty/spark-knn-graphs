@@ -381,9 +381,16 @@ class AssignFunction<T>
 
             // 1. similarities
             for (int center_id = 0; center_id < partitions; center_id++) {
-                similarities[center_id] = similarity.similarity(
+                double sim = similarity.similarity(
                         medoids.get(center_id).value,
                         tuple._1.value);
+
+                if (sim < 0 || Double.isNaN(sim)) {
+                    System.err.println("Similarity must be positive! between "
+                        + medoids.get(center_id).value + " and "
+                        + tuple._1.value);
+                }
+                similarities[center_id] = sim;
             }
 
             // 2. value to maximize =
