@@ -112,6 +112,13 @@ public class ApproximateSearch<T> {
     }
 
     /**
+     * Unpersist the internal cached RDD.
+     */
+    public final void clean() {
+        distributed_graph.unpersist(true);
+    }
+
+    /**
      *
      * @return
      */

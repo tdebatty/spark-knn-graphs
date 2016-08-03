@@ -146,6 +146,16 @@ public class Online<T> {
     }
 
     /**
+     * Unpersist all cached RDD's.
+     */
+    public final void clean() {
+        for (JavaRDD<Graph<T>> rdd : previous_rdds) {
+            rdd.unpersist();
+        }
+        searcher.clean();
+    }
+
+    /**
      * Set the update depth for fast adding or removing nodes (default is 2).
      * @param update_depth
      */
@@ -397,7 +407,6 @@ public class Online<T> {
         }
 
         return (long) (getSize() * medoid_update_ratio);
-
     }
 }
 
