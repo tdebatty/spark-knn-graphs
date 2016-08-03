@@ -24,36 +24,22 @@
 
 package info.devatty.spark.knngraphs.eval;
 
-import info.debatty.java.datasets.textfile.Dataset;
+import info.debatty.java.datasets.wikipedia.Page;
 import info.debatty.java.graphs.SimilarityInterface;
-import info.debatty.java.stringsimilarity.JaroWinkler;
-import org.apache.commons.cli.ParseException;
+import info.debatty.java.stringsimilarity.Cosine;
 
 /**
  *
  * @author Thibault Debatty
  */
-public class Spam extends AbstractTest<String> {
+/**
+ * Computes cosine similarity between 2-grams.
+ * @author Thibault Debatty
+ */
+public class PageSimilarity implements SimilarityInterface<Page> {
 
-    /**
-     *
-     * @param args
-     * @throws ParseException if we cannot parse args
-     * @throws Exception if the test fails to run
-     */
-    public static void main(final String[] args)
-            throws ParseException, Exception  {
-
-        Spam test = new Spam();
-        test.parseArgs(args);
-
-        test.setSimilarity(new JWSimilarity());
-
-        Dataset dataset = new Dataset(test.getDatasetFile());
-        test.setDataSource(dataset.iterator());
-
-        test.run();
-
+    public double similarity(final Page page1, final Page page2) {
+        Cosine cosine = new Cosine(2);
+        return cosine.similarity(page1.getText(), page2.getText());
     }
 }
-

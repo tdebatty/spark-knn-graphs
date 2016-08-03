@@ -24,36 +24,17 @@
 
 package info.devatty.spark.knngraphs.eval;
 
-import info.debatty.java.datasets.textfile.Dataset;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.stringsimilarity.JaroWinkler;
-import org.apache.commons.cli.ParseException;
 
 /**
- *
+ * Uses Jaro-Winkler to measure string similarity.
  * @author Thibault Debatty
  */
-public class Spam extends AbstractTest<String> {
+class JWSimilarity implements SimilarityInterface<String> {
 
-    /**
-     *
-     * @param args
-     * @throws ParseException if we cannot parse args
-     * @throws Exception if the test fails to run
-     */
-    public static void main(final String[] args)
-            throws ParseException, Exception  {
-
-        Spam test = new Spam();
-        test.parseArgs(args);
-
-        test.setSimilarity(new JWSimilarity());
-
-        Dataset dataset = new Dataset(test.getDatasetFile());
-        test.setDataSource(dataset.iterator());
-
-        test.run();
-
+    public double similarity(final String value1, final String value2) {
+        JaroWinkler jw = new JaroWinkler();
+        return jw.similarity(value1, value2);
     }
 }
-

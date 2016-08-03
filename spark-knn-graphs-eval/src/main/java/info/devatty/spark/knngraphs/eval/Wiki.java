@@ -48,23 +48,11 @@ public class Wiki extends AbstractTest<Page> {
         Wiki test = new Wiki();
         test.parseArgs(args);
 
-        test.setSimilarity(new CosineSimilarity());
+        test.setSimilarity(new PageSimilarity());
 
         Dataset dataset = new Dataset(test.getDatasetFile());
         test.setDataSource(dataset.iterator());
 
         test.run();
-    }
-}
-
-/**
- * Computes cosine similarity between 2-grams.
- * @author Thibault Debatty
- */
-class CosineSimilarity implements SimilarityInterface<Page> {
-
-    public double similarity(final Page page1, final Page page2) {
-        Cosine cosine = new Cosine(2);
-        return cosine.similarity(page1.getText(), page2.getText());
     }
 }
