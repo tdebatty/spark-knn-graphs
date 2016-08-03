@@ -99,6 +99,7 @@ public class GraphTest extends TestCase {
 
 
         System.out.println(Graph.countCommonEdges(exact_graph, nndes_graph));
+        sc.close();
     }
 
 }
