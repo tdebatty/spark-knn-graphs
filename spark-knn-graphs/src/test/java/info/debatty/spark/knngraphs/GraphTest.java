@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2015 Thibault Debatty.
+ * Copyright 2016 Thibault Debatty.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,15 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+package info.debatty.spark.knngraphs;
 
-package info.debatty.spark.knngraphs.builder;
-
-import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
-import info.debatty.spark.knngraphs.JWSimilarity;
+import info.debatty.spark.knngraphs.builder.Brute;
+import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
+import info.debatty.spark.knngraphs.builder.NNDescent;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import junit.framework.TestCase;
@@ -39,22 +38,27 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import scala.Tuple2;
 
 /**
  *
  * @author Thibault Debatty
  */
-public class BruteTest extends TestCase implements Serializable {
+public class GraphTest extends TestCase {
 
     private static final int K = 10;
+    private static final int ITERATIONS = 5;
 
-    public final void testComputeGraph() throws IOException, Exception {
+    /**
+     * Test of countCommonEdges method, of class Graph.
+     */
+    public void testCountCommonEdges() throws IOException, Exception {
+        System.out.println("Graph");
+        System.out.println("=====");
 
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
 
-        String file =  getClass().getClassLoader().
+        String file = getClass().getClassLoader().
                 getResource("726-unique-spams").getPath();
 
         // Read the file
@@ -79,24 +83,22 @@ public class BruteTest extends TestCase implements Serializable {
         brute.setK(K);
         brute.setSimilarity(new JWSimilarity());
 
+        // Compute the exact graph
+        JavaPairRDD<Node<String>, NeighborList> exact_graph
+                = brute.computeGraph(nodes);
+
+        // Compute the approximate graph
+        NNDescent builder = new NNDescent();
+        builder.setK(K);
+        builder.setMaxIterations(ITERATIONS);
+        builder.setSimilarity(new JWSimilarity());
+
         // Compute the graph and force execution
-        JavaPairRDD<Node<String>, NeighborList> graph =
-                brute.computeGraph(nodes);
-        graph.first();
-        List<Tuple2<Node<String>, NeighborList>> local_graph = graph.collect();
-
-        sc.close();
+        JavaPairRDD<Node<String>, NeighborList> nndes_graph
+                = builder.computeGraph(nodes);
 
 
-        // Check wether a node receives himself as neighbor...
-        for (Tuple2<Node<String>, NeighborList> tuple : local_graph) {
-            Node<String> node = tuple._1;
-            for (Neighbor neighbor : tuple._2) {
-                assertTrue(!node.equals(neighbor.node));
-            }
-        }
+        System.out.println(Graph.countCommonEdges(exact_graph, nndes_graph));
     }
 
 }
-
-

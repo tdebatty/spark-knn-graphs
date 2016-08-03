@@ -26,8 +26,7 @@ package info.debatty.spark.knngraphs.builder;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
-import info.debatty.java.graphs.SimilarityInterface;
-import info.debatty.java.stringsimilarity.JaroWinkler;
+import info.debatty.spark.knngraphs.JWSimilarity;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -45,6 +44,8 @@ import org.apache.spark.api.java.JavaSparkContext;
  * @author Thibault Debatty
  */
 public class NNDescentTest extends TestCase implements Serializable {
+
+    public static final int K = 10;
 
     /**
      * Test of computeGraph method, of class NNDescent.
@@ -79,14 +80,8 @@ public class NNDescentTest extends TestCase implements Serializable {
         JavaRDD<Node<String>> nodes = sc.parallelize(data);
 
         NNDescent builder = new NNDescent();
-        builder.setK(10);
-        builder.setSimilarity(new SimilarityInterface<String>() {
-
-            public double similarity(String value1, String value2) {
-                JaroWinkler jw = new JaroWinkler();
-                return jw.similarity(value1, value2);
-            }
-        });
+        builder.setK(K);
+        builder.setSimilarity(new JWSimilarity());
 
         // Compute the graph and force execution
         JavaPairRDD<Node<String>, NeighborList> graph =
