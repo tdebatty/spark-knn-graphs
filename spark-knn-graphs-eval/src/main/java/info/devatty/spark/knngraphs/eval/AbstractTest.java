@@ -145,18 +145,13 @@ public abstract class AbstractTest<T> {
                     dataset.remove(rand.nextInt(dataset.size())));
         }
 
-        log("Parallelize the training dataset and force execution...");
-        JavaRDD<Node<T>> nodes = sc.parallelize(dataset);
-        nodes = nodes.cache();
-        nodes.count();
-
         log("Compute initial graph...");
         long start_time = System.currentTimeMillis();
         DistributedGraphBuilder<T> builder = new Brute<T>();
         builder.setK(k);
         builder.setSimilarity(similarity);
         JavaPairRDD<Node<T>, NeighborList> graph
-                = builder.computeGraph(nodes);
+                = builder.computeGraph(sc.parallelize(dataset));
         graph = graph.cache();
         graph.count();
         long time_build_graph = System.currentTimeMillis() - start_time;
