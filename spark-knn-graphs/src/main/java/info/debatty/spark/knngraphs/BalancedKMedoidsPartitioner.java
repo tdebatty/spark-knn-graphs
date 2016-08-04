@@ -50,7 +50,7 @@ public class BalancedKMedoidsPartitioner<T>  {
     private static final int DEFAULT_PARTITIONING_ITERATIONS = 5;
     private static final int DEFAULT_PARTITIONS = 8;
     private static final double DEFAULT_IMBALANCE = 1.1;
-    private static final double OVERSAMPLING = 10.0;
+    private static final double OVERSAMPLING = 100.0;
 
     private SimilarityInterface<T> similarity;
     private int iterations = DEFAULT_PARTITIONING_ITERATIONS;
@@ -118,6 +118,8 @@ public class BalancedKMedoidsPartitioner<T>  {
             this.iterations = 0;
         }
 
+        long count = input_graph.count();
+
         internal_partitioner = new NodePartitioner(partitions);
 
         // Randomize the input graph
@@ -125,18 +127,23 @@ public class BalancedKMedoidsPartitioner<T>  {
                 .mapToPair(new RandomizeFunction(partitions))
                 .partitionBy(internal_partitioner);
 
-        // Cache and force execution
-        randomized_graph.cache();
-        long count = randomized_graph.count();
-
-        // Pick some random initial medoids
+        // Compute medoids
         double fraction = OVERSAMPLING * partitions / count;
-        Iterator<Tuple2<Node<T>, NeighborList>> sample_iterator =
-                randomized_graph.sample(false, fraction).collect().iterator();
-        medoids = new ArrayList<Node<T>>();
-        for (int i = 0; i < partitions; i++) {
-            medoids.add(sample_iterator.next()._1);
-        }
+        List<Node<T>> downsampled_points
+                = randomized_graph
+                        .sample(false, fraction)
+                        .map(new KeyFunction())
+                        .collect();
+
+        SequentialKMedoids<Node<T>> kmedoids
+                = new SequentialKMedoids<Node<T>>();
+        kmedoids.setK(partitions);
+        kmedoids.setImbalance(imbalance);
+        kmedoids.setMaxIterations(iterations);
+        kmedoids.setSimilarity(new SimilarityAdapter(similarity));
+        kmedoids.setData(downsampled_points);
+        kmedoids.run();
+        medoids = kmedoids.getMedoids();
 
         if (iterations == 0) {
             return randomized_graph.mapPartitions(
@@ -144,33 +151,17 @@ public class BalancedKMedoidsPartitioner<T>  {
                     true);
         }
 
-        // Perform iterations
-        for (int iteration = 0; iteration < iterations; iteration++) {
-
-            // Assign each node to a partition id and partition
-            JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
-                    randomized_graph.mapPartitionsToPair(
+        // Perform partitioning of the full graph
+        // Assign each node to a partition id and partition
+        JavaPairRDD<Node<T>, NeighborList> partitioned_graph
+                = randomized_graph
+                        .mapPartitionsToPair(
                             new AssignFunction(
                                     medoids,
                                     imbalance,
                                     partitions,
-                                    similarity),
-                            true);
-
-            // Compute new medoids
-            medoids = partitioned_graph.mapPartitions(
-                new UpdateMedoidsFunction()).collect();
-        }
-
-        // Perform final partitioning of the input graph
-        // Assign each node to a partition id and partition
-        JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
-                randomized_graph.mapPartitionsToPair(
-                        new AssignFunction(
-                                medoids,
-                                imbalance,
-                                partitions,
-                                similarity)).partitionBy(internal_partitioner);
+                                    similarity))
+                        .partitionBy(internal_partitioner);
 
         // Transform the partitioned PairRDD<Node, Neighborlist>
         // into a distributed graph RDD<Graph>
@@ -264,68 +255,6 @@ public class BalancedKMedoidsPartitioner<T>  {
             final JavaRDD<Graph<T>> distributed_graph) {
         medoids = distributed_graph.map(
                 new ComputeMedoids()).collect();
-    }
-}
-
-/**
- * Used to choose the most central centroid from each partition during
- * iterations. (the input is a PairRDD of Node, Neighborlist
- * @author Thibault Debatty
- * @param <T>
- */
-class UpdateMedoidsFunction<T>
-        implements FlatMapFunction<
-            Iterator<Tuple2<Node<T>, NeighborList>>,
-            Node<T>> {
-
-    public Iterable<Node<T>>
-        call(final Iterator<Tuple2<Node<T>, NeighborList>> tuples) {
-
-        // Build the partition
-        Graph partition = new Graph();
-        while (tuples.hasNext()) {
-            Tuple2<Node<T>, NeighborList> tuple = tuples.next();
-            partition.put(tuple._1(), tuple._2());
-        }
-
-        if (partition.size() == 0) {
-            return new ArrayList<Node<T>>();
-        }
-
-        // This partition might contain multiple subgraphs
-        // => find largest subgraph
-        ArrayList<Graph<T>> strongly_connected_components
-                = partition.stronglyConnectedComponents();
-        int largest_subgraph_size = 0;
-        Graph<T> largest_subgraph = strongly_connected_components.get(0);
-        for (Graph<T> subgraph : strongly_connected_components) {
-            if (subgraph.size() > largest_subgraph_size) {
-                largest_subgraph = subgraph;
-                largest_subgraph_size = subgraph.size();
-            }
-        }
-
-        int largest_distance = Integer.MAX_VALUE;
-        Node medoid = (Node) largest_subgraph.getNodes().iterator().next();
-        for (Node n : largest_subgraph.getNodes()) {
-            //Node n = (Node) o;
-            Dijkstra dijkstra = new Dijkstra(largest_subgraph, n);
-
-            int node_largest_distance = dijkstra.getLargestDistance();
-
-            if (node_largest_distance == 0) {
-                continue;
-            }
-
-            if (node_largest_distance < largest_distance) {
-                largest_distance = node_largest_distance;
-                medoid = n;
-            }
-        }
-        ArrayList<Node<T>> list = new ArrayList<Node<T>>(1);
-        list.add(medoid);
-
-        return list;
     }
 }
 
@@ -494,4 +423,44 @@ class NeighborListToGraph<T>
         return list;
 
     }
+}
+
+/**
+ * Used by sequential k-medoids to convert the similarity between T (provided
+ * to the partitioner) to a similarity between Node<T> (required by sequential
+ * k-medoids).
+ * @author Thibault Debatty
+ * @param <T>
+ */
+class SimilarityAdapter<T> implements SimilarityInterface<Node<T>> {
+    private final SimilarityInterface<T> internal_similarity;
+
+    SimilarityAdapter(final SimilarityInterface<T> similarity) {
+        this.internal_similarity = similarity;
+    }
+
+    /**
+     * Compute similarity between nodes.
+     * @param node1
+     * @param node2
+     * @return
+     */
+    public double similarity(final Node<T> node1, final Node<T> node2) {
+        return internal_similarity.similarity(node1.value, node2.value);
+    }
+
+}
+
+/**
+ * Return the key of the Tuple.
+ * @author Thibault Debatty
+ * @param <T>
+ */
+class KeyFunction<T>
+        implements Function<Tuple2<Node<T>, NeighborList>, Node<T>> {
+
+    public Node<T> call(final Tuple2<Node<T>, NeighborList> tuple)  {
+        return tuple._1;
+    }
+
 }
