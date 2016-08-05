@@ -288,11 +288,13 @@ public class Online<T> {
 
     /**
      * Remove a node using fast approximate algorithm.
-     * TODO: add stats_accumulator in fast remove!
      * @param node_to_remove
-     * @return number of computed similarities
+     * @param stats_accumulator
      */
-    public final int fastRemove(final Node<T> node_to_remove) {
+    public final void fastRemove(
+            final Node<T> node_to_remove,
+            final Accumulator<StatisticsContainer> stats_accumulator) {
+
         // find the list of nodes to update
         List<Node<T>> nodes_to_update = searcher.getGraph()
                 .flatMap(new FindNodesToUpdate(node_to_remove))
@@ -336,14 +338,12 @@ public class Online<T> {
         }
 
         // Update the graph and remove the node
-        Accumulator<Integer> similarities_accumulator
-                = spark_context.accumulator(0);
         JavaRDD<Graph<T>> updated_graph = searcher.getGraph()
                 .map(new RemoveUpdate(
                         node_to_remove,
                         nodes_to_update,
                         candidates,
-                        similarities_accumulator))
+                        stats_accumulator))
                 .cache();
 
         // bookkeeping: update the counts
@@ -366,7 +366,6 @@ public class Online<T> {
         updated_graph.count();
         searcher.setGraph(updated_graph);
 
-        return similarities_accumulator.value();
     }
 
     /**
@@ -622,22 +621,24 @@ class RemoveUpdate<T> implements Function<Graph<T>, Graph<T>> {
     private final Node<T> node_to_remove;
     private final List<Node<T>> nodes_to_update;
     private final List<Node<T>> candidates;
-    private final Accumulator<Integer> similarities_accumulator;
+    private final Accumulator<StatisticsContainer> stats_accumulator;
 
     RemoveUpdate(
             final Node<T> node_to_remove,
             final List<Node<T>> nodes_to_update,
             final List<Node<T>> candidates,
-            final Accumulator<Integer> similarities_accumulator) {
+            final Accumulator<StatisticsContainer> stats_accumulator) {
 
         this.node_to_remove = node_to_remove;
         this.nodes_to_update = nodes_to_update;
         this.candidates = candidates;
-        this.similarities_accumulator = similarities_accumulator;
+        this.stats_accumulator = stats_accumulator;
 
     }
 
     public Graph<T> call(final Graph<T> subgraph) {
+
+        StatisticsContainer local_stats = new StatisticsContainer();
 
         // Remove the node (if present in this subgraph)
         subgraph.getHashMap().remove(node_to_remove);
@@ -662,12 +663,13 @@ class RemoveUpdate<T> implements Function<Graph<T>, Graph<T>> {
                 double similarity = subgraph.getSimilarity().similarity(
                         node_to_update.value,
                         candidate.value);
-                similarities_accumulator.add(1);
+                local_stats.incRemoveSimilarities();
 
                 nl_to_update.add(new Neighbor(candidate, similarity));
             }
         }
 
+        stats_accumulator.add(local_stats);
         return subgraph;
     }
 }

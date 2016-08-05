@@ -336,7 +336,15 @@ public class OnlineTest extends TestCase implements Serializable {
         Random rand = new Random();
         for (int i = 0; i < N_TEST; i++) {
             Node query = data.get(rand.nextInt(data.size() - 1));
-            online_graph.fastRemove(query);
+
+            Accumulator<StatisticsContainer> stats_accumulator
+                    = sc.accumulator(
+                            new StatisticsContainer(),
+                            new StatisticsAccumulator());
+            online_graph.fastRemove(query, stats_accumulator);
+            if (i == 0) {
+                System.out.println(stats_accumulator.value());
+            }
             data.remove(query);
             removed_nodes.add(query);
         }
