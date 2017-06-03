@@ -190,8 +190,12 @@
 
             <plugin>
                 <groupId>info.debatty</groupId>
-                <artifactId>sparkpackage-maven-plugin</artifactId>
-                <version>0.1</version>
+                <artifactId>sparkpackages-maven-plugin</artifactId>
+                <version>0.2-SNAPSHOT</version>
+                <configuration>
+                    <username>tdebatty</username>
+                    <token>1d60d8b6691ab64a29210514d4c9afecdebc5e06</token>
+                </configuration>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -230,11 +234,13 @@
             <artifactId>java-spamsum</artifactId>
             <version>0.1</version>
         </dependency>
+
         <dependency>
             <groupId>info.debatty</groupId>
             <artifactId>java-graphs</artifactId>
             <version>0.29</version>
         </dependency>
+
         <dependency>
             <groupId>info.debatty</groupId>
             <artifactId>java-datasets</artifactId>
