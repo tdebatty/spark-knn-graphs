@@ -3,7 +3,7 @@
 
     <groupId>info.debatty</groupId>
     <artifactId>spark-knn-graphs</artifactId>
-    <version>0.14-SNAPSHOT</version>
+    <version>0.14</version>
     <packaging>jar</packaging>
 
     <name>spark-knn-graphs</name>
@@ -34,7 +34,7 @@
         <connection>scm:git:git@github.com:tdebatty/spark-knn-graphs.git</connection>
         <developerConnection>scm:git:git@github.com:tdebatty/spark-knn-graphs.git</developerConnection>
         <url>git@github.com:tdebatty/spark-knn-graphs.git</url>
-        <tag>HEAD</tag>
+        <tag>v0.14</tag>
     </scm>
 
     <distributionManagement>
