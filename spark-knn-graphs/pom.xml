@@ -191,7 +191,7 @@
             <plugin>
                 <groupId>info.debatty</groupId>
                 <artifactId>sparkpackages-maven-plugin</artifactId>
-                <version>0.2-SNAPSHOT</version>
+                <version>0.2</version>
                 <configuration>
                     <username>tdebatty</username>
                     <token>1d60d8b6691ab64a29210514d4c9afecdebc5e06</token>
