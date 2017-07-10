@@ -21,9 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.devatty.spark.knngraphs.eval;
+package info.devatty.spark.knngraphs.eval.remove;
 
-import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
@@ -32,6 +31,7 @@ import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import info.debatty.spark.knngraphs.builder.Online;
 import info.debatty.spark.knngraphs.builder.StatisticsAccumulator;
+import info.devatty.spark.knngraphs.eval.Batch;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -50,7 +50,6 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.storage.StorageLevel;
-import scala.Tuple2;
 
 /**
  *
@@ -61,8 +60,7 @@ public class MultiTest<T> {
     public static final int NODES_BEFORE_FEEDBACK = 10;
 
     public int n;
-    public int n_add;
-    public int n_evaluation;
+    public int n_remove;
     public int k = 10;
 
     public LinkedList<Batch> batches = new LinkedList<Batch>();
@@ -79,8 +77,8 @@ public class MultiTest<T> {
     private SimilarityInterface<T> similarity;
     public Iterator<T> dataset_iterator;
 
-    private JavaPairRDD<Node<T>, NeighborList> initial_graph;
-    private JavaPairRDD<Node<T>,NeighborList> exact_graph;
+    private JavaPairRDD<Node<T>, NeighborList> final_graph;
+    private JavaPairRDD<Node<T>,NeighborList> initial_graph;
     private ArrayList<Node<T>> test_dataset;
 
     private PrintWriter result_file_writer;
@@ -91,6 +89,9 @@ public class MultiTest<T> {
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
 
+        log("REMOVE NODES");
+        log("============");
+
         log("Configure spark instance");
         SparkConf conf = new SparkConf();
         conf.setAppName("SparkTest");
@@ -99,48 +100,48 @@ public class MultiTest<T> {
         log("Spark version: " + sc.version());
 
         log("Read dataset...");
-        List<Node<T>> dataset = new ArrayList<Node<T>>(n + n_add);
-        for (int i = 0; i < n + n_add; i++) {
+        List<Node<T>> dataset = new ArrayList<Node<T>>(n);
+        for (int i = 0; i < n; i++) {
             dataset.add(new Node<T>(
                     String.valueOf(i),
                     dataset_iterator.next()));
         }
 
-        log("Compute verification graph");
+        log("Compute initial graph");
         DistributedGraphBuilder<T> builder = new Brute<T>();
         builder.setK(k);
         builder.setSimilarity(similarity);
-        exact_graph
+        initial_graph
                 = builder
                         .computeGraph(sc.parallelize(dataset))
                         .persist(StorageLevel.DISK_ONLY());
-        exact_graph.count();
+        initial_graph.count();
         log("done...");
 
         log("Split the dataset between training and test...");
         Random rand = new Random();
-        test_dataset = new ArrayList<Node<T>>(n_add);
-        for (int i = 0; i < n_add; i++) {
+        test_dataset = new ArrayList<Node<T>>(n_remove);
+        for (int i = 0; i < n_remove; i++) {
             test_dataset.add(
                     dataset.remove(rand.nextInt(dataset.size())));
         }
 
-        log("Compute initial graph...");
-        initial_graph = builder.computeGraph(sc.parallelize(dataset));
-        initial_graph = initial_graph.cache();
-        initial_graph.count();
+        log("Final graph will contain " + dataset.size() + " nodes");
+
+        log("Compute final exact graph...");
+        final_graph = builder.computeGraph(sc.parallelize(dataset));
+        final_graph = final_graph.cache();
+        final_graph.count();
         log("done...");
 
         for (Batch batch : batches) {
-            runBatch(batch, initial_graph, test_dataset);
+            runBatch(batch);
         }
 
     }
 
     private void runBatch(
-            Batch batch,
-            JavaPairRDD<Node<T>, NeighborList> initial_graph,
-            ArrayList<Node<T>> test_dataset) throws IOException {
+            Batch batch) throws IOException {
 
         result_file = batch.result_file;
         if (!result_file.equals("-")) {
@@ -211,12 +212,9 @@ public class MultiTest<T> {
                 "%-30s %d ms\n", "Time to partition graph:",
                 time_partition_graph);
 
-        log("Add nodes...");
+        log("Remove nodes...");
         int i = 0;
         long similarities = 0;
-        long restarts = 0;
-        // search restarts due to cross partition edges
-        long xpartition_restarts = 0;
         start_time = System.currentTimeMillis();
         for (final Node<T> query : test_dataset) {
             i++;
@@ -224,13 +222,10 @@ public class MultiTest<T> {
                     new StatisticsContainer(),
                     new StatisticsAccumulator());
 
-            online_graph.fastAdd(query, stats_accumulator);
+            online_graph.fastRemove(query, stats_accumulator);
 
             StatisticsContainer global_stats = stats_accumulator.value();
             similarities += global_stats.getSimilarities();
-            restarts += global_stats.getSearchRestarts();
-            xpartition_restarts
-                    += global_stats.getSearchCrossPartitionRestarts();
 
             if (i % NODES_BEFORE_FEEDBACK == 0) {
                 log("" + i);
@@ -238,22 +233,20 @@ public class MultiTest<T> {
         }
 
         long correct = info.debatty.spark.knngraphs.Graph.countCommonEdges(
-                exact_graph,
+                final_graph,
                 online_graph.getGraph());
         online_graph.clean();
 
         System.out.printf(
                 "%-30s %d (%f)\n", "Correct edges in online graph: ",
-                correct, 1.0 * correct / (k * (n + i)));
+                correct, 1.0 * correct / (k * (n - i)));
 
-        long time_add = System.currentTimeMillis() - start_time;
+        long time_remove = System.currentTimeMillis() - start_time;
         writeResult(
                 i,
                 correct,
                 similarities,
-                time_add,
-                restarts,
-                xpartition_restarts);
+                time_remove);
 
     }
 
@@ -268,7 +261,7 @@ public class MultiTest<T> {
         System.out.printf("%-30s %d\n", "Update depth:",
                 update_depth);
         System.out.printf("%-30s %d\n", "Nodes to add:",
-                n_add);
+                n_remove);
         System.out.printf("%-30s %f\n", "Search speedup:", search_speedup);
         System.out.printf("%-30s %d\n", "Search random jumps:",
                 search_random_jumps);
@@ -291,8 +284,7 @@ public class MultiTest<T> {
     private void writeHeader() {
         result_file_writer.printf("# n\t");
         result_file_writer.printf("k\t");
-        result_file_writer.printf("n_evaluation\t");
-        result_file_writer.printf("n_added\t");
+        result_file_writer.printf("n_removed\t");
         result_file_writer.printf("partitioning_iterations\t");
         result_file_writer.printf("partitioning_medoids\t");
         result_file_writer.printf("update_depth\t");
@@ -306,55 +298,43 @@ public class MultiTest<T> {
         result_file_writer.printf("similarities\t");
         result_file_writer.printf("real_speedup\t");
         result_file_writer.printf("quality_equivalent_speedup\t");
-        result_file_writer.printf("time_add\t");
-        result_file_writer.printf("restarts\t");
-        result_file_writer.printf("xpartition_restarts\n");
+        result_file_writer.printf("time_remove\n");
         result_file_writer.flush();
     }
 
-    private Graph<T> list2graph(
-            final List<Tuple2<Node<T>, NeighborList>> list) {
-
-        Graph<T> graph = new Graph<T>();
-        for (Tuple2<Node<T>, NeighborList> tuple : list) {
-            graph.put(tuple._1, tuple._2);
-        }
-
-        return graph;
-    }
-
     private void writeResult(
-            final int n_added,
+            final int n_removed,
             final long correct,
             final long similarities,
-            final long time_add,
-            final long restarts,
-            final long xpartition_restarts) throws IOException {
+            final long time_remove) throws IOException {
 
         // Write results to file
         if (result_file_writer == null) {
             return;
         }
 
-        double em = 1.0 * n * k * n_added / (n_added + n) + n_added * k;
-        double eu = (1.0 * n + n_added) * k - em;
+        long n_start = n;
+        long n_end = n - n_removed;
+
+        // Expected number of modified edges in the final graph
+        double em = 1.0 * k * n_removed;
+
+        // Expected number of unmodified edges in the final graph
+        double eu = 1.0 * n_end * k - em;
         double quality = (1.0 * correct - eu) / em;
         System.out.println("Quality factor (Q): " + quality);
 
-        double correct_ratio = 1.0 * correct / (k * (n_added + n));
+        double correct_ratio = 1.0 * correct / (k * n_end);
 
-        long n_end = n + n_added;
-        long n_start = n;
         long similarities_naive
-                = n_end * (n_end - 1) / 2 - n_start * (n_start - 1) / 2;
+                = k * (n_start * (n_start + 1) / 2 - n_end * (n_end + 1) / 2);
 
         double real_speedup = 1.0 * similarities_naive / similarities;
         double quality_equivalent_speedup = quality * real_speedup;
 
         result_file_writer.printf("%d\t", n);
         result_file_writer.printf("%d\t", k);
-        result_file_writer.printf("%d\t", n_evaluation);
-        result_file_writer.printf("%d\t", n_added);
+        result_file_writer.printf("%d\t", n_removed);
         result_file_writer.printf("%d\t", partitioning_iterations);
         result_file_writer.printf("%d\t", partitioning_medoids);
         result_file_writer.printf("%d\t", update_depth);
@@ -368,9 +348,7 @@ public class MultiTest<T> {
         result_file_writer.printf("%d\t", similarities);
         result_file_writer.printf("%f\t", real_speedup);
         result_file_writer.printf("%f\t", quality_equivalent_speedup);
-        result_file_writer.printf("%d\t", time_add);
-        result_file_writer.printf("%d\t", restarts);
-        result_file_writer.printf("%d\n", xpartition_restarts);
+        result_file_writer.printf("%d\n", time_remove);
         result_file_writer.flush();
     }
 }

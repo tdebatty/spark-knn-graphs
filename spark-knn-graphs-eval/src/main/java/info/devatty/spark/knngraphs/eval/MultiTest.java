@@ -346,7 +346,7 @@ public class MultiTest<T> {
         long n_end = n + n_added;
         long n_start = n;
         long similarities_naive
-                = n_end * (n_end - 1) / 2 - n_start * (n_start - 1) / 2;
+                = n_end * (n_end + 1) / 2 - n_start * (n_start + 1) / 2;
 
         double real_speedup = 1.0 * similarities_naive / similarities;
         double quality_equivalent_speedup = quality * real_speedup;

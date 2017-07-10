@@ -22,9 +22,11 @@
  * THE SOFTWARE.
  */
 
-package info.devatty.spark.knngraphs.eval;
+package info.devatty.spark.knngraphs.eval.remove;
 
 import info.debatty.java.datasets.gaussian.Dataset;
+import info.devatty.spark.knngraphs.eval.Batch;
+import info.devatty.spark.knngraphs.eval.L2Similarity;
 
 /**
  *
@@ -45,9 +47,44 @@ public class MultiSynthetic {
 
         MultiTest<Double[]> multi_test = new MultiTest<Double[]>();
         multi_test.n = 100000;
-        multi_test.n_add = 1000;
+        multi_test.n_remove = 1000;
         multi_test.dataset_iterator = dataset.iterator();
         multi_test.setSimilarity(new L2Similarity());
+
+        // Vary partitions
+        multi_test.batches.add(
+                new Batch(
+                        new int[]{8},         // partitions
+                        new int[]{10},                       // iterations
+                        new int[]{1, 2, 3, 4},                       // update depth
+                        new int[]{0},                       // random jumps
+                        new double[]{5.0},                  // search speedup
+                        new double[]{1.1},                  // search expansion
+                        "remove-synthetic-depth.csv"));
+
+        /*
+        // Test with sequential k-medoids
+        multi_test.batches.add(
+                new Batch(
+                        new int[]{8},                       // partitions
+                        new int[]{10},                       // max-iterations
+                        new int[]{2},                       // update depth
+                        new int[]{0},                       // random jumps
+                        new double[]{5.0},// search speedup
+                        new double[]{1.1},                  // search expansion
+                        "test-synthetic-sequential-kmedoids.csv"));
+
+        // Vary expansion
+        multi_test.batches.add(
+                new Batch(
+                        new int[]{8},                       // partitions
+                        new int[]{5},                       // iterations
+                        new int[]{2},                       // update depth
+                        new int[]{0},                       // random jumps
+                        new double[]{5.0},// search speedup
+                        new double[]{1.0, 1.1, 1.5, 2.0, 2.5, 3.0},                  // search expansion
+                        "test-synthetic-expansion.csv"));
+
 
         // Vary search speedup
         multi_test.batches.add(
@@ -114,7 +151,7 @@ public class MultiSynthetic {
                         new double[]{5.0},                  // search speedup
                         new double[]{1.1},                  // search expansion
                         "test-synthetic-partitions.csv"));
-
+        */
         multi_test.run();
     }
 

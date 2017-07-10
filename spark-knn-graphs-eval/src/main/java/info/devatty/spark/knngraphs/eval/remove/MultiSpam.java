@@ -22,32 +22,65 @@
  * THE SOFTWARE.
  */
 
-package info.devatty.spark.knngraphs.eval;
+package info.devatty.spark.knngraphs.eval.remove;
 
-import info.debatty.java.datasets.gaussian.Dataset;
+import info.debatty.java.datasets.textfile.Dataset;
+import info.devatty.spark.knngraphs.eval.Batch;
+import info.devatty.spark.knngraphs.eval.JWSimilarity;
 
 /**
  *
  * @author Thibault Debatty
  */
-public class MultiSynthetic {
-
-    private static final int DIMENSIONALITY = 3;
-    private static final int CENTERS = 3;
+public class MultiSpam {
 
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) throws Exception {
-        Dataset dataset = new Dataset.Builder(DIMENSIONALITY, CENTERS)
-                .setOverlap(Dataset.Builder.Overlap.MEDIUM)
-                .build();
+        Dataset dataset = new Dataset(args[0]);
 
-        MultiTest<Double[]> multi_test = new MultiTest<Double[]>();
-        multi_test.n = 100000;
-        multi_test.n_add = 1000;
+        MultiTest<String> multi_test = new MultiTest<String>();
+        multi_test.k = 10;
+        multi_test.n = 40000;
+        multi_test.n_remove = 1000;
         multi_test.dataset_iterator = dataset.iterator();
-        multi_test.setSimilarity(new L2Similarity());
+        multi_test.setSimilarity(new JWSimilarity());
+
+        // Vary partitions
+        multi_test.batches.add(
+                new Batch(
+                        new int[]{8},         // partitions
+                        new int[]{10},                       // iterations
+                        new int[]{1, 2, 3, 4},                       // update depth
+                        new int[]{0},                       // random jumps
+                        new double[]{5.0},                  // search speedup
+                        new double[]{1.1},                  // search expansion
+                        "remove-spam-depth.csv"));
+
+        /*
+        // Test with sequential k-medoids
+        multi_test.batches.add(
+                new Batch(
+                        new int[]{8},                       // partitions
+                        new int[]{10},                       // max-iterations
+                        new int[]{2},                       // update depth
+                        new int[]{0},                       // random jumps
+                        new double[]{5.0},// search speedup
+                        new double[]{1.1},                  // search expansion
+                        "test-synthetic-sequential-kmedoids.csv"));
+
+        // Vary expansion
+        multi_test.batches.add(
+                new Batch(
+                        new int[]{8},                       // partitions
+                        new int[]{5},                       // iterations
+                        new int[]{2},                       // update depth
+                        new int[]{0},                       // random jumps
+                        new double[]{5.0},// search speedup
+                        new double[]{1.0, 1.1, 1.5, 2.0, 2.5, 3.0},                  // search expansion
+                        "test-synthetic-expansion.csv"));
+
 
         // Vary search speedup
         multi_test.batches.add(
@@ -114,7 +147,7 @@ public class MultiSynthetic {
                         new double[]{5.0},                  // search speedup
                         new double[]{1.1},                  // search expansion
                         "test-synthetic-partitions.csv"));
-
+        */
         multi_test.run();
     }
 

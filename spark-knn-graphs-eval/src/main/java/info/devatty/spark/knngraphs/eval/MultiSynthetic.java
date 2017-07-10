@@ -49,6 +49,54 @@ public class MultiSynthetic {
         multi_test.dataset_iterator = dataset.iterator();
         multi_test.setSimilarity(new L2Similarity());
 
+        // Vary expansion
+        multi_test.batches.add(
+                new Batch(
+                        new int[]{8},                       // partitions
+                        new int[]{5},                       // iterations
+                        new int[]{2},                       // update depth
+                        new int[]{0},                       // random jumps
+                        new double[]{10.0},// search speedup
+                        new double[]{1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0},                  // search expansion
+                        "test-synthetic-expansion.csv"));
+
+
+        /*
+        // Vary partitions
+        multi_test.batches.add(
+                new Batch(
+                        new int[]{2, 4},         // partitions
+                        new int[]{5},                       // iterations
+                        new int[]{2},                       // update depth
+                        new int[]{0},                       // random jumps
+                        new double[]{5.0},                  // search speedup
+                        new double[]{1.1},                  // search expansion
+                        "test-synthetic-partitions-2.csv"));
+
+        /*
+        // Test with sequential k-medoids
+        multi_test.batches.add(
+                new Batch(
+                        new int[]{8},                       // partitions
+                        new int[]{10},                       // max-iterations
+                        new int[]{2},                       // update depth
+                        new int[]{0},                       // random jumps
+                        new double[]{5.0},// search speedup
+                        new double[]{1.1},                  // search expansion
+                        "test-synthetic-sequential-kmedoids.csv"));
+
+        // Vary expansion
+        multi_test.batches.add(
+                new Batch(
+                        new int[]{8},                       // partitions
+                        new int[]{5},                       // iterations
+                        new int[]{2},                       // update depth
+                        new int[]{0},                       // random jumps
+                        new double[]{5.0},// search speedup
+                        new double[]{1.0, 1.1, 1.5, 2.0, 2.5, 3.0},                  // search expansion
+                        "test-synthetic-expansion.csv"));
+
+
         // Vary search speedup
         multi_test.batches.add(
                 new Batch(
@@ -114,7 +162,7 @@ public class MultiSynthetic {
                         new double[]{5.0},                  // search speedup
                         new double[]{1.1},                  // search expansion
                         "test-synthetic-partitions.csv"));
-
+        */
         multi_test.run();
     }
 

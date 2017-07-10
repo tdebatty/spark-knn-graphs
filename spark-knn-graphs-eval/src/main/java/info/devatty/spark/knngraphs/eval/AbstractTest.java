@@ -23,11 +23,11 @@
  */
 package info.devatty.spark.knngraphs.eval;
 
-import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
+import info.debatty.spark.knngraphs.Graph;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import info.debatty.spark.knngraphs.builder.Online;
@@ -53,7 +53,6 @@ import org.apache.log4j.Logger;
 import org.apache.spark.Accumulator;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
@@ -210,21 +209,14 @@ public abstract class AbstractTest<T> {
             }
 
             if (i % n_evaluation == 0) {
-                Graph<T> local_approximate_graph
-                        = list2graph(online_graph.getGraph().collect());
 
                 log("Compute verification graph");
-                Graph<T> local_exact_graph
-                        = list2graph(
-                                builder.computeGraph(
-                                        sc.parallelize(dataset)).collect());
+                JavaPairRDD<Node<T>, NeighborList> exact_graph
+                        = builder.computeGraph(sc.parallelize(dataset));
                 log("done...");
 
-                int correct = 0;
-                for (Node<T> node : local_exact_graph.getNodes()) {
-                    correct += local_exact_graph.get(node).countCommons(
-                            local_approximate_graph.get(node));
-                }
+                long correct = Graph.countCommonEdges(
+                        exact_graph, online_graph.getGraph());
 
                 System.out.printf(
                         "%-30s %d (%f)\n", "Correct edges in online graph: ",
@@ -350,20 +342,11 @@ public abstract class AbstractTest<T> {
         System.out.printf("%s %s\n", format.format(date), s);
     }
 
-    private Graph<T> list2graph(
-            final List<Tuple2<Node<T>, NeighborList>> list) {
 
-        Graph<T> graph = new Graph<T>();
-        for (Tuple2<Node<T>, NeighborList> tuple : list) {
-            graph.put(tuple._1, tuple._2);
-        }
-
-        return graph;
-    }
 
     private void writeResult(
             final int n_added,
-            final int correct,
+            final long correct,
             final long similarities,
             final long time_add,
             final long restarts,

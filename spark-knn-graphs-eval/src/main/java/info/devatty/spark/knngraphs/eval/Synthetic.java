@@ -29,7 +29,7 @@ import org.apache.commons.cli.ParseException;
 
 public class Synthetic extends AbstractTest<Double[]> {
 
-    private static final int DIMENSIONALITY = 3;
+    private static final int DIMENSIONALITY = 20;
     private static final int CENTERS = 15;
 
     /**

@@ -31,7 +31,7 @@ import info.debatty.java.stringsimilarity.JaroWinkler;
  * Uses Jaro-Winkler to measure string similarity.
  * @author Thibault Debatty
  */
-class JWSimilarity implements SimilarityInterface<String> {
+public class JWSimilarity implements SimilarityInterface<String> {
 
     public double similarity(final String value1, final String value2) {
         JaroWinkler jw = new JaroWinkler();

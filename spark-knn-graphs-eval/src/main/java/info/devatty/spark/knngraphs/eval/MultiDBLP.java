@@ -41,8 +41,8 @@ public class MultiDBLP {
 
         MultiTest<Publication> multi_test = new MultiTest<Publication>();
         multi_test.k = 10;
-        multi_test.n = 10000;
-        multi_test.n_add = 100;
+        multi_test.n = 40000;
+        multi_test.n_add = 1000;
         multi_test.dataset_iterator = dataset.iterator();
         multi_test.setSimilarity(new PublicationSimilarity());
 
