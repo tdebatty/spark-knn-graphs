@@ -19,10 +19,10 @@ import org.apache.spark.api.java.JavaRDD;
  * @param <T> the type of element the actual graph builder works with...
  */
 public abstract class DistributedGraphBuilder<T> implements Serializable {
-    
+
     protected int k = 10;
     protected SimilarityInterface<T> similarity;
-    
+
     /**
      * Set k (the number of edges per node).
      * Default value is 10
@@ -32,10 +32,10 @@ public abstract class DistributedGraphBuilder<T> implements Serializable {
         if (k <= 0) {
             throw new InvalidParameterException("k must be positive!");
         }
-        
+
         this.k = k;
     }
-    
+
     /**
      * Define how similarity will be computed between node values.
      * NNDescent can use any similarity (even non metric).
@@ -48,18 +48,18 @@ public abstract class DistributedGraphBuilder<T> implements Serializable {
     /**
      * Compute and return the graph.
      * Children classes must implement _computeGraph(nodes) method
-     * 
+     *
      * @param nodes
      * @return the graph
      * @throws java.lang.Exception
      */
-    public JavaPairRDD<Node<T>, NeighborList> 
+    public JavaPairRDD<Node<T>, NeighborList>
         computeGraph(JavaRDD<Node<T>> nodes) throws Exception {
         if (similarity == null) {
             throw new InvalidParameterException("Similarity is not defined!");
         }
-        
-        return _computeGraph(nodes);
+
+        return doComputeGraph(nodes);
     }
 
     /**
@@ -68,20 +68,20 @@ public abstract class DistributedGraphBuilder<T> implements Serializable {
      * @return
      * @throws java.lang.Exception
      */
-    protected abstract JavaPairRDD<Node<T>, NeighborList> 
-        _computeGraph(JavaRDD<Node<T>> nodes) throws Exception ;
-    
+    protected abstract JavaPairRDD<Node<T>, NeighborList>
+        doComputeGraph(JavaRDD<Node<T>> nodes) throws Exception;
+
     public static ArrayList<String> readFile(String path) throws IOException {
-        
+
         File file = new File(path);
 	BufferedReader br = new BufferedReader(new FileReader(file));
-        
+
         ArrayList<String> r = new ArrayList<String>();
 	String line;
 	while ((line = br.readLine()) != null) {
 		r.add(line);
 	}
- 
+
 	br.close();
         return r;
     }

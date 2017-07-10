@@ -43,7 +43,7 @@ public class Brute<T> extends DistributedGraphBuilder<T>
         implements Serializable {
 
     @Override
-    protected final JavaPairRDD<Node<T>, NeighborList> _computeGraph(
+    protected final JavaPairRDD<Node<T>, NeighborList> doComputeGraph(
             final JavaRDD<Node<T>> nodes) {
 
         JavaPairRDD<Node<T>, Node<T>> pairs = nodes.cartesian(nodes);

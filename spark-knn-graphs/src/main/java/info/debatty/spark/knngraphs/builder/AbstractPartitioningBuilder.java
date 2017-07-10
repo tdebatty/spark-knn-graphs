@@ -37,7 +37,7 @@ public abstract class AbstractPartitioningBuilder<T> extends DistributedGraphBui
     }
 
     @Override
-    protected JavaPairRDD<Node<T>, NeighborList> _computeGraph(JavaRDD<Node<T>> nodes) throws Exception {
+    protected JavaPairRDD<Node<T>, NeighborList> doComputeGraph(JavaRDD<Node<T>> nodes) throws Exception {
 
         JavaPairRDD<Integer, Node<T>> bucketsofnodes = _binNodes(nodes);
 

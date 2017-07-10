@@ -38,6 +38,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import scala.Tuple2;
 
 /**
  *
@@ -86,7 +87,9 @@ public class NNDescentTest extends TestCase implements Serializable {
         // Compute the graph and force execution
         JavaPairRDD<Node<String>, NeighborList> graph =
                 builder.computeGraph(nodes);
-        graph.first();
+        Tuple2<Node<String>, NeighborList> first = graph.first();
+        System.out.println(first);
+        assertEquals(K, first._2.size());
         sc.close();
     }
 
