@@ -28,14 +28,24 @@ import info.debatty.java.graphs.Node;
 import org.apache.spark.Partitioner;
 
 /**
- *
+ * Partition the graph using a specific node attribute.
+ * Example usage:
+ * graph = graph.mapToPair(new RandomizeFunction(partitions))
+ *              .partitionBy(new NodePartitioner(partitions));
  * @author Thibault Debatty
  */
 public class NodePartitioner extends Partitioner {
+
+    /**
+     * Key used by the partitioner to store the partition id in the node
+     * attributes.
+     */
+    public static final String PARTITION_KEY = "NP_PARTITION_ID";
+
     private final int partitions;
 
     /**
-     * 
+     *
      * @param partitions
      */
     public NodePartitioner(final int partitions) {
@@ -50,7 +60,6 @@ public class NodePartitioner extends Partitioner {
     @Override
     public final int getPartition(final Object obj) {
         Node node = (Node) obj;
-        return (Integer) node.getAttribute(
-                BalancedKMedoidsPartitioner.PARTITION_KEY);
+        return (Integer) node.getAttribute(PARTITION_KEY);
     }
 }

@@ -31,8 +31,14 @@ import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
 /**
+ * Randomize dataset by assigning a random value to each node (in attribute
+ * NodePartition.PARTITION_KEY).
  *
+ * Usage:
+ * graph = graph.mapToPair(new RandomizeFunction(partitions))
+ *              .partitionBy(new NodePartitioner(partitions));
  * @author Thibault Debatty
+ * @param <T> type of data to process
  */
 class RandomizeFunction<T>
         implements PairFunction<
@@ -55,9 +61,9 @@ class RandomizeFunction<T>
         }
 
         tuple._1.setAttribute(
-                BalancedKMedoidsPartitioner.PARTITION_KEY,
+                NodePartitioner.PARTITION_KEY,
                 rand.nextInt(partitions));
-        
+
         return tuple;
     }
 

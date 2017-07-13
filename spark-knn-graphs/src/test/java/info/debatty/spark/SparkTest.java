@@ -22,39 +22,34 @@
  * THE SOFTWARE.
  */
 
-package info.debatty.spark.knngraphs.builder;
+package info.debatty.spark;
 
-import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
-import info.debatty.spark.knngraphs.JWSimilarity;
+import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedList;
 import junit.framework.TestCase;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import scala.Tuple2;
+import org.apache.spark.api.java.function.FlatMapFunction;
 
 /**
  *
  * @author Thibault Debatty
  */
-public class NNDescentTest extends TestCase implements Serializable {
-
-    public static final int K = 10;
+public class SparkTest extends TestCase implements Serializable {
 
     /**
      * Test of computeGraph method, of class NNDescent.
      * @throws java.io.IOException
      */
-    public void testComputeGraph() throws IOException, Exception {
-        System.out.println("NNDescent");
-        System.out.println("=========");
+    public final void testSpark() throws IOException, Exception {
+        System.out.println("Spark test");
+        System.out.println("==========");
 
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
@@ -65,12 +60,6 @@ public class NNDescentTest extends TestCase implements Serializable {
         // Read the file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
 
-        // Convert to nodes
-        List<Node<String>> data = new ArrayList<Node<String>>();
-        for (String s : strings) {
-            data.add(new Node<String>(String.valueOf(data.size()), s));
-        }
-
         // Configure spark instance
         SparkConf conf = new SparkConf();
         conf.setAppName("SparkTest");
@@ -78,19 +67,18 @@ public class NNDescentTest extends TestCase implements Serializable {
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Parallelize the dataset in Spark
-        JavaRDD<Node<String>> nodes = sc.parallelize(data);
+        JavaRDD<String> data = sc.parallelize(strings);
 
-        NNDescent builder = new NNDescent();
-        builder.setK(K);
-        builder.setSimilarity(new JWSimilarity());
+        JavaRDD<String> mapped =
+                data.flatMap(new FlatMapFunction<String, String>() {
+            public Iterable<String> call(final String arg0) throws Exception {
+                return new LinkedList<String>();
+            }
 
-        // Compute the graph and force execution
-        JavaPairRDD<Node<String>, NeighborList> graph =
-                builder.computeGraph(nodes);
-        Tuple2<Node<String>, NeighborList> first = graph.first();
-        System.out.println(first);
-        assertEquals(726, graph.count());
-        assertEquals(K, first._2.size());
+        });
+
+        assertEquals(0, mapped.count());
+
         sc.close();
     }
 

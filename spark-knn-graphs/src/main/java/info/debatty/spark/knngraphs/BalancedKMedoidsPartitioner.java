@@ -59,11 +59,6 @@ public class BalancedKMedoidsPartitioner<T>  {
     private List<Node<T>> medoids;
     private NodePartitioner internal_partitioner;
 
-    /**
-     * Key used by the partitioner to store the partition id in the node
-     * attributes.
-     */
-    public static final String PARTITION_KEY = "BKMP_PARTITION_ID";
 
     /**
      *
@@ -234,7 +229,7 @@ public class BalancedKMedoidsPartitioner<T>  {
         int partition = argmax(values);
         counts[partition]++;
         node.setAttribute(
-                BalancedKMedoidsPartitioner.PARTITION_KEY,
+                NodePartitioner.PARTITION_KEY,
                 partition);
 
     }
@@ -335,7 +330,7 @@ class AssignFunction<T>
             int partition = BalancedKMedoidsPartitioner.argmax(values);
             partitions_size[partition]++;
             tuple._1.setAttribute(
-                    BalancedKMedoidsPartitioner.PARTITION_KEY, partition);
+                    NodePartitioner.PARTITION_KEY, partition);
         }
 
         return tuples;

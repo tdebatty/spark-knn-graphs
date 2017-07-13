@@ -30,7 +30,7 @@ import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
 import info.debatty.spark.knngraphs.ApproximateSearch;
-import info.debatty.spark.knngraphs.BalancedKMedoidsPartitioner;
+import info.debatty.spark.knngraphs.NodePartitioner;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -245,7 +245,7 @@ public class Online<T> {
 
         // bookkeeping: update the counts
         partitions_size[(Integer) node
-                .getAttribute(BalancedKMedoidsPartitioner.PARTITION_KEY)]++;
+                .getAttribute(NodePartitioner.PARTITION_KEY)]++;
 
         // update the existing graph edges
         JavaRDD<Graph<T>> updated_graph = searcher.getGraph().map(
@@ -324,10 +324,10 @@ public class Online<T> {
         for (Node<T> node : candidates) {
             if (node.equals(node_to_remove)) {
                 if (null != node.getAttribute(
-                                BalancedKMedoidsPartitioner.PARTITION_KEY)) {
+                                NodePartitioner.PARTITION_KEY)) {
                     partition_of_node_to_remove =
                             (Integer) node.getAttribute(
-                                BalancedKMedoidsPartitioner.PARTITION_KEY);
+                                NodePartitioner.PARTITION_KEY);
                     break;
                 }
             }
@@ -439,9 +439,9 @@ class AddNode<T> implements Function<Graph<T>, Graph<T>> {
     public Graph<T> call(final Graph<T> graph) {
         Node<T> one_node = graph.getNodes().iterator().next();
 
-        if (node.getAttribute(BalancedKMedoidsPartitioner.PARTITION_KEY).equals(
+        if (node.getAttribute(NodePartitioner.PARTITION_KEY).equals(
                 one_node.getAttribute(
-                        BalancedKMedoidsPartitioner.PARTITION_KEY))) {
+                        NodePartitioner.PARTITION_KEY))) {
             graph.put(node, neighborlist);
         }
 
