@@ -421,32 +421,6 @@ class NeighborListToGraph<T>
 }
 
 /**
- * Used by sequential k-medoids to convert the similarity between T (provided
- * to the partitioner) to a similarity between Node<T> (required by sequential
- * k-medoids).
- * @author Thibault Debatty
- * @param <T>
- */
-class SimilarityAdapter<T> implements SimilarityInterface<Node<T>> {
-    private final SimilarityInterface<T> internal_similarity;
-
-    SimilarityAdapter(final SimilarityInterface<T> similarity) {
-        this.internal_similarity = similarity;
-    }
-
-    /**
-     * Compute similarity between nodes.
-     * @param node1
-     * @param node2
-     * @return
-     */
-    public double similarity(final Node<T> node1, final Node<T> node2) {
-        return internal_similarity.similarity(node1.value, node2.value);
-    }
-
-}
-
-/**
  * Return the key of the Tuple.
  * @author Thibault Debatty
  * @param <T>

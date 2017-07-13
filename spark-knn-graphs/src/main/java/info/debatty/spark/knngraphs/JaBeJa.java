@@ -55,6 +55,7 @@ public class JaBeJa<T> {
     private static final double DELTA = 0.003;
     private static final int SWAPS_PER_ITERATION = 10;
     private static final int ITERATIONS_BEFORE_CHECKPOINT = 100;
+    private static final int RDDS_TO_CACHE = 2;
 
     private final Logger logger = LoggerFactory.getLogger(JaBeJa.class);
 
@@ -81,6 +82,9 @@ public class JaBeJa<T> {
     public final JavaPairRDD<Node<T>, NeighborList> partition(
             final JavaPairRDD<Node<T>, NeighborList> input_graph) {
 
+        LinkedList<JavaPairRDD<Node<T>, NeighborList>> previous_rdds =
+                new LinkedList<JavaPairRDD<Node<T>, NeighborList>>();
+
         // Randomize
         JavaPairRDD<Node<T>, NeighborList> graph = randomize(input_graph);
         graph = moveNodes(graph);
@@ -95,6 +99,12 @@ public class JaBeJa<T> {
             logger.info("Performed {} swaps", swap_result.swaps);
             graph = swap_result.graph;
             graph.cache();
+
+            // Keep a track of updated RDD to unpersist after two iterations
+            previous_rdds.add(graph);
+            if (iteration > RDDS_TO_CACHE) {
+                previous_rdds.pop().unpersist();
+            }
 
             if ((iteration % ITERATIONS_BEFORE_CHECKPOINT) == 0) {
                 logger.info("Checkpoint");
