@@ -90,7 +90,7 @@ public class KMedoidsPartitionerTest extends TestCase {
 
         KMedoidsPartitioner<String> partitioner =
                 new KMedoidsPartitioner<String>(new JWSimilarity(), 8);
-        graph = partitioner.partition(graph);
+        graph = partitioner.partition(graph).graph;
 
         // Check result...
         JaBeJa<String> jbj = new JaBeJa<String>(sc, 8);

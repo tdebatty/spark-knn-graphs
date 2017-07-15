@@ -49,7 +49,7 @@ import scala.Tuple2;
  * @author tibo
  * @param <T> type of data to process
  */
-public class JaBeJa<T> {
+public class JaBeJa<T> implements Partitioner<T> {
 
     private static final double T0 = 2.0;
     private static final double DELTA = 0.003;
@@ -79,15 +79,17 @@ public class JaBeJa<T> {
      * @param input_graph
      * @return
      */
-    public final JavaPairRDD<Node<T>, NeighborList> partition(
+    public final Partitioning<T> partition(
             final JavaPairRDD<Node<T>, NeighborList> input_graph) {
+
+        Partitioning<T> solution = new Partitioning<T>();
 
         LinkedList<JavaPairRDD<Node<T>, NeighborList>> previous_rdds =
                 new LinkedList<JavaPairRDD<Node<T>, NeighborList>>();
 
         // Randomize
-        JavaPairRDD<Node<T>, NeighborList> graph = randomize(input_graph);
-        graph = moveNodes(graph);
+        solution.graph = randomize(input_graph);
+        solution.graph = moveNodes(solution.graph);
 
         // Perform swaps
         double tr = T0;
@@ -95,23 +97,24 @@ public class JaBeJa<T> {
         while (true) {
             iteration++;
             logger.info("Tr = {}", tr);
-            SwapResult<T> swap_result = swap(graph, tr, SWAPS_PER_ITERATION);
+            SwapResult<T> swap_result = swap(
+                    solution.graph, tr, SWAPS_PER_ITERATION);
             logger.info("Performed {} swaps", swap_result.swaps);
-            graph = swap_result.graph;
-            graph.cache();
+            solution.graph = swap_result.graph;
+            solution.graph.cache();
 
             // Keep a track of updated RDD to unpersist after two iterations
-            previous_rdds.add(graph);
+            previous_rdds.add(solution.graph);
             if (iteration > RDDS_TO_CACHE) {
                 previous_rdds.pop().unpersist();
             }
 
             if ((iteration % ITERATIONS_BEFORE_CHECKPOINT) == 0) {
                 logger.info("Checkpoint");
-                graph.checkpoint();
+                solution.graph.checkpoint();
             }
 
-            graph.count();
+            solution.graph.count();
 
             if (swap_result.swaps <= 0) {
                 break;
@@ -119,8 +122,10 @@ public class JaBeJa<T> {
 
             tr = Math.max(1.0, tr - DELTA);
         }
-        graph = moveNodes(graph);
-        return graph;
+        solution.graph = moveNodes(solution.graph);
+        solution.graph.count();
+        solution.end_time = System.currentTimeMillis();
+        return solution;
     }
 
     /**

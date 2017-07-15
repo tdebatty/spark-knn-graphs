@@ -215,9 +215,7 @@ public class JaBeJaTest extends TestCase implements Serializable {
         graph.count();
 
         JaBeJa<String> jbj = new JaBeJa<String>(sc, 8);
-        graph = jbj.partition(graph);
-        graph.count();
-
+        graph = jbj.partition(graph).graph;
         System.out.println(jbj.countCrossEdges(graph));
 
         sc.close();

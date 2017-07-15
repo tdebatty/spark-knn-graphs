@@ -27,7 +27,6 @@ import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import java.util.ArrayList;
-import java.util.List;
 import onlineknn.spark.kmedoids.Clusterer;
 import onlineknn.spark.kmedoids.Similarity;
 import onlineknn.spark.kmedoids.Solution;
@@ -40,35 +39,49 @@ import scala.Tuple2;
 /**
  *
  * @author tibo
+ * @param <T>
  */
-public class KMedoidsPartitioner<T> {
+public class KMedoidsPartitioner<T> implements Partitioner<T> {
 
     private final SimilarityInterface<T> similarity;
     private final int partitions;
 
-    public KMedoidsPartitioner(SimilarityInterface<T> similarity, int partitions) {
+    /**
+     *
+     * @param similarity
+     * @param partitions
+     */
+    public KMedoidsPartitioner(
+            final SimilarityInterface<T> similarity, final int partitions) {
         this.similarity = similarity;
         this.partitions = partitions;
     }
 
-    public JavaPairRDD<Node<T>, NeighborList> partition(
+    /**
+     *
+     * @param graph
+     * @return
+     */
+    public final Partitioning<T> partition(
             final JavaPairRDD<Node<T>, NeighborList> graph) {
+
+        Partitioning<T> solution = new Partitioning<T>();
 
         Clusterer<Node<T>> clusterer = new Clusterer<Node<T>>();
         clusterer.setK(partitions);
         clusterer.setSimilarity(new ClusteringSimilarityAdapter<T>(similarity));
         clusterer.setNeighborGenerator(new WindowNeighborGenerator<Node<T>>());
         clusterer.setBudget(new TrialsBudget(100));
-        Solution<Node<T>> solution = clusterer.cluster(graph.keys());
+        Solution<Node<T>> medoids = clusterer.cluster(graph.keys());
 
         // Assign each node to the most similar medoid
-        JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
+        solution.graph =
                 graph.mapToPair(new AssignToMedoidFunction<T>(
-                        solution.medoids,
+                        medoids.medoids,
                         similarity));
-
-
-        return partitioned_graph;
+        solution.graph.count();
+        solution.end_time = System.currentTimeMillis();
+        return solution;
     }
 }
 
