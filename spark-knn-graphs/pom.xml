@@ -247,6 +247,7 @@
             <version>0.8</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>online-knn</groupId>
             <artifactId>spark-k-medoids</artifactId>
