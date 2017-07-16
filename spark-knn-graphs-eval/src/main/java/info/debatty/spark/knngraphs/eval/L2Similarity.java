@@ -1,4 +1,4 @@
-package info.devatty.spark.knngraphs.eval;
+package info.debatty.spark.knngraphs.eval;
 
 import info.debatty.java.graphs.SimilarityInterface;
 

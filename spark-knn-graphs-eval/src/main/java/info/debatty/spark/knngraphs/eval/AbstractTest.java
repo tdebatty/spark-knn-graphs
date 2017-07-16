@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.devatty.spark.knngraphs.eval;
+package info.debatty.spark.knngraphs.eval;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;

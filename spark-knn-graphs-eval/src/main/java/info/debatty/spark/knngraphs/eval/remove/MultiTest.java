@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.devatty.spark.knngraphs.eval.remove;
+package info.debatty.spark.knngraphs.eval.remove;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
@@ -31,7 +31,7 @@ import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import info.debatty.spark.knngraphs.builder.Online;
 import info.debatty.spark.knngraphs.builder.StatisticsAccumulator;
-import info.devatty.spark.knngraphs.eval.Batch;
+import info.debatty.spark.knngraphs.eval.Batch;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;

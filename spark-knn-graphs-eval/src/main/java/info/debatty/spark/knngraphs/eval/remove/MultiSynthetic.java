@@ -22,11 +22,11 @@
  * THE SOFTWARE.
  */
 
-package info.devatty.spark.knngraphs.eval.remove;
+package info.debatty.spark.knngraphs.eval.remove;
 
 import info.debatty.java.datasets.gaussian.Dataset;
-import info.devatty.spark.knngraphs.eval.Batch;
-import info.devatty.spark.knngraphs.eval.L2Similarity;
+import info.debatty.spark.knngraphs.eval.Batch;
+import info.debatty.spark.knngraphs.eval.L2Similarity;
 
 /**
  *

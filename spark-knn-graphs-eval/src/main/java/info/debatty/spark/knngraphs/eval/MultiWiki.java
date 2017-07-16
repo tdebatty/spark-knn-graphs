@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-package info.devatty.spark.knngraphs.eval;
+package info.debatty.spark.knngraphs.eval;
 
 import info.debatty.java.datasets.wikipedia.Dataset;
 import info.debatty.java.datasets.wikipedia.Page;
