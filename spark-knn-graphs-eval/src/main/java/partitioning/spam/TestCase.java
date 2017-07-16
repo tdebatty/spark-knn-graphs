@@ -52,6 +52,7 @@ public class TestCase {
         }
 
         JaBeJaTest.dataset_path = (String) options.valueOf("d");
+        KMedoidsTest.dataset_path = (String) options.valueOf("d");
 
         // Reduce Spark output logs
         Logger.getLogger("org").setLevel(Level.WARN);
