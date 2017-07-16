@@ -43,7 +43,7 @@ import scala.Tuple2;
 public class ExhaustiveSearch<T> implements Serializable {
     private final JavaPairRDD<Node<T>, NeighborList> graph;
     private final SimilarityInterface<T> similarity;
-    
+
     public ExhaustiveSearch(JavaPairRDD<Node<T>, NeighborList> graph, SimilarityInterface<T> similarity) {
         this.graph = graph;
         this.similarity = similarity;
@@ -52,7 +52,7 @@ public class ExhaustiveSearch<T> implements Serializable {
     public NeighborList search(final Node<T> query, final int k) {
         JavaRDD<NeighborList> candidates_neighborlists = graph.mapPartitions( new FlatMapFunction<Iterator<Tuple2<Node<T>, NeighborList>>, NeighborList>() {
 
-            public Iterable<NeighborList> call(Iterator<Tuple2<Node<T>, NeighborList>> tuples_iterator) throws Exception {
+            public Iterator<NeighborList> call(Iterator<Tuple2<Node<T>, NeighborList>> tuples_iterator) throws Exception {
                 NeighborList local_nl = new NeighborList(k);
                 while (tuples_iterator.hasNext()) {
                     Node<T> next = tuples_iterator.next()._1;
@@ -63,7 +63,7 @@ public class ExhaustiveSearch<T> implements Serializable {
 
                 ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);
                 result.add(local_nl);
-                return result;
+                return result.iterator();
 
             }
         });

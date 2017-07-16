@@ -282,7 +282,7 @@ class AssignFunction<T>
         this.similarity = similarity;
     }
 
-    public Iterable<Tuple2<Node<T>, NeighborList>> call(
+    public Iterator<Tuple2<Node<T>, NeighborList>> call(
             final Iterator<Tuple2<Node<T>, NeighborList>> iterator) {
 
         // fetch all tuples in this partition
@@ -333,7 +333,7 @@ class AssignFunction<T>
                     NodePartitioner.PARTITION_KEY, partition);
         }
 
-        return tuples;
+        return tuples.iterator();
     }
 }
 
@@ -396,12 +396,12 @@ class NeighborListToGraph<T>
 
     private final SimilarityInterface<T> similarity;
 
-     NeighborListToGraph(final SimilarityInterface<T> similarity) {
+    NeighborListToGraph(final SimilarityInterface<T> similarity) {
 
         this.similarity = similarity;
     }
 
-    public Iterable<Graph<T>> call(
+    public Iterator<Graph<T>> call(
             final Iterator<Tuple2<Node<T>, NeighborList>> iterator) {
 
         Graph<T> graph = new Graph<T>();
@@ -415,7 +415,7 @@ class NeighborListToGraph<T>
 
         ArrayList<Graph<T>> list = new ArrayList<Graph<T>>(1);
         list.add(graph);
-        return list;
+        return list.iterator();
 
     }
 }

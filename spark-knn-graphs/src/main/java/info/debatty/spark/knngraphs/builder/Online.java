@@ -34,6 +34,7 @@ import info.debatty.spark.knngraphs.NodePartitioner;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -548,7 +549,7 @@ class UpdateFunction<T>
 class MergeGraphs<T>
     implements PairFlatMapFunction<Graph<T>, Node<T>, NeighborList> {
 
-    public Iterable<Tuple2<Node<T>, NeighborList>> call(final Graph<T> graph) {
+    public Iterator<Tuple2<Node<T>, NeighborList>> call(final Graph<T> graph) {
 
         ArrayList<Tuple2<Node<T>, NeighborList>> list =
                 new ArrayList<Tuple2<Node<T>, NeighborList>>(graph.size());
@@ -559,7 +560,7 @@ class MergeGraphs<T>
                     entry.getValue()));
         }
 
-        return list;
+        return list.iterator();
     }
 }
 
@@ -575,7 +576,7 @@ class FindNodesToUpdate<T> implements FlatMapFunction<Graph<T>, Node<T>> {
         this.node_to_remove = node_to_remove;
     }
 
-    public Iterable<Node<T>> call(final Graph<T> subgraph) {
+    public Iterator<Node<T>> call(final Graph<T> subgraph) {
         LinkedList<Node<T>> nodes_to_update = new LinkedList<Node<T>>();
         for (Node<T> node : subgraph.getNodes()) {
             if (subgraph.get(node).containsNode(node_to_remove)) {
@@ -583,7 +584,7 @@ class FindNodesToUpdate<T> implements FlatMapFunction<Graph<T>, Node<T>> {
             }
         }
 
-        return nodes_to_update;
+        return nodes_to_update.iterator();
     }
 }
 
@@ -606,8 +607,8 @@ class SearchNeighbors<T> implements FlatMapFunction<Graph<T>, Node<T>> {
         this.search_depth = search_depth;
     }
 
-    public Iterable<Node<T>> call(final Graph<T> subgraph) {
-        return subgraph.findNeighbors(starting_points, search_depth);
+    public Iterator<Node<T>> call(final Graph<T> subgraph) {
+        return subgraph.findNeighbors(starting_points, search_depth).iterator();
     }
 }
 

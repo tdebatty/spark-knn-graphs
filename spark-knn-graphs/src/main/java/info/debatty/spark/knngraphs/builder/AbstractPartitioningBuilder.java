@@ -6,6 +6,7 @@ import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.build.Brute;
 import info.debatty.java.graphs.build.GraphBuilder;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.Map;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -44,7 +45,7 @@ public abstract class AbstractPartitioningBuilder<T> extends DistributedGraphBui
         JavaPairRDD<Node<T>, NeighborList> graph = bucketsofnodes.groupByKey().flatMapToPair(
                 new  PairFlatMapFunction<Tuple2<Integer, Iterable<Node<T>>>, Node<T>, NeighborList>() {
 
-            public Iterable<Tuple2<Node<T>, NeighborList>> call(Tuple2<Integer, Iterable<Node<T>>> tuple) throws Exception {
+            public Iterator<Tuple2<Node<T>, NeighborList>> call(Tuple2<Integer, Iterable<Node<T>>> tuple) throws Exception {
                 ArrayList<Node<T>> nodes = new ArrayList<Node<T>>();
                 for (Node<T> n : tuple._2) {
                     nodes.add(n);
@@ -63,7 +64,7 @@ public abstract class AbstractPartitioningBuilder<T> extends DistributedGraphBui
                     r.add(new Tuple2<Node<T>, NeighborList>(entry.getKey(), entry.getValue()));
                 }
 
-                return r;
+                return r.iterator();
             }
         });
 

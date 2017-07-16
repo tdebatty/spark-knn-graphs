@@ -27,6 +27,7 @@ package info.debatty.spark.knngraphs.builder;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.spamsum.ESSum;
 import java.util.ArrayList;
+import java.util.Iterator;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
@@ -42,18 +43,18 @@ public class NNCTPH extends AbstractPartitioningBuilder<String> {
     protected JavaPairRDD<Integer, Node<String>> _binNodes(JavaRDD<Node<String>> nodes) {
         return nodes.flatMapToPair(
                 new PairFlatMapFunction<Node<String>, Integer, Node<String>>() {
-            
-            public Iterable<Tuple2<Integer, Node<String>>> call(Node<String> n) throws Exception {
-          
+
+            public Iterator<Tuple2<Integer, Node<String>>> call(Node<String> n) throws Exception {
+
                 ESSum ess = new ESSum(stages, buckets, 1);
-                
+
                 ArrayList<Tuple2<Integer, Node<String>>> r = new ArrayList<Tuple2<Integer, Node<String>>>();
                 int[] hash = ess.HashString(n.value);
                 for (int v : hash) {
                     r.add(new Tuple2<Integer, Node<String>>(v, n));
                 }
-                
-                return r;
+
+                return r.iterator();
             }
         });
     }

@@ -257,13 +257,13 @@
 
     <profiles>
         <profile>
-            <id>spark152</id>
+            <id>spark211</id>
 
             <activation>
                 <activeByDefault>true</activeByDefault>
                 <property>
                     <name>env.SPARKVERSION</name>
-                    <value>1.5.2</value>
+                    <value>2.1.1</value>
                 </property>
             </activation>
 
@@ -271,70 +271,11 @@
                 <dependency>
                     <groupId>org.apache.spark</groupId>
                     <artifactId>spark-core_2.11</artifactId>
-                    <version>1.5.2</version>
+                    <version>2.1.1</version>
                     <scope>provided</scope>
                 </dependency>
             </dependencies>
         </profile>
 
-        <profile>
-            <id>spark160</id>
-
-            <activation>
-                <property>
-                    <name>env.SPARKVERSION</name>
-                    <value>1.6.0</value>
-                </property>
-            </activation>
-
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.spark</groupId>
-                    <artifactId>spark-core_2.11</artifactId>
-                    <version>1.6.0</version>
-                    <scope>provided</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-
-        <profile>
-            <id>spark162</id>
-
-            <activation>
-                <property>
-                    <name>env.SPARKVERSION</name>
-                    <value>1.6.2</value>
-                </property>
-            </activation>
-
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.spark</groupId>
-                    <artifactId>spark-core_2.11</artifactId>
-                    <version>1.6.2</version>
-                    <scope>provided</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-
-        <profile>
-            <id>spark141</id>
-
-            <activation>
-                <property>
-                    <name>env.SPARKVERSION</name>
-                    <value>1.4.1</value>
-                </property>
-            </activation>
-
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.spark</groupId>
-                    <artifactId>spark-core_2.11</artifactId>
-                    <version>1.4.1</version>
-                    <scope>provided</scope>
-                </dependency>
-            </dependencies>
-        </profile>
     </profiles>
 </project>

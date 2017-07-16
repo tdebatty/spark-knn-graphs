@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import org.apache.hadoop.fs.Path;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
@@ -72,7 +73,8 @@ public class JaBeJa<T> implements Partitioner<T> {
         this.ctx = ctx;
         this.partitions = partitions;
 
-        ctx.setCheckpointDir("/tmp/checkpoints");
+        String temp_dir = System.getProperty("java.io.tmpdir");
+        // ctx.setCheckpointDir(temp_dir + Path.SEPARATOR + "checkpoints");
     }
 
     /**
@@ -112,7 +114,7 @@ public class JaBeJa<T> implements Partitioner<T> {
 
             if ((iteration % ITERATIONS_BEFORE_CHECKPOINT) == 0) {
                 logger.info("Checkpoint");
-                solution.graph.checkpoint();
+                // solution.graph.checkpoint();
             }
 
             solution.graph.count();
@@ -292,7 +294,7 @@ class PerformSwapFunction<T>
         this.acks = acks;
     }
 
-    public Iterable<Tuple2<Node<T>, NeighborList>> call(
+    public Iterator<Tuple2<Node<T>, NeighborList>> call(
             final Iterator<Tuple2<Node<T>, NeighborList>> tuples_iterator) {
 
         // Collect all nodes
@@ -333,7 +335,7 @@ class PerformSwapFunction<T>
             }
         }
 
-        return tuples;
+        return tuples.iterator();
     }
 }
 
@@ -358,7 +360,7 @@ class ProcessRequestsFunction<T>
 
 
 
-    public Iterable<SwapRequest<T>> call(
+    public Iterator<SwapRequest<T>> call(
             final Iterator<Tuple2<Node<T>, NeighborList>> tuples) {
 
         // Collect all nodes
@@ -387,7 +389,7 @@ class ProcessRequestsFunction<T>
             dst_nodes_will_swap.add(request.dst);
             accepted_requests.add(request);
         }
-        return accepted_requests;
+        return accepted_requests.iterator();
 
     }
 
@@ -430,7 +432,7 @@ class MakeRequestsFunction<T>
         this.swaps_per_iteration = swaps_per_iteration;
     }
 
-    public Iterable<SwapRequest> call(
+    public Iterator<SwapRequest> call(
             final Iterator<Tuple2<Node<T>, NeighborList>> tuples)
             throws Exception {
 
@@ -467,7 +469,7 @@ class MakeRequestsFunction<T>
 
             }
         }
-        return list;
+        return list.iterator();
 
     }
 

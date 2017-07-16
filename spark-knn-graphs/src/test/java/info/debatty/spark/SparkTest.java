@@ -28,6 +28,7 @@ import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedList;
 import junit.framework.TestCase;
 import org.apache.log4j.Level;
@@ -71,8 +72,8 @@ public class SparkTest extends TestCase implements Serializable {
 
         JavaRDD<String> mapped =
                 data.flatMap(new FlatMapFunction<String, String>() {
-            public Iterable<String> call(final String arg0) throws Exception {
-                return new LinkedList<String>();
+            public Iterator<String> call(final String arg0) throws Exception {
+                return new LinkedList<String>().iterator();
             }
 
         });
