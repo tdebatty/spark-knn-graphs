@@ -25,8 +25,6 @@
 package info.devatty.spark.knngraphs.eval;
 
 import info.debatty.java.datasets.textfile.Dataset;
-import info.debatty.java.graphs.SimilarityInterface;
-import info.debatty.java.stringsimilarity.JaroWinkler;
 import org.apache.commons.cli.ParseException;
 
 /**
