@@ -61,6 +61,7 @@ public class JaBeJa<T> implements Partitioner<T> {
 
     private final int partitions;
     private final JavaSparkContext ctx;
+    private Budget budget;
 
     /**
      *
@@ -117,6 +118,10 @@ public class JaBeJa<T> implements Partitioner<T> {
             solution.graph.count();
 
             if (swap_result.swaps <= 0) {
+                break;
+            }
+
+            if (budget != null && budget.isExhausted(solution)) {
                 break;
             }
 
@@ -260,6 +265,10 @@ public class JaBeJa<T> implements Partitioner<T> {
         }
 
         return count;
+    }
+
+    public void setBudget(final Budget budget) {
+        this.budget = budget;
     }
 }
 

@@ -172,6 +172,57 @@ public class JaBeJaTest extends TestCase implements Serializable {
         sc.close();
     }
 
+    public final void testTimeBudget() throws IOException, Exception {
+        System.out.println("TimeBudget");
+        System.out.println("==========");
+
+        Logger.getLogger("org").setLevel(Level.WARN);
+        Logger.getLogger("akka").setLevel(Level.WARN);
+        Logger.getLogger("info").setLevel(Level.WARN);
+        Logger.getLogger("info.debatty.spark.knngraphs.JaBeJa")
+                .setLevel(Level.INFO);
+
+        String file =  getClass().getClassLoader().
+                getResource("726-unique-spams").getPath();
+
+        // Read the file
+        ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
+
+        // Convert to nodes
+        List<Node<String>> data = new ArrayList<Node<String>>();
+        for (String s : strings) {
+            data.add(new Node<String>(String.valueOf(data.size()), s));
+        }
+
+        // Configure spark instance
+        SparkConf conf = new SparkConf();
+        conf.setAppName("SparkTest");
+        conf.setIfMissing("spark.master", "local[*]");
+        JavaSparkContext sc = new JavaSparkContext(conf);
+
+        // Parallelize the dataset in Spark
+        JavaRDD<Node<String>> nodes = sc.parallelize(data);
+
+        // Build the graph
+        Brute<String> builder = new Brute<String>();
+        builder.setK(K);
+        builder.setSimilarity(new JWSimilarity());
+
+        // Compute the graph and force execution
+        JavaPairRDD<Node<String>, NeighborList> graph =
+                builder.computeGraph(nodes);
+        graph.cache();
+        graph.count();
+
+        JaBeJa<String> jbj = new JaBeJa<String>(sc, 8);
+        jbj.setBudget(new TimeBudget(10)); // 10 seconds
+        Partitioning<String> solution = jbj.partition(graph);
+        System.out.println(solution.runTime());
+        System.out.println(jbj.countCrossEdges(solution.graph));
+
+        sc.close();
+    }
+
     public final void testPartition() throws IOException, Exception {
         System.out.println("Partition");
         System.out.println("=========");

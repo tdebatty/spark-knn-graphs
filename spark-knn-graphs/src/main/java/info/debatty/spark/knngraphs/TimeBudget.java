@@ -23,24 +23,35 @@
  */
 package info.debatty.spark.knngraphs;
 
-import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
-import org.apache.spark.api.java.JavaPairRDD;
-
 /**
- *
+ * Set a running time budget in seconds.
  * @author tibo
- * @param <T> type of nodes in the graph
  */
-public interface Partitioner<T> {
+public class TimeBudget implements Budget {
+
+    private final long budget;
 
     /**
-     * Partition the graph and return a Partitioning solution, that contains
-     * the partitioned graph itself plus various metadata.
-     * @param graph
+     * Set a time budget in seconds.
+     * @param budget
+     */
+    public TimeBudget(final long budget) {
+        this.budget = budget;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param solution
      * @return
      */
-    Partitioning<T> partition(JavaPairRDD<Node<T>, NeighborList> graph);
+    public final boolean isExhausted(final Partitioning solution) {
+        return (System.currentTimeMillis() - solution.start_time) / 1000
+                >= budget;
+    }
 
-    void setBudget(Budget budget);
+    public long getValue() {
+        return budget;
+    }
+
 }

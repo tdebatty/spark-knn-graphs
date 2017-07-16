@@ -23,24 +23,16 @@
  */
 package info.debatty.spark.knngraphs;
 
-import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
-import org.apache.spark.api.java.JavaPairRDD;
-
 /**
  *
  * @author tibo
- * @param <T> type of nodes in the graph
  */
-public interface Partitioner<T> {
+public interface Budget {
 
     /**
-     * Partition the graph and return a Partitioning solution, that contains
-     * the partitioned graph itself plus various metadata.
-     * @param graph
+     * Return true if the allowed budget is exhausted.
+     * @param solution
      * @return
      */
-    Partitioning<T> partition(JavaPairRDD<Node<T>, NeighborList> graph);
-
-    void setBudget(Budget budget);
+    boolean isExhausted(Partitioning solution);
 }

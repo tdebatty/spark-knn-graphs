@@ -35,4 +35,8 @@ public class Partitioning<T> {
     public long start_time = System.currentTimeMillis();
     public long end_time;
     public JavaPairRDD<Node<T>, NeighborList> graph;
+
+    long runTime() {
+        return end_time - start_time;
+    }
 }

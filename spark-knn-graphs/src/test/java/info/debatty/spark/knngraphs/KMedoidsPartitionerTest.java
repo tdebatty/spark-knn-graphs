@@ -27,6 +27,7 @@ import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import junit.framework.TestCase;
@@ -48,7 +49,7 @@ public class KMedoidsPartitionerTest extends TestCase {
     /**
      * Test of partition method, of class KMedoidsPartitioner.
      */
-    public void testPartition() throws Exception {
+    public final void testPartition() throws IOException, Exception {
         System.out.println("Partition");
         System.out.println("=========");
 
@@ -90,6 +91,7 @@ public class KMedoidsPartitionerTest extends TestCase {
 
         KMedoidsPartitioner<String> partitioner =
                 new KMedoidsPartitioner<String>(new JWSimilarity(), 8);
+        partitioner.setBudget(new TimeBudget(10));
         graph = partitioner.partition(graph).graph;
 
         // Check result...

@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import onlineknn.spark.kmedoids.Clusterer;
 import onlineknn.spark.kmedoids.Similarity;
 import onlineknn.spark.kmedoids.Solution;
-import onlineknn.spark.kmedoids.budget.TrialsBudget;
 import onlineknn.spark.kmedoids.neighborgenerator.WindowNeighborGenerator;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.function.PairFunction;
@@ -45,6 +44,7 @@ public class KMedoidsPartitioner<T> implements Partitioner<T> {
 
     private final SimilarityInterface<T> similarity;
     private final int partitions;
+    private Budget budget;
 
     /**
      *
@@ -65,13 +65,17 @@ public class KMedoidsPartitioner<T> implements Partitioner<T> {
     public final Partitioning<T> partition(
             final JavaPairRDD<Node<T>, NeighborList> graph) {
 
+        if (budget == null) {
+            throw new IllegalStateException("Budget is undefined!");
+        }
+
         Partitioning<T> solution = new Partitioning<T>();
 
         Clusterer<Node<T>> clusterer = new Clusterer<Node<T>>();
         clusterer.setK(partitions);
         clusterer.setSimilarity(new ClusteringSimilarityAdapter<T>(similarity));
         clusterer.setNeighborGenerator(new WindowNeighborGenerator<Node<T>>());
-        clusterer.setBudget(new TrialsBudget(100));
+        clusterer.setBudget(BudgetAdapter.get(budget));
         Solution<Node<T>> medoids = clusterer.cluster(graph.keys());
 
         // Assign each node to the most similar medoid
@@ -82,6 +86,25 @@ public class KMedoidsPartitioner<T> implements Partitioner<T> {
         solution.graph.count();
         solution.end_time = System.currentTimeMillis();
         return solution;
+    }
+
+    public void setBudget(Budget budget) {
+        this.budget = budget;
+    }
+}
+
+class BudgetAdapter {
+    public static onlineknn.spark.kmedoids.Budget get(final Budget budget) {
+        if (budget.getClass() == TimeBudget.class) {
+            return new onlineknn.spark.kmedoids.Budget() {
+                public boolean isExhausted(Solution solution) {
+                    return (System.currentTimeMillis() - solution.start_time) / 1000 >=
+                            ((TimeBudget) budget).getValue();
+                }
+            };
+        }
+
+        throw new IllegalArgumentException("Unsupported budget type");
     }
 }
 
