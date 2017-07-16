@@ -96,7 +96,7 @@ public class KMedoidsPartitionerTest extends TestCase {
 
         // Check result...
         JaBeJa<String> jbj = new JaBeJa<String>(sc, 8);
-        System.out.println(jbj.countCrossEdges(graph));
+        System.out.println(JaBeJa.countCrossEdges(graph, 8));
 
         sc.close();
     }

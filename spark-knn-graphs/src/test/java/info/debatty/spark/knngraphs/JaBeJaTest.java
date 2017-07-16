@@ -156,7 +156,7 @@ public class JaBeJaTest extends TestCase implements Serializable {
         graph = jbj.moveNodes(graph);
         graph.cache();
 
-        int cross_edges_before = jbj.countCrossEdges(graph);
+        int cross_edges_before = JaBeJa.countCrossEdges(graph, 8);
 
         // Perform Swap
         graph = jbj.swap(graph, 2.0, 1).graph;
@@ -164,7 +164,7 @@ public class JaBeJaTest extends TestCase implements Serializable {
         graph.cache();
         graph.count();
 
-        int cross_edges_after = jbj.countCrossEdges(graph);
+        int cross_edges_after = JaBeJa.countCrossEdges(graph, 8);
 
         assertTrue("Number of cross edges should decrease!",
                 cross_edges_after < cross_edges_before);
@@ -218,7 +218,7 @@ public class JaBeJaTest extends TestCase implements Serializable {
         jbj.setBudget(new TimeBudget(10)); // 10 seconds
         Partitioning<String> solution = jbj.partition(graph);
         System.out.println(solution.runTime());
-        System.out.println(jbj.countCrossEdges(solution.graph));
+        System.out.println(JaBeJa.countCrossEdges(solution.graph, 8));
 
         sc.close();
     }
@@ -267,7 +267,7 @@ public class JaBeJaTest extends TestCase implements Serializable {
 
         JaBeJa<String> jbj = new JaBeJa<String>(sc, 8);
         graph = jbj.partition(graph).graph;
-        System.out.println(jbj.countCrossEdges(graph));
+        System.out.println(JaBeJa.countCrossEdges(graph, 8));
 
         sc.close();
     }

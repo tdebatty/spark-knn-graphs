@@ -138,13 +138,16 @@ public class JaBeJa<T> implements Partitioner<T> {
     /**
      *
      * @param graph
+     * @param partitions
      * @return
      */
-    public final int countCrossEdges(
-            final JavaPairRDD<Node<T>, NeighborList> graph) {
+    public static final <U> int countCrossEdges(
+            final JavaPairRDD<Node<U>, NeighborList> graph,
+            final int partitions) {
 
         int[] color_index = buildColorIndex(graph);
-        int[][] degrees_index = buildDegreesIndex(graph, color_index);
+        int[][] degrees_index = buildDegreesIndex(
+                graph, color_index, partitions);
 
         return countCrossEdges(color_index, degrees_index);
     }
@@ -162,11 +165,11 @@ public class JaBeJa<T> implements Partitioner<T> {
      *
      * @param graph
      */
-    final int[] buildColorIndex(
-            final JavaPairRDD<Node<T>, NeighborList> graph) {
+    static final <U> int[] buildColorIndex(
+            final JavaPairRDD<Node<U>, NeighborList> graph) {
 
         Map<Integer, Integer> index_map =
-                graph.mapToPair(new GetPartitionFunction<T>()).collectAsMap();
+                graph.mapToPair(new GetPartitionFunction<U>()).collectAsMap();
 
         int[] index = new int[index_map.size()];
         for (Map.Entry<Integer, Integer> entry : index_map.entrySet()) {
@@ -175,12 +178,13 @@ public class JaBeJa<T> implements Partitioner<T> {
         return index;
     }
 
-    final int[][] buildDegreesIndex(
-            final JavaPairRDD<Node<T>, NeighborList> graph,
-            final int[] color_index) {
+    static final <U> int[][] buildDegreesIndex(
+            final JavaPairRDD<Node<U>, NeighborList> graph,
+            final int[] color_index,
+            final int partitions) {
 
         Map<Integer, int[]> index_map = graph
-                .mapToPair(new GetDegreesFunction<T>(partitions, color_index))
+                .mapToPair(new GetDegreesFunction<U>(partitions, color_index))
                 .collectAsMap();
 
         int[][] index = new int[index_map.size()][];
@@ -211,7 +215,7 @@ public class JaBeJa<T> implements Partitioner<T> {
             final int swaps_per_iteration) {
 
         int[] color_index = buildColorIndex(graph);
-        int[][] degrees_index = buildDegreesIndex(graph, color_index);
+        int[][] degrees_index = buildDegreesIndex(graph, color_index, partitions);
 
         logger.info(
                 "Cross edges: {}", countCrossEdges(color_index, degrees_index));
@@ -254,8 +258,9 @@ public class JaBeJa<T> implements Partitioner<T> {
         return graph.partitionBy(new NodePartitioner(partitions));
     }
 
-    private int countCrossEdges(
+    private static int countCrossEdges(
             final int[] color_index, final int[][] degrees_index) {
+        int partitions = degrees_index[0].length;
         int count = 0;
         for (int i = 0; i < color_index.length; i++) {
             int color = color_index[i];
