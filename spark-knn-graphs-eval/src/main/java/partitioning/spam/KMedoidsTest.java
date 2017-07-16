@@ -25,59 +25,48 @@ package partitioning.spam;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
-import info.debatty.spark.knngraphs.builder.Brute;
+import info.debatty.jinu.TestInterface;
+import info.debatty.spark.knngraphs.JaBeJa;
+import info.debatty.spark.knngraphs.KMedoidsPartitioner;
+import info.debatty.spark.knngraphs.Partitioning;
+import info.debatty.spark.knngraphs.TimeBudget;
 import info.debatty.spark.knngraphs.eval.JWSimilarity;
-import java.util.LinkedList;
-import java.util.List;
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import scala.Tuple2;
 
 /**
  *
  * @author tibo
  */
-public class BuildGraph {
+public class KMedoidsTest implements TestInterface {
 
-    public static void main(String[] args) throws Exception {
+    public static String dataset_path;
 
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
-
-        OptionParser parser = new OptionParser("i:o:");
-        OptionSet options = parser.parse(args);
-        String dataset_path = (String) options.valueOf("i");
-        String output_path = (String) options.valueOf("o");
+    @Override
+    public final double[] run(final double budget) throws Exception {
 
         SparkConf conf = new SparkConf();
-        conf.setAppName("Spark build SPAM graph");
+        conf.setAppName("Spark graph partitioning with SPAM");
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
-        List<String> strings = sc.textFile(dataset_path, 16).collect();
-
-        LinkedList<Node<String>> nodes = new LinkedList<Node<String>>();
-        int i = 0;
-        for (String string : strings) {
-            nodes.add(new Node<String>(String.valueOf(i), string));
-            i++;
-        }
-
-        JavaRDD<Node<String>> nodes_rdd = sc.parallelize(nodes);
-
-
-        Brute<String> brute = new Brute();
-        brute.setK(10);
-        brute.setSimilarity(new JWSimilarity());
+        JavaRDD<Tuple2<Node<String>, NeighborList>> tuples =
+                sc.objectFile(dataset_path);
         JavaPairRDD<Node<String>, NeighborList> graph =
-                brute.computeGraph(nodes_rdd);
+                JavaPairRDD.fromJavaRDD(tuples);
 
-        graph.saveAsObjectFile(output_path);
+        KMedoidsPartitioner<String> partitioner =
+                new KMedoidsPartitioner<String>(new JWSimilarity(), 16);
+        partitioner.setBudget(new TimeBudget((long) budget));
+        Partitioning<String> partition = partitioner.partition(graph);
+        double[] result = new double[] {
+            JaBeJa.countCrossEdges(partition.graph, 16)
+        };
+        sc.close();
 
+        return result;
     }
 }
