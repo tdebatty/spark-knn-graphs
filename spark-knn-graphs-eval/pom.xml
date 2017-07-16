@@ -68,10 +68,17 @@
             <artifactId>commons-cli</artifactId>
             <version>1.2</version>
         </dependency>
+
         <dependency>
-            <groupId>info.debatty</groupId>
+            <groupId>net.sf.jopt-simple</groupId>
+            <artifactId>jopt-simple</artifactId>
+            <version>4.9</version>
+        </dependency>
+
+        <dependency>
+            <groupId>${project.groupId}</groupId>
             <artifactId>spark-knn-graphs</artifactId>
-            <version>0.14-SNAPSHOT</version>
+            <version>0.15-SNAPSHOT</version>
         </dependency>
     </dependencies>
 
