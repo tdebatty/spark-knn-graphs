@@ -36,9 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import org.apache.hadoop.fs.Path;
 import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
@@ -56,26 +54,20 @@ public class JaBeJa<T> implements Partitioner<T> {
     private static final double T0 = 2.0;
     private static final double DELTA = 0.003;
     private static final int SWAPS_PER_ITERATION = 10;
-    private static final int ITERATIONS_BEFORE_CHECKPOINT = 100;
+    private static final int ITERATIONS_BEFORE_CHECKPOINT = 20;
     private static final int RDDS_TO_CACHE = 2;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JaBeJa.class);
 
     private final int partitions;
-    private final JavaSparkContext ctx;
     private Budget budget;
 
     /**
      *
-     * @param ctx
      * @param partitions
      */
-    public JaBeJa(final JavaSparkContext ctx, final int partitions) {
-        this.ctx = ctx;
+    public JaBeJa(final int partitions) {
         this.partitions = partitions;
-
-        String temp_dir = System.getProperty("java.io.tmpdir");
-        // ctx.setCheckpointDir(temp_dir + Path.SEPARATOR + "checkpoints");
     }
 
     /**
@@ -109,7 +101,7 @@ public class JaBeJa<T> implements Partitioner<T> {
 
             if ((iteration % ITERATIONS_BEFORE_CHECKPOINT) == 0) {
                 LOGGER.info("Checkpoint");
-                // solution.graph.checkpoint();
+                solution.graph.rdd().localCheckpoint();
             }
 
             solution.graph.count();
@@ -502,7 +494,7 @@ class MakeRequestsFunction<T>
 
         LinkedList<String> nodes_will_swap = new LinkedList<String>();
         LinkedList<SwapRequest> list = new LinkedList<SwapRequest>();
-        while (list.size() < swaps_per_iteration) {
+        for (int i = 0; i < swaps_per_iteration; i++) {
 
             // Select one node at random
             Node<T> src = pickRandomNode(local_graph);
