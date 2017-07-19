@@ -23,6 +23,7 @@
  */
 package info.debatty.spark.knngraphs;
 
+import info.debatty.java.datasets.gaussian.Dataset;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.builder.Brute;
@@ -103,4 +104,65 @@ public class KMedoidsPartitionerTest extends TestCase {
         sc.close();
     }
 
+    public final void testImbalance() throws IOException, Exception {
+        System.out.println("Imbalance");
+        System.out.println("=========");
+
+        Logger.getLogger("org").setLevel(Level.WARN);
+        Logger.getLogger("akka").setLevel(Level.WARN);
+        Logger.getLogger("info").setLevel(Level.WARN);
+        Logger.getLogger("info.debatty.spark.knngraphs.JaBeJa")
+                .setLevel(Level.INFO);
+
+        Dataset dataset = new Dataset.Builder(10, 13)
+                .setOverlap(Dataset.Builder.Overlap.HIGH)
+                .setSize(10000)
+                .build();
+
+        // Convert to nodes
+        List<Node<double[]>> data = new ArrayList<Node<double[]>>();
+        for (double[] point : dataset) {
+            data.add(new Node<double[]>(String.valueOf(data.size()), point));
+        }
+
+        // Configure spark instance
+        SparkConf conf = new SparkConf();
+        conf.setAppName("SparkTest");
+        conf.setIfMissing("spark.master", "local[*]");
+        JavaSparkContext sc = new JavaSparkContext(conf);
+
+        // Parallelize the dataset in Spark
+        JavaRDD<Node<double[]>> nodes = sc.parallelize(data);
+
+        // Build the graph
+        Brute<double[]> builder = new Brute<double[]>();
+        builder.setK(K);
+        builder.setSimilarity(new L2Similarity());
+        JavaPairRDD<Node<double[]>, NeighborList> graph =
+                builder.computeGraph(nodes);
+
+        graph.repartition(8);
+        graph.cache();
+        graph.count();
+
+        // Partition
+        KMedoidsPartitioner<double[]> partitioner =
+                new KMedoidsPartitioner<double[]>(
+                        new L2Similarity(),
+                        8,
+                        1.5);
+        partitioner.setBudget(new TimeBudget(10));
+        graph = partitioner.partition(graph).graph;
+        graph.cache();
+        graph.count();
+
+        // Check result...
+        System.out.println(JaBeJa.countCrossEdges(graph, 8));
+        double imbalance = JaBeJa.computeBalance(graph, 8);
+        System.out.println("Imbalance: " + imbalance);
+
+        sc.close();
+
+        assertTrue("Imbalance failed!", imbalance <= 1.5);
+    }
 }

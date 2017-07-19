@@ -27,11 +27,14 @@ import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedList;
 import onlineknn.spark.kmedoids.Clusterer;
 import onlineknn.spark.kmedoids.Similarity;
 import onlineknn.spark.kmedoids.Solution;
 import onlineknn.spark.kmedoids.neighborgenerator.WindowNeighborGenerator;
 import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
@@ -42,8 +45,11 @@ import scala.Tuple2;
  */
 public class KMedoidsPartitioner<T> implements Partitioner<T> {
 
+    private static final double DEFAULT_IMBALANCE = Double.POSITIVE_INFINITY;
+
     private final SimilarityInterface<T> similarity;
     private final int partitions;
+    private final double imbalance;
     private Budget budget;
 
     /**
@@ -53,8 +59,23 @@ public class KMedoidsPartitioner<T> implements Partitioner<T> {
      */
     public KMedoidsPartitioner(
             final SimilarityInterface<T> similarity, final int partitions) {
+        this(similarity, partitions, DEFAULT_IMBALANCE);
+    }
+
+    /**
+     *
+     * @param similarity
+     * @param partitions
+     * @param imbalance
+     */
+    public KMedoidsPartitioner(
+            final SimilarityInterface<T> similarity,
+            final int partitions,
+            final double imbalance) {
+
         this.similarity = similarity;
         this.partitions = partitions;
+        this.imbalance = imbalance;
     }
 
     /**
@@ -75,20 +96,23 @@ public class KMedoidsPartitioner<T> implements Partitioner<T> {
         clusterer.setK(partitions);
         clusterer.setSimilarity(new ClusteringSimilarityAdapter<T>(similarity));
         clusterer.setNeighborGenerator(new WindowNeighborGenerator<Node<T>>());
+        clusterer.setImbalance(imbalance);
         clusterer.setBudget(BudgetAdapter.get(budget));
         Solution<Node<T>> medoids = clusterer.cluster(graph.keys());
 
         // Assign each node to the most similar medoid
+        // Taking imbalance into account
         solution.graph =
-                graph.mapToPair(new AssignToMedoidFunction<T>(
+                graph.mapPartitionsToPair(new AssignToMedoidFunction<T>(
                         medoids.medoids,
-                        similarity));
+                        similarity,
+                        imbalance));
         solution.graph.count();
         solution.end_time = System.currentTimeMillis();
         return solution;
     }
 
-    public void setBudget(Budget budget) {
+    public void setBudget(final Budget budget) {
         this.budget = budget;
     }
 }
@@ -114,26 +138,60 @@ class BudgetAdapter {
  * @param <T>
  */
 class AssignToMedoidFunction<T>
-        implements PairFunction<
-            Tuple2<Node<T>, NeighborList>,
+        implements PairFlatMapFunction<
+            Iterator<Tuple2<Node<T>, NeighborList>>,
             Node<T>,
             NeighborList> {
 
     private final ArrayList<Node<T>> medoids;
     private final SimilarityInterface<T> similarity;
+    private final double imbalance;
 
     AssignToMedoidFunction(
             final ArrayList<Node<T>> medoids,
-            final SimilarityInterface<T> similarity) {
+            final SimilarityInterface<T> similarity,
+            final double imbalance) {
+
         this.medoids = medoids;
         this.similarity = similarity;
+        this.imbalance = imbalance;
     }
 
+    public Iterator<Tuple2<Node<T>, NeighborList>> call(
+            final Iterator<Tuple2<Node<T>, NeighborList>> iterator) {
 
+        int k = medoids.size();
 
-    public Tuple2<Node<T>, NeighborList> call(
-            final Tuple2<Node<T>, NeighborList> tuple) {
+        // Collect all tuples
+        LinkedList<Tuple2<Node<T>, NeighborList>> tuples =
+                new LinkedList<Tuple2<Node<T>, NeighborList>>();
+        while (iterator.hasNext()) {
+            tuples.add(iterator.next());
+        }
 
+        int n_local = tuples.size();
+        double capacity = imbalance * n_local / k;
+        int[] cluster_sizes = new int[k];
+
+        for (Tuple2<Node<T>, NeighborList> tuple : tuples) {
+            double[] sims = new double[k];
+            double[] values = new double[k];
+
+            for (int i = 0; i < k; i++) {
+                sims[i] = similarity.similarity(
+                        tuple._1.value, medoids.get(i).value);
+                values[i] =
+                        sims[i] * (1.0 - (double) cluster_sizes[i] / capacity);
+            }
+
+            int cluster_index = argmax(values);
+            cluster_sizes[cluster_index]++;
+            tuple._1.setAttribute(NodePartitioner.PARTITION_KEY, cluster_index);
+        }
+
+        return tuples.iterator();
+
+        /*
         int most_similar = 0;
         double highest_similarity = 0;
 
@@ -149,11 +207,32 @@ class AssignToMedoidFunction<T>
         }
 
         tuple._1.setAttribute(NodePartitioner.PARTITION_KEY, most_similar);
-        return tuple;
+        return tuple;*/
     }
 
+    /**
+     * Return the index of the highest value in the array.
+     * @param values
+     */
+    private static int argmax(final double[] values) {
+        double max = -Double.MAX_VALUE;
+        int max_index = -1;
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] > max) {
+                max = values[i];
+                max_index = i;
+            }
+        }
+
+        return max_index;
+    }
 }
 
+/**
+ *
+ * @author tibo
+ * @param <T>
+ */
 class ClusteringSimilarityAdapter<T> implements Similarity<Node<T>> {
 
     private final SimilarityInterface<T> similarity;

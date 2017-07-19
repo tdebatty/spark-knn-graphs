@@ -71,27 +71,19 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
 
-        SimilarityInterface<Double> similarity
-                = new SimilarityInterface<Double>() {
-
-            public double similarity(final Double value1, final Double value2) {
-                return 1.0 / (1 + Math.abs(value1 - value2));
-            }
-        };
-
         System.out.println("Create some random nodes");
-        List<Node<Double>> data = new ArrayList<Node<Double>>();
-        Iterator<Double[]> dataset
+        List<Node<double[]>> data = new ArrayList<Node<double[]>>();
+        Iterator<double[]> dataset
                 = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
                 .setOverlap(Dataset.Builder.Overlap.MEDIUM)
                 .build()
                 .iterator();
 
         while (data.size() < N) {
-            Double[] point = dataset.next();
-            data.add(new Node<Double>(
+            double[] point = dataset.next();
+            data.add(new Node<double[]>(
                     String.valueOf(data.size()),
-                    point[0]));
+                    point));
         }
 
         // Configure spark instance
@@ -101,38 +93,38 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Parallelize the dataset in Spark
-        JavaRDD<Node<Double>> nodes = sc.parallelize(data);
+        JavaRDD<Node<double[]>> nodes = sc.parallelize(data);
 
         Brute brute = new Brute();
         brute.setK(K);
-        brute.setSimilarity(similarity);
+        brute.setSimilarity(new L2Similarity());
 
         System.out.println("Compute the graph and force execution");
-        JavaPairRDD<Node<Double>, NeighborList> graph
+        JavaPairRDD<Node<double[]>, NeighborList> graph
                 = brute.computeGraph(nodes);
         graph.cache();
         graph.count();
 
-        ExhaustiveSearch<Double> exhaustive_search =
-                new ExhaustiveSearch<Double>(graph, similarity);
+        ExhaustiveSearch<double[]> exhaustive_search =
+                new ExhaustiveSearch<double[]>(graph, new L2Similarity());
 
         System.out.println("Prepare the graph for approximate search");
-        ApproximateSearch<Double> approximate_search =
-                new ApproximateSearch<Double>(
+        ApproximateSearch<double[]> approximate_search =
+                new ApproximateSearch<double[]>(
                         graph,
                         ITERATIONS,
                         PARTITIONS,
-                        similarity);
+                        new L2Similarity());
 
 
         System.out.println("Perform some search queries...");
         int correct = 0;
         for (int i = 0; i < N_TEST; i++) {
-            Double[] point = dataset.next();
-            Node<Double> query =
-                    new Node<Double>(
+            double[] point = dataset.next();
+            Node<double[]> query =
+                    new Node<double[]>(
                             String.valueOf(data.size()),
-                            point[0]);
+                            point);
 
             Accumulator<StatisticsContainer> stats_accumulator = sc.accumulator(
                     new StatisticsContainer(),
@@ -170,27 +162,19 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
 
-        SimilarityInterface<Double> similarity
-                = new SimilarityInterface<Double>() {
-
-            public double similarity(final Double value1, final Double value2) {
-                return 1.0 / (1 + Math.abs(value1 - value2));
-            }
-        };
-
         System.out.println("Create some random nodes");
-        List<Node<Double>> data = new ArrayList<Node<Double>>();
-        Iterator<Double[]> dataset
+        List<Node<double[]>> data = new ArrayList<Node<double[]>>();
+        Iterator<double[]> dataset
                 = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
                 .setOverlap(Dataset.Builder.Overlap.MEDIUM)
                 .build()
                 .iterator();
 
         while (data.size() < N) {
-            Double[] point = dataset.next();
-            data.add(new Node<Double>(
+            double[] point = dataset.next();
+            data.add(new Node<double[]>(
                     String.valueOf(data.size()),
-                    point[0]));
+                    point));
         }
 
         // Configure spark instance
@@ -200,38 +184,38 @@ public class ApproximateSearchTest extends TestCase implements Serializable {
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Parallelize the dataset in Spark
-        JavaRDD<Node<Double>> nodes = sc.parallelize(data);
+        JavaRDD<Node<double[]>> nodes = sc.parallelize(data);
 
         Brute brute = new Brute();
         brute.setK(K);
-        brute.setSimilarity(similarity);
+        brute.setSimilarity(new L2Similarity());
 
         System.out.println("Compute the graph and force execution");
-        JavaPairRDD<Node<Double>, NeighborList> graph
+        JavaPairRDD<Node<double[]>, NeighborList> graph
                 = brute.computeGraph(nodes);
         graph.cache();
         graph.count();
 
-        ExhaustiveSearch<Double> exhaustive_search =
-                new ExhaustiveSearch<Double>(graph, similarity);
+        ExhaustiveSearch<double[]> exhaustive_search =
+                new ExhaustiveSearch<double[]>(graph, new L2Similarity());
 
         System.out.println("Prepare the graph for approximate search");
-        ApproximateSearch<Double> approximate_search =
-                new ApproximateSearch<Double>(
+        ApproximateSearch<double[]> approximate_search =
+                new ApproximateSearch<double[]>(
                         graph,
                         0,
                         PARTITIONS,
-                        similarity);
+                        new L2Similarity());
 
 
         System.out.println("Perform some search queries...");
         int correct = 0;
         for (int i = 0; i < N_TEST; i++) {
-            Double[] point = dataset.next();
-            Node<Double> query =
-                    new Node<Double>(
+            double[] point = dataset.next();
+            Node<double[]> query =
+                    new Node<double[]>(
                             String.valueOf(data.size()),
-                            point[0]);
+                            point);
 
             Accumulator<StatisticsContainer> stats_accumulator = sc.accumulator(
                     new StatisticsContainer(),
