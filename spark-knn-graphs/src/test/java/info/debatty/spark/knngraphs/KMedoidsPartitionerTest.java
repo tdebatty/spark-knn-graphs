@@ -93,10 +93,12 @@ public class KMedoidsPartitionerTest extends TestCase {
                 new KMedoidsPartitioner<String>(new JWSimilarity(), 8);
         partitioner.setBudget(new TimeBudget(10));
         graph = partitioner.partition(graph).graph;
+        graph.cache();
+        graph.count();
 
         // Check result...
-        JaBeJa<String> jbj = new JaBeJa<String>(sc, 8);
         System.out.println(JaBeJa.countCrossEdges(graph, 8));
+        System.out.println(JaBeJa.computeBalance(graph, 8));
 
         sc.close();
     }

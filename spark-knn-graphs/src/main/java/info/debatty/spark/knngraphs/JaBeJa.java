@@ -23,6 +23,7 @@
  */
 package info.debatty.spark.knngraphs;
 
+import static com.google.common.primitives.Ints.max;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
@@ -58,7 +59,7 @@ public class JaBeJa<T> implements Partitioner<T> {
     private static final int ITERATIONS_BEFORE_CHECKPOINT = 100;
     private static final int RDDS_TO_CACHE = 2;
 
-    private final Logger logger = LoggerFactory.getLogger(JaBeJa.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(JaBeJa.class);
 
     private final int partitions;
     private final JavaSparkContext ctx;
@@ -99,25 +100,25 @@ public class JaBeJa<T> implements Partitioner<T> {
         int iteration = 0;
         while (true) {
             iteration++;
-            logger.info("Tr = {}", tr);
+            LOGGER.info("Tr = {}", tr);
             SwapResult<T> swap_result = swap(
                     solution.graph, tr, SWAPS_PER_ITERATION);
-            logger.info("Performed {} swaps", swap_result.swaps);
+            LOGGER.info("Performed {} swaps", swap_result.swaps);
             solution.graph = swap_result.graph;
             solution.graph.cache();
+
+            if ((iteration % ITERATIONS_BEFORE_CHECKPOINT) == 0) {
+                LOGGER.info("Checkpoint");
+                // solution.graph.checkpoint();
+            }
+
+            solution.graph.count();
 
             // Keep a track of updated RDD to unpersist after two iterations
             previous_rdds.add(solution.graph);
             if (iteration > RDDS_TO_CACHE) {
                 previous_rdds.pop().unpersist();
             }
-
-            if ((iteration % ITERATIONS_BEFORE_CHECKPOINT) == 0) {
-                logger.info("Checkpoint");
-                // solution.graph.checkpoint();
-            }
-
-            solution.graph.count();
 
             if (swap_result.swaps <= 0) {
                 break;
@@ -137,6 +138,7 @@ public class JaBeJa<T> implements Partitioner<T> {
 
     /**
      *
+     * @param <U>
      * @param graph
      * @param partitions
      * @return
@@ -152,6 +154,14 @@ public class JaBeJa<T> implements Partitioner<T> {
         return countCrossEdges(color_index, degrees_index);
     }
 
+    public static final <U> double computeBalance(
+            final JavaPairRDD<Node<U>, NeighborList> graph,
+            final int partitions) {
+
+        int[] color_index = buildColorIndex(graph);
+        return computeBalance(color_index, partitions);
+    }
+
 
     final JavaPairRDD<Node<T>, NeighborList> randomize(
             final JavaPairRDD<Node<T>, NeighborList> input_graph) {
@@ -163,9 +173,11 @@ public class JaBeJa<T> implements Partitioner<T> {
      * Build the index that holds the color (partition) corresponding to each
      * node.
      *
+     * @param <U>
      * @param graph
+     * @return
      */
-    static final <U> int[] buildColorIndex(
+    public static final <U> int[] buildColorIndex(
             final JavaPairRDD<Node<U>, NeighborList> graph) {
 
         Map<Integer, Integer> index_map =
@@ -176,6 +188,40 @@ public class JaBeJa<T> implements Partitioner<T> {
             index[entry.getKey()] = entry.getValue();
         }
         return index;
+    }
+
+    /**
+     * Compute the imbalance = size of biggest partition / average partition
+     * size.
+     *
+     * @param <U>
+     * @param color_index
+     * @param partitions
+     * @return
+     */
+    public static final <U> double computeBalance(
+            final int[] color_index, final int partitions) {
+
+        int[] sizes = new int[partitions];
+        for (int color : color_index) {
+            sizes[color]++;
+        }
+
+        LOGGER.info("Sizes: {}", sizes);
+        int max = max(sizes);
+        int sum = sum(sizes);
+
+        double imbalance = 1.0 * max / sum * partitions;
+        return imbalance;
+    }
+
+    private static int sum(final int[] values) {
+        int sum = 0;
+        for (int value : values) {
+            sum += value;
+        }
+
+        return sum;
     }
 
     static final <U> int[][] buildDegreesIndex(
@@ -215,10 +261,13 @@ public class JaBeJa<T> implements Partitioner<T> {
             final int swaps_per_iteration) {
 
         int[] color_index = buildColorIndex(graph);
-        int[][] degrees_index = buildDegreesIndex(graph, color_index, partitions);
+        int[][] degrees_index = buildDegreesIndex(
+                graph, color_index, partitions);
 
-        logger.info(
+        LOGGER.info(
                 "Cross edges: {}", countCrossEdges(color_index, degrees_index));
+
+        LOGGER.info("Imbalance: {}", computeBalance(color_index, partitions));
 
         List<SwapRequest> requests = graph
                 .mapPartitions(
@@ -227,15 +276,15 @@ public class JaBeJa<T> implements Partitioner<T> {
                                 tr,
                                 swaps_per_iteration))
                 .collect();
-        logger.info("Swaps: {}", requests.size());
-        logger.debug("{}", requests);
+        LOGGER.info("Swaps: {}", requests.size());
+        LOGGER.debug("{}", requests);
 
         List<SwapRequest<T>> acks = graph
                 .mapPartitions(
                     new ProcessRequestsFunction<T>(requests))
                 .collect();
 
-        logger.debug("{}", acks);
+        LOGGER.debug("{}", acks);
         assert acks.size() <= requests.size();
 
         // Perform the swap
@@ -375,10 +424,13 @@ class ProcessRequestsFunction<T>
             local_graph.put(tuple._1, tuple._2);
         }
 
-        List<Node<T>> dst_nodes_will_swap = new LinkedList<Node<T>>();
-
+        List<String> nodes_will_swap = new LinkedList<String>();
         List<SwapRequest<T>> accepted_requests =
                 new LinkedList<SwapRequest<T>>();
+
+        for (SwapRequest request : swap_requests) {
+            nodes_will_swap.add(request.src.id);
+        }
 
         for (SwapRequest request : swap_requests) {
             if (local_graph.get(request.dst) == null) {
@@ -387,11 +439,11 @@ class ProcessRequestsFunction<T>
 
             logger.info("Found a request for me");
 
-            if (dst_nodes_will_swap.contains(request.dst)) {
+            if (nodes_will_swap.contains(request.dst.id)) {
                 logger.info("This dst node already received a swap request");
                 continue;
             }
-            dst_nodes_will_swap.add(request.dst);
+            nodes_will_swap.add(request.dst.id);
             accepted_requests.add(request);
         }
         return accepted_requests.iterator();
@@ -448,12 +500,18 @@ class MakeRequestsFunction<T>
             local_graph.put(tuple._1, tuple._2);
         }
 
-
+        LinkedList<String> nodes_will_swap = new LinkedList<String>();
         LinkedList<SwapRequest> list = new LinkedList<SwapRequest>();
-        for (int i = 0; i < swaps_per_iteration; i++) {
+        while (list.size() < swaps_per_iteration) {
 
             // Select one node at random
             Node<T> src = pickRandomNode(local_graph);
+
+            if (nodes_will_swap.contains(src.id)) {
+                continue;
+            }
+
+            nodes_will_swap.add(src.id);
 
             // Perform JaBeJa:
             // partner = findPartner(p.getNeighbors(), Tr)

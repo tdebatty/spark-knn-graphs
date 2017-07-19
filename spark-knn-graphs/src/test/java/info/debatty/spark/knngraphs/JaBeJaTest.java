@@ -178,7 +178,7 @@ public class JaBeJaTest extends TestCase implements Serializable {
 
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
-        Logger.getLogger("info").setLevel(Level.WARN);
+        //Logger.getLogger("info").setLevel(Level.WARN);
         Logger.getLogger("info.debatty.spark.knngraphs.JaBeJa")
                 .setLevel(Level.INFO);
 
