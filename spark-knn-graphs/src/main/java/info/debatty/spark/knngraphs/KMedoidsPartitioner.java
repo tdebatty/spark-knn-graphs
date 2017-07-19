@@ -35,7 +35,6 @@ import onlineknn.spark.kmedoids.Solution;
 import onlineknn.spark.kmedoids.neighborgenerator.WindowNeighborGenerator;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
-import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
 /**
@@ -107,6 +106,7 @@ public class KMedoidsPartitioner<T> implements Partitioner<T> {
                         medoids.medoids,
                         similarity,
                         imbalance));
+        solution.graph.cache();
         solution.graph.count();
         solution.end_time = System.currentTimeMillis();
         return solution;
