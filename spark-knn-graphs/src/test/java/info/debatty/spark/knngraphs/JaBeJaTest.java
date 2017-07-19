@@ -94,7 +94,7 @@ public class JaBeJaTest extends TestCase implements Serializable {
         assertEquals(726, graph.count());
         assertEquals(K, first._2.size());
 
-        JaBeJa<String> jbj = new JaBeJa<String>(sc, 8);
+        JaBeJa<String> jbj = new JaBeJa<String>(8);
         graph = jbj.randomize(graph);
         graph.cache();
         first = graph.first();
@@ -102,7 +102,7 @@ public class JaBeJaTest extends TestCase implements Serializable {
                 .getAttribute(NodePartitioner.PARTITION_KEY);
         int first_id = Integer.valueOf(first._1.id);
 
-        int[] index = jbj.buildColorIndex(graph);
+        int[] index = JaBeJa.buildColorIndex(graph);
         assertEquals(first_partition, index[first_id]);
         sc.close();
     }
@@ -146,10 +146,10 @@ public class JaBeJaTest extends TestCase implements Serializable {
         // Compute the graph and force execution
         JavaPairRDD<Node<String>, NeighborList> graph =
                 builder.computeGraph(nodes);
-        Tuple2<Node<String>, NeighborList> first = graph.first();
+        graph.cache();
+        graph.count();
 
-
-        JaBeJa<String> jbj = new JaBeJa<String>(sc, 8);
+        JaBeJa<String> jbj = new JaBeJa<String>(8);
 
         // Randomize
         graph = jbj.randomize(graph);
@@ -214,7 +214,7 @@ public class JaBeJaTest extends TestCase implements Serializable {
         graph.cache();
         graph.count();
 
-        JaBeJa<String> jbj = new JaBeJa<String>(sc, 8);
+        JaBeJa<String> jbj = new JaBeJa<String>(8);
         jbj.setBudget(new TimeBudget(10)); // 10 seconds
         Partitioning<String> solution = jbj.partition(graph);
         System.out.println(solution.runTime());
@@ -262,10 +262,11 @@ public class JaBeJaTest extends TestCase implements Serializable {
         // Compute the graph and force execution
         JavaPairRDD<Node<String>, NeighborList> graph =
                 builder.computeGraph(nodes);
+        graph.repartition(8);
         graph.cache();
         graph.count();
 
-        JaBeJa<String> jbj = new JaBeJa<String>(sc, 8);
+        JaBeJa<String> jbj = new JaBeJa<String>(8);
         graph = jbj.partition(graph).graph;
         System.out.println(JaBeJa.countCrossEdges(graph, 8));
 
