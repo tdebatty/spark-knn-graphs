@@ -26,6 +26,7 @@ package partitioning.spam;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.jinu.TestInterface;
+import info.debatty.spark.knngraphs.Edge1DPartitioner;
 import info.debatty.spark.knngraphs.JaBeJa;
 import info.debatty.spark.knngraphs.KMedoidsPartitioner;
 import info.debatty.spark.knngraphs.Partitioning;
@@ -41,7 +42,7 @@ import scala.Tuple2;
  *
  * @author tibo
  */
-public class KMedoidsTest implements TestInterface {
+public class Edg1DTest implements TestInterface {
 
     public static String dataset_path;
 
@@ -58,12 +59,12 @@ public class KMedoidsTest implements TestInterface {
         JavaPairRDD<Node<String>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
-        KMedoidsPartitioner<String> partitioner =
-                new KMedoidsPartitioner<String>(new JWSimilarity(), 16);
-        partitioner.setBudget(new TimeBudget((long) budget));
+        Edge1DPartitioner<String> partitioner =
+                new Edge1DPartitioner<String>(16);
         Partitioning<String> partition = partitioner.partition(graph);
         double[] result = new double[] {
-            JaBeJa.countCrossEdges(partition.graph, 16)
+            JaBeJa.countCrossEdges(partition.graph, 16),
+            JaBeJa.computeBalance(partition.graph, 16)
         };
         sc.close();
 

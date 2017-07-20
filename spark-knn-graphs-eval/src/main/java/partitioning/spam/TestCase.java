@@ -53,6 +53,7 @@ public class TestCase {
 
         JaBeJaTest.dataset_path = (String) options.valueOf("d");
         KMedoidsTest.dataset_path = (String) options.valueOf("d");
+        Edg1DTest.dataset_path = (String) options.valueOf("d");
 
         // Reduce Spark output logs
         Logger.getLogger("org").setLevel(Level.WARN);
@@ -66,8 +67,11 @@ public class TestCase {
         test.commitToGit(false);
         test.setBaseDir((String) options.valueOf("r"));
         test.setParamValues(similarities);
+
         test.addTest(JaBeJaTest.class);
         test.addTest(KMedoidsTest.class);
+        test.addTest(Edg1DTest.class);
+
         test.run();
 
     }

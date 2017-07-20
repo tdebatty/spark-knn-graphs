@@ -21,14 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package partitioning.spam;
+package partitioning.synthetic;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.builder.Brute;
-import info.debatty.spark.knngraphs.eval.JWSimilarity;
 import java.util.LinkedList;
-import java.util.List;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import org.apache.log4j.Level;
@@ -55,26 +53,25 @@ public class BuildGraph {
         String output_path = (String) options.valueOf("o");
 
         SparkConf conf = new SparkConf();
-        conf.setAppName("Spark build SPAM graph");
+        conf.setAppName("Spark build Synthetic graph");
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
-        List<String> strings = sc.textFile(dataset_path, 16).collect();
+        JavaRDD<double[]> data = sc.objectFile(dataset_path);
 
-        LinkedList<Node<String>> nodes = new LinkedList<Node<String>>();
+        LinkedList<Node<double[]>> nodes = new LinkedList<Node<double[]>>();
         int i = 0;
-        for (String string : strings) {
-            nodes.add(new Node<String>(String.valueOf(i), string));
+        for (double[] value : data.collect()) {
+            nodes.add(new Node<double[]>(String.valueOf(i), value));
             i++;
         }
 
-        JavaRDD<Node<String>> nodes_rdd = sc.parallelize(nodes);
+        JavaRDD<Node<double[]>> nodes_rdd = sc.parallelize(nodes);
 
-
-        Brute<String> brute = new Brute();
+        Brute<double[]> brute = new Brute();
         brute.setK(10);
-        brute.setSimilarity(new JWSimilarity());
-        JavaPairRDD<Node<String>, NeighborList> graph =
+        brute.setSimilarity(new L2Similarity());
+        JavaPairRDD<Node<double[]>, NeighborList> graph =
                 brute.computeGraph(nodes_rdd);
 
         graph.saveAsObjectFile(output_path);

@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package partitioning.spam;
+package partitioning.synthetic;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
@@ -43,6 +43,8 @@ import scala.Tuple2;
  */
 public class KMedoidsTest implements TestInterface {
 
+    private static final double IMBALANCE = 1.2;
+
     public static String dataset_path;
 
     @Override
@@ -53,17 +55,19 @@ public class KMedoidsTest implements TestInterface {
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
-        JavaRDD<Tuple2<Node<String>, NeighborList>> tuples =
+        JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
                 sc.objectFile(dataset_path);
-        JavaPairRDD<Node<String>, NeighborList> graph =
+        JavaPairRDD<Node<double[]>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
-        KMedoidsPartitioner<String> partitioner =
-                new KMedoidsPartitioner<String>(new JWSimilarity(), 16);
+        KMedoidsPartitioner<double[]> partitioner =
+                new KMedoidsPartitioner<double[]>(
+                        new L2Similarity(), 16, IMBALANCE);
         partitioner.setBudget(new TimeBudget((long) budget));
-        Partitioning<String> partition = partitioner.partition(graph);
+        Partitioning<double[]> partition = partitioner.partition(graph);
         double[] result = new double[] {
-            JaBeJa.countCrossEdges(partition.graph, 16)
+            JaBeJa.countCrossEdges(partition.graph, 16),
+            JaBeJa.computeBalance(partition.graph, 16)
         };
         sc.close();
 

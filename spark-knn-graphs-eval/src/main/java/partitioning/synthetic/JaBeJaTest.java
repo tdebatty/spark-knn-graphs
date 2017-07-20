@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package partitioning.spam;
+package partitioning.synthetic;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
@@ -51,14 +51,17 @@ public class JaBeJaTest implements TestInterface {
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
-        JavaRDD<Tuple2<Node<String>, NeighborList>> tuples = sc.objectFile(dataset_path);
-        JavaPairRDD<Node<String>, NeighborList> graph = JavaPairRDD.fromJavaRDD(tuples);
+        JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
+                sc.objectFile(dataset_path);
+        JavaPairRDD<Node<double[]>, NeighborList> graph =
+                JavaPairRDD.fromJavaRDD(tuples);
 
-        JaBeJa<String> partitioner = new JaBeJa<String>(sc, 16);
+        JaBeJa<double[]> partitioner = new JaBeJa<double[]>(16);
         partitioner.setBudget(new TimeBudget((long) budget));
-        Partitioning<String> partition = partitioner.partition(graph);
+        Partitioning<double[]> partition = partitioner.partition(graph);
         double[] result = new double[] {
-            JaBeJa.countCrossEdges(partition.graph, 16)
+            JaBeJa.countCrossEdges(partition.graph, 16),
+            JaBeJa.computeBalance(partition.graph, 16)
         };
         sc.close();
 

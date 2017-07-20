@@ -43,6 +43,8 @@ import scala.Tuple2;
  */
 public class KMedoidsTest implements TestInterface {
 
+    private static final double IMBALANCE = 1.2;
+
     public static String dataset_path;
 
     @Override
@@ -59,11 +61,13 @@ public class KMedoidsTest implements TestInterface {
                 JavaPairRDD.fromJavaRDD(tuples);
 
         KMedoidsPartitioner<String> partitioner =
-                new KMedoidsPartitioner<String>(new JWSimilarity(), 16);
+                new KMedoidsPartitioner<String>(
+                        new JWSimilarity(), 16, IMBALANCE);
         partitioner.setBudget(new TimeBudget((long) budget));
         Partitioning<String> partition = partitioner.partition(graph);
         double[] result = new double[] {
-            JaBeJa.countCrossEdges(partition.graph, 16)
+            JaBeJa.countCrossEdges(partition.graph, 16),
+            JaBeJa.computeBalance(partition.graph, 16)
         };
         sc.close();
 
