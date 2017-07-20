@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2015 Thibault Debatty.
+ * Copyright 2017 tibo.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,79 +21,63 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
-package info.debatty.spark.knngraphs.builder;
+package partitioning.spam;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
-import info.debatty.spark.knngraphs.JWSimilarity;
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.ArrayList;
+import info.debatty.spark.knngraphs.builder.Brute;
+import info.debatty.spark.knngraphs.eval.JWSimilarity;
+import java.util.LinkedList;
 import java.util.List;
-import junit.framework.TestCase;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import scala.Tuple2;
 
 /**
  *
- * @author Thibault Debatty
+ * @author tibo
  */
-public class NNDescentTest extends TestCase implements Serializable {
+public class BuildGraph {
 
-    public static final int K = 10;
-
-    /**
-     * Test of computeGraph method, of class NNDescent.
-     * @throws java.io.IOException
-     */
-    public void testComputeGraph() throws IOException, Exception {
-        System.out.println("NNDescent");
-        System.out.println("=========");
+    public static void main(String[] args) throws Exception {
 
         Logger.getLogger("org").setLevel(Level.WARN);
         Logger.getLogger("akka").setLevel(Level.WARN);
-        Logger.getLogger("info").setLevel(Level.DEBUG);
 
-        String file =  getClass().getClassLoader().
-                getResource("726-unique-spams").getPath();
+        OptionParser parser = new OptionParser("i:o:");
+        OptionSet options = parser.parse(args);
+        String dataset_path = (String) options.valueOf("i");
+        String output_path = (String) options.valueOf("o");
 
-        // Read the file
-        ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
+        SparkConf conf = new SparkConf();
+        conf.setAppName("Spark build SPAM graph");
+        conf.setIfMissing("spark.master", "local[*]");
 
-        // Convert to nodes
-        List<Node<String>> data = new ArrayList<Node<String>>();
-        for (String s : strings) {
-            data.add(new Node<String>(String.valueOf(data.size()), s));
+        JavaSparkContext sc = new JavaSparkContext(conf);
+        List<String> strings = sc.textFile(dataset_path, 16).collect();
+
+        LinkedList<Node<String>> nodes = new LinkedList<Node<String>>();
+        int i = 0;
+        for (String string : strings) {
+            nodes.add(new Node<String>(String.valueOf(i), string));
+            i++;
         }
 
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        JavaSparkContext sc = new JavaSparkContext(conf);
+        JavaRDD<Node<String>> nodes_rdd = sc.parallelize(nodes);
 
-        // Parallelize the dataset in Spark
-        JavaRDD<Node<String>> nodes = sc.parallelize(data);
 
-        NNDescent builder = new NNDescent();
-        builder.setK(K);
-        builder.setSimilarity(new JWSimilarity());
-        builder.setMaxIterations(2);
-
-        // Compute the graph and force execution
+        Brute<String> brute = new Brute();
+        brute.setK(10);
+        brute.setSimilarity(new JWSimilarity());
         JavaPairRDD<Node<String>, NeighborList> graph =
-                builder.computeGraph(nodes);
-        Tuple2<Node<String>, NeighborList> first = graph.first();
-        System.out.println(first);
-        assertEquals(726, graph.count());
-        assertEquals(K, first._2.size());
-        sc.close();
-    }
+                brute.computeGraph(nodes_rdd);
 
+        graph.saveAsObjectFile(output_path);
+
+    }
 }

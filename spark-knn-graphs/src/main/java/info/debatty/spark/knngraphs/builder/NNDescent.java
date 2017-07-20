@@ -14,6 +14,8 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scala.Tuple2;
 
 /**
@@ -29,6 +31,7 @@ import scala.Tuple2;
  */
 public class NNDescent<T> extends DistributedGraphBuilder<T> {
 
+    private final Logger logger = LoggerFactory.getLogger(NNDescent.class);
     private int max_iterations = 10;
 
     /**
@@ -69,6 +72,7 @@ public class NNDescent<T> extends DistributedGraphBuilder<T> {
                 new MergeFunction(k));
 
         for (int iteration = 0; iteration < max_iterations; iteration++) {
+            logger.debug("Iteration {}", iteration);
 
             // Reverse
             JavaPairRDD<Node<T>, Node<T>> exploded_graph = graph.flatMapToPair(
