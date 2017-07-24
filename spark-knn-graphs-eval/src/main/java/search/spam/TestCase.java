@@ -138,6 +138,5 @@ public class TestCase {
 
         LOGGER.info("Run tests...");
         test.run();
-
     }
 }
