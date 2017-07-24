@@ -141,9 +141,7 @@ public class BalancedKMedoidsPartitioner<T>  {
         medoids = kmedoids.getMedoids();
 
         if (iterations == 0) {
-            return randomized_graph.mapPartitions(
-                    new NeighborListToGraph(similarity),
-                    true);
+            return DistributedGraph.toGraph(input_graph, similarity);
         }
 
         // Perform partitioning of the full graph
@@ -158,12 +156,9 @@ public class BalancedKMedoidsPartitioner<T>  {
                                     similarity))
                         .partitionBy(internal_partitioner);
 
-        // Transform the partitioned PairRDD<Node, Neighborlist>
-        // into a distributed graph RDD<Graph>
-        JavaRDD<Graph<T>> distributed_graph = partitioned_graph.mapPartitions(
-                new NeighborListToGraph(similarity), true);
 
-        return distributed_graph;
+
+        return DistributedGraph.toGraph(input_graph, similarity);
     }
 
     private static long sum(final long[] values) {
@@ -382,41 +377,6 @@ class ComputeMedoids<T> implements Function<Graph<T>, Node<T>> {
         }
 
         return medoid;
-    }
-}
-
-/**
- * Used to convert a PairRDD Node,NeighborList to a RDD of Graph.
- * @author Thibault Debatty
- * @param <T>
- */
-class NeighborListToGraph<T>
-        implements FlatMapFunction<
-            Iterator<Tuple2<Node<T>, NeighborList>>, Graph<T>> {
-
-    private final SimilarityInterface<T> similarity;
-
-    NeighborListToGraph(final SimilarityInterface<T> similarity) {
-
-        this.similarity = similarity;
-    }
-
-    public Iterator<Graph<T>> call(
-            final Iterator<Tuple2<Node<T>, NeighborList>> iterator) {
-
-        Graph<T> graph = new Graph<T>();
-        while (iterator.hasNext()) {
-            Tuple2<Node<T>, NeighborList> next = iterator.next();
-            graph.put(next._1, next._2);
-        }
-
-        graph.setSimilarity(similarity);
-        graph.setK(graph.get(graph.getNodes().iterator().next()).size());
-
-        ArrayList<Graph<T>> list = new ArrayList<Graph<T>>(1);
-        list.add(graph);
-        return list.iterator();
-
     }
 }
 

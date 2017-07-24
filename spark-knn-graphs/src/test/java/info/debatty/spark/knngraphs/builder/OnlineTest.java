@@ -126,10 +126,9 @@ public class OnlineTest extends TestCase implements Serializable {
                             String.valueOf(data.size()),
                             point);
 
-            Accumulator<StatisticsContainer> stats_accumulator
-                    = sc.accumulator(
-                            new StatisticsContainer(),
-                            new StatisticsAccumulator());
+            StatisticsAccumulator stats_accumulator
+                    = new StatisticsAccumulator();
+            sc.sc().register(stats_accumulator);
 
             online_graph.fastAdd(new_node, stats_accumulator);
             //System.out.println(stats_accumulator.value());
@@ -314,10 +313,10 @@ public class OnlineTest extends TestCase implements Serializable {
         for (int i = 0; i < N_TEST; i++) {
             Node query = data.get(rand.nextInt(data.size() - 1));
 
-            Accumulator<StatisticsContainer> stats_accumulator
-                    = sc.accumulator(
-                            new StatisticsContainer(),
-                            new StatisticsAccumulator());
+            StatisticsAccumulator stats_accumulator
+                    = new StatisticsAccumulator();
+            sc.sc().register(stats_accumulator);
+
             online_graph.fastRemove(query, stats_accumulator);
             if (i == 0) {
                 System.out.println(stats_accumulator.value());

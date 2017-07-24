@@ -98,7 +98,7 @@ public class GraphTest extends TestCase {
                 = builder.computeGraph(nodes);
 
 
-        System.out.println(Graph.countCommonEdges(exact_graph, nndes_graph));
+        System.out.println(DistributedGraph.countCommonEdges(exact_graph, nndes_graph));
         sc.close();
     }
 

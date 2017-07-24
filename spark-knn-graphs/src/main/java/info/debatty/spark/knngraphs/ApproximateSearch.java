@@ -28,23 +28,21 @@ import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
-import java.util.List;
-import org.apache.spark.Accumulator;
+import info.debatty.spark.knngraphs.builder.StatisticsAccumulator;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 
 /**
- *
+ * Perform a fast distributed nn search, but does not care for partitioning the
+ * graph.
  * @author Thibault Debatty
  * @param <T>
  */
 public class ApproximateSearch<T> {
 
-    private static final double DEFAULT_IMBALANCE = 1.1;
-
     /**
-     * Default speedup compared to exhaustive search.
+     * Default search speedup compared to exhaustive search.
      */
     public static final int DEFAULT_SPEEDUP = 10;
 
@@ -58,57 +56,55 @@ public class ApproximateSearch<T> {
      */
     public static final double DEFAULT_EXPANSION = 1.2;
 
-    private JavaRDD<Graph<T>> distributed_graph;
-    private final BalancedKMedoidsPartitioner partitioner;
-
-    /**
-     * Prepare the graph for distributed search using default imbalance.
-     * Default imbalance = 1.1
-     * @param graph
-     * @param partitioning_iterations
-     * @param partitioning_medoids
-     * @param similarity
-     */
-    public ApproximateSearch(
-            final JavaPairRDD<Node<T>, NeighborList> graph,
-            final int partitioning_iterations,
-            final int partitioning_medoids,
-            final SimilarityInterface<T> similarity) {
-
-        this(
-                graph,
-                partitioning_iterations,
-                partitioning_medoids,
-                similarity,
-                DEFAULT_IMBALANCE);
-    }
+    // Fast search parameters
+    private final JavaRDD<Graph<T>> distributed_graph;
+    private final SimilarityInterface<T> similarity;
+    private final double speedup;
+    private final int jumps;
+    private final double expansion;
 
     /**
      * Prepare the graph for distributed search.
      *
      * @param graph
-     * @param partitioning_iterations
-     * @param partitioning_medoids
      * @param similarity
-     * @param imbalance
+     * @param speedup
+     * @param jumps
+     * @param expansion
      */
     public ApproximateSearch(
             final JavaPairRDD<Node<T>, NeighborList> graph,
-            final int partitioning_iterations,
-            final int partitioning_medoids,
             final SimilarityInterface<T> similarity,
-            final double imbalance) {
+            final double speedup,
+            final int jumps,
+            final double expansion) {
 
         // Partition the graph
-        this.partitioner = new BalancedKMedoidsPartitioner();
-        partitioner.setIterations(partitioning_iterations);
-        partitioner.setPartitions(partitioning_medoids);
-        partitioner.setSimilarity(similarity);
-        partitioner.setImbalance(imbalance);
-
-        this.distributed_graph = partitioner.partition(graph);
+        this.distributed_graph = DistributedGraph.toGraph(graph, similarity);
         this.distributed_graph.cache();
         this.distributed_graph.count();
+        this.similarity = similarity;
+        this.speedup = speedup;
+        this.jumps = jumps;
+        this.expansion = expansion;
+    }
+
+    /**
+     * Build an instance of the distributed search algorithm with default
+     * parameters.
+     * @param graph
+     * @param similarity
+     */
+    public ApproximateSearch(
+            final JavaPairRDD<Node<T>, NeighborList> graph,
+            final SimilarityInterface<T> similarity) {
+
+        this(
+                graph,
+                similarity,
+                DEFAULT_SPEEDUP,
+                DEFAULT_JUMPS,
+                DEFAULT_EXPANSION);
     }
 
     /**
@@ -118,49 +114,8 @@ public class ApproximateSearch<T> {
         distributed_graph.unpersist(true);
     }
 
-    /**
-     *
-     * @return
-     */
-    public final BalancedKMedoidsPartitioner getPartitioner() {
-        return partitioner;
-    }
-
-    /**
-     *
-     * @return
-     */
-    public final List<Node<T>> getMedoids() {
-        return partitioner.getMedoids();
-    }
-
-    /**
-     * Assign the node to correct partition.
-     * @param node
-     * @param counts
-     */
-    public final void assign(final Node<T> node, final long[] counts) {
-        partitioner.assign(node, counts);
-    }
-
-    /**
-     * Fast distributed search with default number of random jumps (2) and
-     * expansion (1.2).
-     * @param query
-     * @param k
-     * @param speedup
-     * @return
-     */
-   public final NeighborList search(
-            final Node<T> query,
-            final int k,
-            final double speedup) {
-       return search(query, k, speedup, DEFAULT_JUMPS, DEFAULT_EXPANSION);
-   }
-
    /**
-    * Fast distributed search with default speedup compared to exhaustive search
-    * (10), number of random jumps (2) and expansion (1.2).
+    * Fast distributed search.
     * @param query
     * @param k
     * @return
@@ -168,45 +123,20 @@ public class ApproximateSearch<T> {
    public final NeighborList search(
             final Node<T> query,
             final int k) {
-       return search(query, k, DEFAULT_SPEEDUP);
+       return search(query, k, null);
    }
-
-   /**
-     *
-     * @param query
-     * @param k
-     * @param speedup
-     * @param random_jumps
-     * @param expansion
-     * @return
-     */
-    public final NeighborList search(
-            final Node<T> query,
-            final int k,
-            final double speedup,
-            final int random_jumps,
-            final double expansion) {
-
-        return search(query, k, speedup, random_jumps, expansion, null);
-    }
 
     /**
      *
      * @param query
      * @param k
-     * @param speedup
-     * @param random_jumps
-     * @param expansion
      * @param stats_accumulator
      * @return
      */
     public final NeighborList search(
             final Node<T> query,
             final int k,
-            final double speedup,
-            final int random_jumps,
-            final double expansion,
-            final Accumulator<StatisticsContainer> stats_accumulator) {
+            final StatisticsAccumulator stats_accumulator) {
 
         JavaRDD<NeighborList> candidates_neighborlists
                 = distributed_graph.map(
@@ -214,7 +144,7 @@ public class ApproximateSearch<T> {
                                 query,
                                 k,
                                 speedup,
-                                random_jumps,
+                                jumps,
                                 expansion,
                                 stats_accumulator));
 
@@ -223,22 +153,6 @@ public class ApproximateSearch<T> {
             final_neighborlist.addAll(nl);
         }
         return final_neighborlist;
-    }
-
-    /**
-     *
-     * @return
-     */
-    public final JavaRDD<Graph<T>> getGraph() {
-        return this.distributed_graph;
-    }
-
-    /**
-     *
-     * @param graph
-     */
-    public final void setGraph(final JavaRDD<Graph<T>> graph) {
-        this.distributed_graph = graph;
     }
 }
 
@@ -255,7 +169,7 @@ class DistributedSearch<T>
     private final Node<T> query;
     private final int random_jumps;
     private final double expansion;
-    private final Accumulator<StatisticsContainer> stats_accumulator;
+    private final StatisticsAccumulator stats_accumulator;
 
     DistributedSearch(
             final Node<T> query,
@@ -263,7 +177,7 @@ class DistributedSearch<T>
             final double speedup,
             final int random_jumps,
             final double expansion,
-            final Accumulator<StatisticsContainer> stats_accumulator) {
+            final StatisticsAccumulator stats_accumulator) {
 
         this.query = query;
         this.k = k;

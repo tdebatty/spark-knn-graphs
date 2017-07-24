@@ -23,10 +23,15 @@
  */
 package info.debatty.spark.knngraphs;
 
+import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
+import info.debatty.java.graphs.SimilarityInterface;
+import java.util.ArrayList;
 import java.util.Iterator;
 import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import scala.Tuple2;
@@ -35,7 +40,7 @@ import scala.Tuple2;
  *
  * @author Thibault Debatty
  */
-public class Graph {
+public class DistributedGraph {
 
     /**
      *
@@ -53,6 +58,55 @@ public class Graph {
                 .groupByKey()
                 .map(new CountFunction())
                 .reduce(new SumFunction());
+    }
+
+    /**
+     * Convert a PairRDD of (Node, NeighborList) to a RDD of Graph.
+     * @param <T>
+     * @param graph
+     * @param similarity
+     * @return
+     */
+    public static final <T> JavaRDD<Graph<T>> toGraph(
+            final JavaPairRDD<Node<T>, NeighborList> graph,
+            final SimilarityInterface<T> similarity) {
+        return graph.mapPartitions(
+                new NeighborListToGraph(similarity), true);
+    }
+}
+
+/**
+ * Used to convert a PairRDD Node,NeighborList to a RDD of Graph.
+ * @author Thibault Debatty
+ * @param <T>
+ */
+class NeighborListToGraph<T>
+        implements FlatMapFunction<
+            Iterator<Tuple2<Node<T>, NeighborList>>, Graph<T>> {
+
+    private final SimilarityInterface<T> similarity;
+
+    NeighborListToGraph(final SimilarityInterface<T> similarity) {
+
+        this.similarity = similarity;
+    }
+
+    public Iterator<info.debatty.java.graphs.Graph<T>> call(
+            final Iterator<Tuple2<Node<T>, NeighborList>> iterator) {
+
+        info.debatty.java.graphs.Graph<T> graph = new Graph<T>();
+        while (iterator.hasNext()) {
+            Tuple2<Node<T>, NeighborList> next = iterator.next();
+            graph.put(next._1, next._2);
+        }
+
+        graph.setSimilarity(similarity);
+        graph.setK(graph.get(graph.getNodes().iterator().next()).size());
+
+        ArrayList<Graph<T>> list = new ArrayList<Graph<T>>(1);
+        list.add(graph);
+        return list.iterator();
+
     }
 }
 

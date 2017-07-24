@@ -25,49 +25,59 @@
 package info.debatty.spark.knngraphs.builder;
 
 import info.debatty.java.graphs.StatisticsContainer;
-import org.apache.spark.AccumulatorParam;
+import org.apache.spark.util.AccumulatorV2;
 
 /**
  *
  * @author Thibault Debatty
  */
 public class StatisticsAccumulator
-        implements AccumulatorParam<StatisticsContainer> {
+        extends AccumulatorV2<StatisticsContainer, StatisticsContainer> {
+
+    private StatisticsContainer internal = new StatisticsContainer();
 
     /**
      *
-     * @param arg0
-     * @param arg1
-     * @return
      */
-    public final StatisticsContainer addAccumulator(
-            final StatisticsContainer arg0, final StatisticsContainer arg1) {
-        arg0.incAddSimilarities(arg1.getAddSimilarities());
-        arg0.incRemoveSimilarities(arg1.getRemoveSimilarities());
-        arg0.incSearchCrossPartitionRestarts(
-                arg1.getSearchCrossPartitionRestarts());
-        arg0.incSearchRestarts(arg1.getSearchRestarts());
-        arg0.incSearchSimilarities(arg1.getSearchSimilarities());
-        return arg0;
+    public StatisticsAccumulator() {
     }
 
-    /**
-     *
-     * @param arg0
-     * @param arg1
-     * @return
-     */
-    public final StatisticsContainer addInPlace(
-            final StatisticsContainer arg0, final StatisticsContainer arg1) {
-        return addAccumulator(arg0, arg1);
+    @Override
+    public final boolean isZero() {
+        return internal.getSimilarities() == 0;
     }
 
-    /**
-     *
-     * @param arg0
-     * @return
-     */
-    public final StatisticsContainer zero(final StatisticsContainer arg0) {
-        return new StatisticsContainer();
+    @Override
+    public final AccumulatorV2<StatisticsContainer, StatisticsContainer> copy() {
+        StatisticsAccumulator acc = new StatisticsAccumulator();
+        acc.add(internal);
+        return acc;
+    }
+
+    @Override
+    public final void reset() {
+        this.internal = new StatisticsContainer();
+    }
+
+    @Override
+    public final void add(final StatisticsContainer stats) {
+        this.internal.incAddSimilarities(stats.getAddSimilarities());
+        this.internal.incRemoveSimilarities(stats.getRemoveSimilarities());
+        this.internal.incSearchCrossPartitionRestarts(
+                stats.getSearchCrossPartitionRestarts());
+        this.internal.incSearchRestarts(stats.getSearchRestarts());
+        this.internal.incSearchSimilarities(stats.getSearchSimilarities());
+    }
+
+    @Override
+    public final void merge(
+            final AccumulatorV2<StatisticsContainer, StatisticsContainer>
+                    other) {
+        this.add(other.value());
+    }
+
+    @Override
+    public final StatisticsContainer value() {
+        return internal;
     }
 }

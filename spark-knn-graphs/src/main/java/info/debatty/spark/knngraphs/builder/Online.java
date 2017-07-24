@@ -132,15 +132,15 @@ public class Online<T> {
         // Use the distributed search algorithm to partition the graph
         this.searcher = new ApproximateSearch<T>(
                 initial_graph,
-                partitioning_iterations,
-                partitioning_medoids,
                 similarity);
 
         this.spark_context = sc;
 
         sc.setCheckpointDir("/tmp/checkpoints");
 
-        this.partitions_size = getPartitionsSize(searcher.getGraph());
+        // FIXME!
+        this.partitions_size = new long[]{0}; //getPartitionsSize(searcher.getGraph());
+
         this.previous_rdds = new LinkedList<JavaRDD<Graph<T>>>();
         this.nodes_before_update_medoids = computeNodesBeforeUpdate();
 
@@ -228,20 +228,20 @@ public class Online<T> {
      */
     public final void fastAdd(
             final Node<T> node,
-            final Accumulator<StatisticsContainer> stats_accumulator) {
+            final StatisticsAccumulator stats_accumulator) {
 
         // Find the neighbors of this node
         NeighborList neighborlist = searcher.search(
                 node,
                 k,
-                search_speedup,
-                search_random_jumps,
-                search_expansion,
                 stats_accumulator);
 
         // Assign the node to a partition (most similar medoid, with partition
         // size constraint)
-        searcher.assign(node, partitions_size);
+
+        // FIXME
+        // searcher.assign(node, partitions_size);
+
         //similarities += k;
 
         // bookkeeping: update the counts
@@ -249,13 +249,14 @@ public class Online<T> {
                 .getAttribute(NodePartitioner.PARTITION_KEY)]++;
 
         // update the existing graph edges
-        JavaRDD<Graph<T>> updated_graph = searcher.getGraph().map(
-                    new UpdateFunction<T>(
+        // FIXME
+        JavaRDD<Graph<T>> updated_graph = null; //searcher.getGraph().map(
+        /*            new UpdateFunction<T>(
                             node,
                             neighborlist,
                             similarity,
                             stats_accumulator,
-                            update_depth));
+                            update_depth));*/
 
         // Add the new <Node, NeighborList> to the distributed graph
         updated_graph = updated_graph.map(new AddNode(node, neighborlist));
@@ -276,13 +277,15 @@ public class Online<T> {
         updated_graph.count();
 
         // From now on use the new graph...
-        searcher.setGraph(updated_graph);
+        // FIXME
+        //searcher.setGraph(updated_graph);
 
         nodes_added_or_removed++;
         nodes_before_update_medoids--;
         if (nodes_before_update_medoids == 0) {
             // TODO: count number of computed similarities here!!
-            searcher.getPartitioner().computeNewMedoids(updated_graph);
+            // FIXME
+            // searcher.getPartitioner().computeNewMedoids(updated_graph);
             nodes_before_update_medoids = computeNodesBeforeUpdate();
         }
     }
@@ -294,12 +297,13 @@ public class Online<T> {
      */
     public final void fastRemove(
             final Node<T> node_to_remove,
-            final Accumulator<StatisticsContainer> stats_accumulator) {
+            final StatisticsAccumulator stats_accumulator) {
 
         // find the list of nodes to update
-        List<Node<T>> nodes_to_update = searcher.getGraph()
-                .flatMap(new FindNodesToUpdate(node_to_remove))
-                .collect();
+        // FIXME
+        List<Node<T>> nodes_to_update = null; //searcher.getGraph()
+        /*        .flatMap(new FindNodesToUpdate(node_to_remove))
+                .collect();*/
 
         // build the list of candidates
         LinkedList<Node<T>> initial_candidates = new LinkedList<Node<T>>();
@@ -308,13 +312,14 @@ public class Online<T> {
 
         // In spark 1.6.0 the list returned by collect causes an
         // UnsupportedOperationException when you try to remove :(
-        LinkedList<Node<T>> candidates  =
-                new LinkedList<Node<T>>(
+        // FIXME
+        LinkedList<Node<T>> candidates  = null;
+        /*        new LinkedList<Node<T>>(
                         searcher.getGraph()
                         .flatMap(new SearchNeighbors(
                                 initial_candidates,
                                 update_depth))
-                        .collect());
+                        .collect());*/
 
         // Find the partition corresponding to node_to_remove
         // The balanced kmedoids partitioner wrote this information in the
@@ -339,13 +344,14 @@ public class Online<T> {
         }
 
         // Update the graph and remove the node
-        JavaRDD<Graph<T>> updated_graph = searcher.getGraph()
+        // FIXME
+        JavaRDD<Graph<T>> updated_graph = null; /*searcher.getGraph()
                 .map(new RemoveUpdate(
                         node_to_remove,
                         nodes_to_update,
                         candidates,
                         stats_accumulator))
-                .cache();
+                .cache();*/
 
         // bookkeeping: update the counts
         partitions_size[partition_of_node_to_remove]--;
@@ -365,7 +371,8 @@ public class Online<T> {
 
         // Force execution and use updated graph
         updated_graph.count();
-        searcher.setGraph(updated_graph);
+        // FIXME
+        //searcher.setGraph(updated_graph);
 
     }
 
@@ -374,7 +381,7 @@ public class Online<T> {
      * @return the current graph
      */
     public final JavaRDD<Graph<T>> getDistributedGraph() {
-        return searcher.getGraph();
+        return null; //searcher.getGraph();
     }
 
     /**
@@ -382,7 +389,7 @@ public class Online<T> {
      * @return
      */
     public final JavaPairRDD<Node<T>, NeighborList> getGraph() {
-        return searcher.getGraph().flatMapToPair(new MergeGraphs());
+        return null; //searcher.getGraph().flatMapToPair(new MergeGraphs());
     }
 
     private long[] getPartitionsSize(final JavaRDD<Graph<T>> graph) {

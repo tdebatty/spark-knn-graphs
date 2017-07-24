@@ -133,11 +133,7 @@ public final class Search {
         // Prepare the graph for approximate graph based search
         // (and force execution)
         ApproximateSearch approximate_search_algorithm
-                = new ApproximateSearch(
-                        graph,
-                        partitioning_iterations,
-                        partitioning_medoids,
-                        similarity);
+                = new ApproximateSearch(graph, similarity);
 
         // Prepare exhaustive search
         ExhaustiveSearch exhaustive_search
@@ -151,10 +147,7 @@ public final class Search {
 
             // Using distributed graph based NN-search
             NeighborList neighborlist_graph
-                    = approximate_search_algorithm.search(
-                            query,
-                            search_k,
-                            speedup);
+                    = approximate_search_algorithm.search(query, search_k);
             System.out.println(
                     "Using graph: " + neighborlist_graph.element().node.value);
 
