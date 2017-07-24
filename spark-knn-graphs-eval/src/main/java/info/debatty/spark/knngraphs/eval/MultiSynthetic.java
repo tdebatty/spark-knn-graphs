@@ -43,7 +43,7 @@ public class MultiSynthetic {
                 .setOverlap(Dataset.Builder.Overlap.MEDIUM)
                 .build();
 
-        MultiTest<Double[]> multi_test = new MultiTest<Double[]>();
+        MultiTest<double[]> multi_test = new MultiTest<double[]>();
         multi_test.n = 100000;
         multi_test.n_add = 1000;
         multi_test.dataset_iterator = dataset.iterator();

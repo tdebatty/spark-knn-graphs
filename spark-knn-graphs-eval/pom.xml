@@ -63,7 +63,7 @@
         <dependency>
             <groupId>info.debatty</groupId>
             <artifactId>java-datasets</artifactId>
-            <version>0.9</version>
+            <version>0.14-SNAPSHOT</version>
         </dependency>
 
         <dependency>

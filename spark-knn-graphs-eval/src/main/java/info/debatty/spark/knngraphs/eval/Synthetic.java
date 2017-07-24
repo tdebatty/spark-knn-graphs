@@ -27,7 +27,7 @@ package info.debatty.spark.knngraphs.eval;
 import info.debatty.java.datasets.gaussian.Dataset;
 import org.apache.commons.cli.ParseException;
 
-public class Synthetic extends AbstractTest<Double[]> {
+public class Synthetic extends AbstractTest<double[]> {
 
     private static final int DIMENSIONALITY = 20;
     private static final int CENTERS = 15;
