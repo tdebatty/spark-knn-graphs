@@ -220,9 +220,9 @@ public class MultiTest<T> {
         start_time = System.currentTimeMillis();
         for (final Node<T> query : test_dataset) {
             i++;
-            Accumulator<StatisticsContainer> stats_accumulator = sc.accumulator(
-                    new StatisticsContainer(),
-                    new StatisticsAccumulator());
+            StatisticsAccumulator stats_accumulator =
+                    new StatisticsAccumulator();
+            sc.sc().register(stats_accumulator);
 
             online_graph.fastAdd(query, stats_accumulator);
 
@@ -237,7 +237,7 @@ public class MultiTest<T> {
             }
         }
 
-        long correct = info.debatty.spark.knngraphs.Graph.countCommonEdges(
+        long correct = info.debatty.spark.knngraphs.DistributedGraph.countCommonEdges(
                 exact_graph,
                 online_graph.getGraph());
         online_graph.clean();

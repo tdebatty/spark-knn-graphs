@@ -27,7 +27,7 @@ import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
-import info.debatty.spark.knngraphs.Graph;
+import info.debatty.spark.knngraphs.DistributedGraph;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import info.debatty.spark.knngraphs.builder.Online;
@@ -189,9 +189,9 @@ public abstract class AbstractTest<T> {
         start_time = System.currentTimeMillis();
         for (final Node<T> query : validation_dataset) {
             i++;
-            Accumulator<StatisticsContainer> stats_accumulator = sc.accumulator(
-                    new StatisticsContainer(),
-                    new StatisticsAccumulator());
+            StatisticsAccumulator stats_accumulator =
+                    new StatisticsAccumulator();
+            sc.sc().register(stats_accumulator);
 
             online_graph.fastAdd(query, stats_accumulator);
 
@@ -214,7 +214,7 @@ public abstract class AbstractTest<T> {
                         = builder.computeGraph(sc.parallelize(dataset));
                 log("done...");
 
-                long correct = Graph.countCommonEdges(
+                long correct = DistributedGraph.countCommonEdges(
                         exact_graph, online_graph.getGraph());
 
                 System.out.printf(
