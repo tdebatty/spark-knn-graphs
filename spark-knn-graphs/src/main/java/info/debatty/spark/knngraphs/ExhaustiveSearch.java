@@ -36,7 +36,7 @@ import org.apache.spark.api.java.function.FlatMapFunction;
 import scala.Tuple2;
 
 /**
- *
+ * Search the complete graph to find the nearest neighbors of query.
  * @author Thibault Debatty
  * @param <T>
  */
@@ -44,29 +44,27 @@ public class ExhaustiveSearch<T> implements Serializable {
     private final JavaPairRDD<Node<T>, NeighborList> graph;
     private final SimilarityInterface<T> similarity;
 
-    public ExhaustiveSearch(JavaPairRDD<Node<T>, NeighborList> graph, SimilarityInterface<T> similarity) {
+    /**
+     *
+     * @param graph
+     * @param similarity
+     */
+    public ExhaustiveSearch(
+            final JavaPairRDD<Node<T>, NeighborList> graph,
+            final SimilarityInterface<T> similarity) {
         this.graph = graph;
         this.similarity = similarity;
     }
 
-    public NeighborList search(final Node<T> query, final int k) {
-        JavaRDD<NeighborList> candidates_neighborlists = graph.mapPartitions( new FlatMapFunction<Iterator<Tuple2<Node<T>, NeighborList>>, NeighborList>() {
-
-            public Iterator<NeighborList> call(Iterator<Tuple2<Node<T>, NeighborList>> tuples_iterator) throws Exception {
-                NeighborList local_nl = new NeighborList(k);
-                while (tuples_iterator.hasNext()) {
-                    Node<T> next = tuples_iterator.next()._1;
-                    local_nl.add(new Neighbor(
-                            next,
-                            similarity.similarity(query.value, next.value)));
-                }
-
-                ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);
-                result.add(local_nl);
-                return result.iterator();
-
-            }
-        });
+    /**
+     * Search the complete graph to find the k nearest neighbors of query.
+     * @param query
+     * @param k
+     * @return
+     */
+    public final NeighborList search(final Node<T> query, final int k) {
+        JavaRDD<NeighborList> candidates_neighborlists =
+                graph.mapPartitions(new SearchFunction(k, query, similarity));
 
         NeighborList final_neighborlist = new NeighborList(k);
         for (NeighborList nl : candidates_neighborlists.collect()) {
@@ -74,5 +72,48 @@ public class ExhaustiveSearch<T> implements Serializable {
         }
 
         return final_neighborlist;
+    }
+}
+
+/**
+ * Searches all partitions in parallel.
+ *
+ * Each partition returns a neighborlist of k nearest neighbors.
+ * @author tibo
+ * @param <T>
+ */
+class SearchFunction<T>
+        implements FlatMapFunction<
+            Iterator<Tuple2<Node<T>, NeighborList>>,
+            NeighborList> {
+
+    private final int k;
+    private final Node<T> query;
+    private final SimilarityInterface<T> similarity;
+
+    SearchFunction(
+            final int k,
+            final Node<T> query,
+            final SimilarityInterface<T> similarity) {
+
+        this.k = k;
+        this.query = query;
+        this.similarity = similarity;
+    }
+
+    public Iterator<NeighborList> call(
+            final Iterator<Tuple2<Node<T>, NeighborList>> tuples_iterator) {
+        NeighborList local_nl = new NeighborList(k);
+        while (tuples_iterator.hasNext()) {
+            Node<T> next = tuples_iterator.next()._1;
+            local_nl.add(new Neighbor(
+                    next,
+                    similarity.similarity(query.value, next.value)));
+        }
+
+        ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);
+        result.add(local_nl);
+        return result.iterator();
+
     }
 }
