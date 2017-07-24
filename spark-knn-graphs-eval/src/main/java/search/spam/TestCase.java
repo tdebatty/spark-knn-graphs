@@ -29,7 +29,6 @@ import info.debatty.jinu.Case;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.eval.JWSimilarity;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.LinkedList;
