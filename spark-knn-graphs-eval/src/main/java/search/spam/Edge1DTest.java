@@ -33,7 +33,7 @@ import info.debatty.spark.knngraphs.Partitioner;
 public class Edge1DTest extends AbstractTest {
 
     @Override
-    Partitioner<String> getPartitioner() {
+    final Partitioner<String> getPartitioner() {
         return new Edge1DPartitioner<>(16);
     }
 

@@ -58,6 +58,7 @@ public class Edge1DPartitioner<T> implements Partitioner<T> {
         Partitioning<T> solution = new Partitioning<T>();
         solution.start_time = System.currentTimeMillis();
         solution.graph = graph.mapToPair(new Edge1DFunction<T>(partitions));
+        solution.graph = DistributedGraph.moveNodes(solution.graph, partitions);
         solution.graph.cache();
         solution.graph.count();
         solution.end_time = System.currentTimeMillis();

@@ -21,18 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package search.spam;
+package jbj.synthetic;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.jinu.TestInterface;
-import info.debatty.spark.knngraphs.ApproximateSearch;
-import info.debatty.spark.knngraphs.ExhaustiveSearch;
-import info.debatty.spark.knngraphs.Partitioner;
+import info.debatty.spark.knngraphs.JaBeJa;
 import info.debatty.spark.knngraphs.Partitioning;
-import info.debatty.spark.knngraphs.TimeBudget;
-import info.debatty.spark.knngraphs.eval.JWSimilarity;
-import java.util.LinkedList;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -40,57 +35,36 @@ import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
 /**
- *
+ * Run JaBeJa partitioning until convergence...
  * @author tibo
  */
-public abstract class AbstractTest implements TestInterface {
+public class JaBeJaTest implements TestInterface {
 
-    // SPAM is a difficult dataset to search => use lower speedup
-    private static final int SPEEDUP = 4;
-
-    static String graph_path;
-    static LinkedList<String> queries;
-
-    abstract Partitioner<String> getPartitioner();
+    public static String dataset_path;
 
     @Override
-    public final double[] run(final double budget) throws Exception {
+    public final double[] run(final double unused) throws Exception {
 
         SparkConf conf = new SparkConf();
         conf.setAppName("Spark graph partitioning with SPAM");
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
-        JavaRDD<Tuple2<Node<String>, NeighborList>> tuples =
-                sc.objectFile(graph_path);
-        JavaPairRDD<Node<String>, NeighborList> graph =
+
+        // Read graph from HDFS
+        JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
+                sc.objectFile(dataset_path);
+        JavaPairRDD<Node<double[]>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
-        Partitioner<String> partitioner = getPartitioner();
-        partitioner.setBudget(new TimeBudget((long) budget));
-        Partitioning<String> partition = partitioner.partition(graph);
+        // Partition
+        JaBeJa<double[]> partitioner = new JaBeJa<>(16);
+        Partitioning<double[]> partition = partitioner.partition(graph);
 
-        ApproximateSearch<String> fast_search = new ApproximateSearch<>(
-                partition.graph,
-                new JWSimilarity(),
-                SPEEDUP,
-                ApproximateSearch.DEFAULT_JUMPS,
-                ApproximateSearch.DEFAULT_EXPANSION);
-
-        ExhaustiveSearch<String> search = new ExhaustiveSearch<>(
-                partition.graph, new JWSimilarity());
-
-        int correct = 0;
-        for (String query : queries) {
-            Node<String> query_node = new Node(query, query);
-            NeighborList fast_result = fast_search.search(query_node, 1);
-            NeighborList exact_result = search.search(query_node, 1);
-
-            correct += fast_result.countCommons(exact_result);
-        }
-
+        // Check result
         double[] result = new double[] {
-            correct
+            JaBeJa.countCrossEdges(partition.graph, 16),
+            JaBeJa.computeBalance(partition.graph, 16)
         };
         sc.close();
 

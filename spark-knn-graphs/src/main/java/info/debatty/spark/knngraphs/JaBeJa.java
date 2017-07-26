@@ -55,7 +55,7 @@ public class JaBeJa<T> implements Partitioner<T> {
     private static final double DELTA = 0.003;
     private static final int SWAPS_PER_ITERATION = 10;
     private static final int ITERATIONS_BEFORE_CHECKPOINT = 20;
-    private static final int RDDS_TO_CACHE = 2;
+    private static final int RDDS_TO_CACHE = 3;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JaBeJa.class);
 
@@ -79,13 +79,12 @@ public class JaBeJa<T> implements Partitioner<T> {
             final JavaPairRDD<Node<T>, NeighborList> input_graph) {
 
         Partitioning<T> solution = new Partitioning<T>();
-
         LinkedList<JavaPairRDD<Node<T>, NeighborList>> previous_rdds =
                 new LinkedList<JavaPairRDD<Node<T>, NeighborList>>();
 
         // Randomize
         solution.graph = randomize(input_graph);
-        solution.graph = moveNodes(solution.graph);
+        solution.graph = DistributedGraph.moveNodes(solution.graph, partitions);
 
         // Perform swaps
         double tr = T0;
@@ -93,6 +92,8 @@ public class JaBeJa<T> implements Partitioner<T> {
         while (true) {
             iteration++;
             LOGGER.info("Tr = {}", tr);
+
+            // Perform swap
             SwapResult<T> swap_result = swap(
                     solution.graph, tr, SWAPS_PER_ITERATION);
             LOGGER.info("Performed {} swaps", swap_result.swaps);
@@ -104,6 +105,7 @@ public class JaBeJa<T> implements Partitioner<T> {
                 solution.graph.rdd().localCheckpoint();
             }
 
+            // Force execution
             solution.graph.count();
 
             // Keep a track of updated RDD to unpersist after two iterations
@@ -122,7 +124,8 @@ public class JaBeJa<T> implements Partitioner<T> {
 
             tr = Math.max(1.0, tr - DELTA);
         }
-        solution.graph = moveNodes(solution.graph);
+
+        solution.graph = DistributedGraph.moveNodes(solution.graph, partitions);
         solution.graph.count();
         solution.end_time = System.currentTimeMillis();
         return solution;
@@ -285,18 +288,7 @@ public class JaBeJa<T> implements Partitioner<T> {
 
         return new SwapResult(
                 partitioned_graph,
-                requests.size());
-    }
-
-    /**
-     * Move the nodes to the correct partition.
-     * @param graph
-     * @return
-     */
-    final JavaPairRDD<Node<T>, NeighborList> moveNodes(
-            final JavaPairRDD<Node<T>, NeighborList> graph) {
-
-        return graph.partitionBy(new NodePartitioner(partitions));
+                acks.size());
     }
 
     private static int countCrossEdges(
@@ -403,8 +395,6 @@ class ProcessRequestsFunction<T>
     ProcessRequestsFunction(final List<SwapRequest> swap_requests) {
         this.swap_requests = swap_requests;
     }
-
-
 
     public Iterator<SwapRequest<T>> call(
             final Iterator<Tuple2<Node<T>, NeighborList>> tuples) {
@@ -659,13 +649,26 @@ class GetDegreesFunction<T>
 class GetPartitionFunction<T>
     implements PairFunction<Tuple2<Node<T>, NeighborList>, Integer, Integer> {
 
+    private final Logger logger = LoggerFactory.getLogger(
+            GetPartitionFunction.class);
+
     public Tuple2<Integer, Integer> call(
             final Tuple2<Node<T>, NeighborList> tuple)
             throws Exception {
 
-        return new Tuple2<Integer, Integer>(
-                Integer.valueOf(tuple._1.id),
-                (Integer) tuple._1.getAttribute(NodePartitioner.PARTITION_KEY));
+        Integer id = Integer.valueOf(tuple._1.id);
+        Integer partition =
+                (Integer) tuple._1.getAttribute(NodePartitioner.PARTITION_KEY);
+
+        if (partition == null) {
+            logger.error("Node has a null partition value : "
+                    + tuple._1.getAttribute(NodePartitioner.PARTITION_KEY)
+                    + " " + tuple._1);
+
+            partition = 0;
+        }
+
+        return new Tuple2<Integer, Integer>(id, partition);
     }
 
 }

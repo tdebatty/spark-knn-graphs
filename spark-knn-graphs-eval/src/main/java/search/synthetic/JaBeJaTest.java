@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package search.spam;
+package search.synthetic;
 
 import info.debatty.spark.knngraphs.JaBeJa;
 import info.debatty.spark.knngraphs.Partitioner;
@@ -33,7 +33,7 @@ import info.debatty.spark.knngraphs.Partitioner;
 public class JaBeJaTest extends AbstractTest {
 
     @Override
-    final Partitioner<String> getPartitioner() {
+    final Partitioner<double[]> getPartitioner() {
         return new JaBeJa<>(16);
     }
 

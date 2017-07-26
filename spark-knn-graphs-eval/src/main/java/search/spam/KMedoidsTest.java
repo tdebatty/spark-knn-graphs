@@ -34,7 +34,7 @@ import info.debatty.spark.knngraphs.eval.JWSimilarity;
 public class KMedoidsTest extends AbstractTest {
 
     @Override
-    Partitioner<String> getPartitioner() {
+    final Partitioner<String> getPartitioner() {
         return new KMedoidsPartitioner<>(new JWSimilarity(), 16, 1.2);
     }
 

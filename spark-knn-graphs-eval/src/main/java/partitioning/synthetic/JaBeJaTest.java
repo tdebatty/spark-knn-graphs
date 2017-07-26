@@ -51,14 +51,19 @@ public class JaBeJaTest implements TestInterface {
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
+
+        // Read graph from HDFS
         JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
                 sc.objectFile(dataset_path);
         JavaPairRDD<Node<double[]>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
-        JaBeJa<double[]> partitioner = new JaBeJa<double[]>(16);
+        // Partition
+        JaBeJa<double[]> partitioner = new JaBeJa<>(16);
         partitioner.setBudget(new TimeBudget((long) budget));
         Partitioning<double[]> partition = partitioner.partition(graph);
+
+        // Check result
         double[] result = new double[] {
             JaBeJa.countCrossEdges(partition.graph, 16),
             JaBeJa.computeBalance(partition.graph, 16)

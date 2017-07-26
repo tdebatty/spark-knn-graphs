@@ -73,6 +73,19 @@ public class DistributedGraph {
         return graph.mapPartitions(
                 new NeighborListToGraph(similarity), true);
     }
+
+    /**
+     * Move the nodes to the correct partition.
+     * @param graph
+     * @param partitions
+     * @return
+     */
+    public static final <T> JavaPairRDD<Node<T>, NeighborList> moveNodes(
+            final JavaPairRDD<Node<T>, NeighborList> graph,
+            final int partitions) {
+
+        return graph.partitionBy(new NodePartitioner(partitions));
+    }
 }
 
 /**

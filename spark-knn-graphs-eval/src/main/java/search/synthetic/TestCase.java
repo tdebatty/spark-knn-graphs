@@ -21,13 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package search.spam;
+package search.synthetic;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.jinu.Case;
 import info.debatty.spark.knngraphs.builder.Brute;
-import info.debatty.spark.knngraphs.eval.JWSimilarity;
+import info.debatty.spark.knngraphs.eval.L2Similarity;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -74,44 +74,44 @@ public class TestCase {
         // Read data
         LOGGER.info("Read data...");
         SparkConf conf = new SparkConf();
-        conf.setAppName("Spark SPAM search");
+        conf.setAppName("Spark synthetic search");
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
-        LinkedList<String> strings = new LinkedList(
+        LinkedList<double[]> vectors = new LinkedList(
                 sc
-                    .textFile((String) options.valueOf("d"), 16)
+                    .objectFile((String) options.valueOf("d"), 8)
                     .collect());
 
         // Split between main and test data
         Random rand = new Random();
-        LinkedList<String> queries = new LinkedList<>();
+        LinkedList<double[]> queries = new LinkedList<>();
         for (int i = 0; i < N_TEST; i++) {
-            queries.add(strings.remove(rand.nextInt(strings.size())));
+            queries.add(vectors.remove(rand.nextInt(vectors.size())));
         }
 
 
         // Build the list of nodes
-        LinkedList<Node<String>> nodes = new LinkedList<>();
+        LinkedList<Node<double[]>> nodes = new LinkedList<>();
         int i = 0;
-        for (String string : strings) {
-            nodes.add(new Node<>(String.valueOf(i), string));
+        for (double[] vector : vectors) {
+            nodes.add(new Node<>(String.valueOf(i), vector));
             i++;
         }
 
-        JavaRDD<Node<String>> nodes_rdd = sc.parallelize(nodes);
+        JavaRDD<Node<double[]>> nodes_rdd = sc.parallelize(nodes);
 
         // Build the graph
         LOGGER.info("Build graph...");
-        Brute<String> brute = new Brute();
+        Brute<double[]> brute = new Brute();
         brute.setK(10);
-        brute.setSimilarity(new JWSimilarity());
-        JavaPairRDD<Node<String>, NeighborList> graph =
+        brute.setSimilarity(new L2Similarity());
+        JavaPairRDD<Node<double[]>, NeighborList> graph =
                 brute.computeGraph(nodes_rdd);
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd-HHmmss");
         Date now = new Date();
-        String graph_path = "spam-graph-" + sdf.format(now);
+        String graph_path = "synthetic-graph-" + sdf.format(now);
         graph.saveAsObjectFile(graph_path);
         LOGGER.info("Graph saved to " + graph_path);
         sc.close();

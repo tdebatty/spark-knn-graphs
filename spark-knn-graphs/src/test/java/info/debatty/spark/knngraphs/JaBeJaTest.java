@@ -153,16 +153,19 @@ public class JaBeJaTest extends TestCase implements Serializable {
 
         // Randomize
         graph = jbj.randomize(graph);
-        graph = jbj.moveNodes(graph);
+        graph = DistributedGraph.moveNodes(graph, 8);
         graph.cache();
+
+        testPartitionNotNull(graph);
 
         int cross_edges_before = JaBeJa.countCrossEdges(graph, 8);
 
         // Perform Swap
         graph = jbj.swap(graph, 2.0, 1).graph;
-        graph = jbj.moveNodes(graph);
+        graph = DistributedGraph.moveNodes(graph, 8);
         graph.cache();
         graph.count();
+        testPartitionNotNull(graph);
 
         int cross_edges_after = JaBeJa.countCrossEdges(graph, 8);
 
@@ -219,6 +222,7 @@ public class JaBeJaTest extends TestCase implements Serializable {
         Partitioning<String> solution = jbj.partition(graph);
         System.out.println(solution.runTime());
         System.out.println(JaBeJa.countCrossEdges(solution.graph, 8));
+        testPartitionNotNull(solution.graph);
 
         sc.close();
     }
@@ -269,8 +273,23 @@ public class JaBeJaTest extends TestCase implements Serializable {
         JaBeJa<String> jbj = new JaBeJa<String>(8);
         graph = jbj.partition(graph).graph;
         System.out.println(JaBeJa.countCrossEdges(graph, 8));
+        testPartitionNotNull(graph);
 
         sc.close();
+    }
+
+    /**
+     * Test that every node has a non null partition value.
+     * @param graph
+     */
+    private void testPartitionNotNull(
+            final JavaPairRDD<Node<String>, NeighborList> graph) {
+
+        for (Tuple2<Node<String>, NeighborList> tuple : graph.collect()) {
+            assertNotNull("Partition id is null!", tuple._1.getAttribute(
+                    NodePartitioner.PARTITION_KEY));
+        }
+
     }
 
 }

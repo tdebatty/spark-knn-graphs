@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package search.spam;
+package search.synthetic;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
@@ -32,6 +32,7 @@ import info.debatty.spark.knngraphs.Partitioner;
 import info.debatty.spark.knngraphs.Partitioning;
 import info.debatty.spark.knngraphs.TimeBudget;
 import info.debatty.spark.knngraphs.eval.JWSimilarity;
+import info.debatty.spark.knngraphs.eval.L2Similarity;
 import java.util.LinkedList;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -45,44 +46,38 @@ import scala.Tuple2;
  */
 public abstract class AbstractTest implements TestInterface {
 
-    // SPAM is a difficult dataset to search => use lower speedup
-    private static final int SPEEDUP = 4;
-
     static String graph_path;
-    static LinkedList<String> queries;
+    static LinkedList<double[]> queries;
 
-    abstract Partitioner<String> getPartitioner();
+    abstract Partitioner<double[]> getPartitioner();
 
     @Override
     public final double[] run(final double budget) throws Exception {
 
         SparkConf conf = new SparkConf();
-        conf.setAppName("Spark graph partitioning with SPAM");
+        conf.setAppName("Spark graph partitioning with synthetic dataset");
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
-        JavaRDD<Tuple2<Node<String>, NeighborList>> tuples =
+        JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
                 sc.objectFile(graph_path);
-        JavaPairRDD<Node<String>, NeighborList> graph =
+        JavaPairRDD<Node<double[]>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
-        Partitioner<String> partitioner = getPartitioner();
+        Partitioner<double[]> partitioner = getPartitioner();
         partitioner.setBudget(new TimeBudget((long) budget));
-        Partitioning<String> partition = partitioner.partition(graph);
+        Partitioning<double[]> partition = partitioner.partition(graph);
 
-        ApproximateSearch<String> fast_search = new ApproximateSearch<>(
-                partition.graph,
-                new JWSimilarity(),
-                SPEEDUP,
-                ApproximateSearch.DEFAULT_JUMPS,
-                ApproximateSearch.DEFAULT_EXPANSION);
+        ApproximateSearch<double[]> fast_search = new ApproximateSearch<>(
+                partition.graph, new L2Similarity());
 
-        ExhaustiveSearch<String> search = new ExhaustiveSearch<>(
-                partition.graph, new JWSimilarity());
+        ExhaustiveSearch<double[]> search = new ExhaustiveSearch<>(
+                partition.graph, new L2Similarity());
 
         int correct = 0;
-        for (String query : queries) {
-            Node<String> query_node = new Node(query, query);
+        int i = 100000;
+        for (double[] query : queries) {
+            Node<double[]> query_node = new Node("" + i++, query);
             NeighborList fast_result = fast_search.search(query_node, 1);
             NeighborList exact_result = search.search(query_node, 1);
 

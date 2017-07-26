@@ -21,20 +21,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package search.spam;
+package search.synthetic;
 
-import info.debatty.spark.knngraphs.JaBeJa;
+import info.debatty.spark.knngraphs.Edge1DPartitioner;
 import info.debatty.spark.knngraphs.Partitioner;
 
 /**
  *
  * @author tibo
  */
-public class JaBeJaTest extends AbstractTest {
+public class Edge1DTest extends AbstractTest {
 
     @Override
-    final Partitioner<String> getPartitioner() {
-        return new JaBeJa<>(16);
+    final Partitioner<double[]> getPartitioner() {
+        return new Edge1DPartitioner<>(16);
     }
 
 }

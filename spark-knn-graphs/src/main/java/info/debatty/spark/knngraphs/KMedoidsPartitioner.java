@@ -106,6 +106,7 @@ public class KMedoidsPartitioner<T> implements Partitioner<T> {
                         medoids.medoids,
                         similarity,
                         imbalance));
+        solution.graph = DistributedGraph.moveNodes(solution.graph, partitions);
         solution.graph.cache();
         solution.graph.count();
         solution.end_time = System.currentTimeMillis();

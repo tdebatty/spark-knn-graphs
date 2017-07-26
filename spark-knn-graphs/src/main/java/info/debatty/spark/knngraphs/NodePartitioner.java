@@ -26,6 +26,8 @@ package info.debatty.spark.knngraphs;
 
 import info.debatty.java.graphs.Node;
 import org.apache.spark.Partitioner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Partition the graph using a specific node attribute.
@@ -42,6 +44,8 @@ public class NodePartitioner extends Partitioner {
      */
     public static final String PARTITION_KEY = "NP_PARTITION_ID";
 
+    private final Logger logger = LoggerFactory.getLogger(
+            NodePartitioner.class);
     private final int partitions;
 
     /**
@@ -60,6 +64,11 @@ public class NodePartitioner extends Partitioner {
     @Override
     public final int getPartition(final Object obj) {
         Node node = (Node) obj;
-        return (Integer) node.getAttribute(PARTITION_KEY);
+        Integer partition = (Integer) node.getAttribute(PARTITION_KEY);
+        if (partition == null) {
+            logger.error("Node has no partition value: " + node);
+            partition = 0;
+        }
+        return partition;
     }
 }
