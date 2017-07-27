@@ -28,6 +28,7 @@ import info.debatty.java.graphs.Node;
 import info.debatty.jinu.TestInterface;
 import info.debatty.spark.knngraphs.JaBeJa;
 import info.debatty.spark.knngraphs.Partitioning;
+import info.debatty.spark.knngraphs.TimeBudget;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -43,7 +44,7 @@ public class JaBeJaTest implements TestInterface {
     public static String dataset_path;
 
     @Override
-    public final double[] run(final double unused) throws Exception {
+    public final double[] run(final double time) throws Exception {
 
         SparkConf conf = new SparkConf();
         conf.setAppName("Spark graph partitioning with SPAM");
@@ -59,6 +60,7 @@ public class JaBeJaTest implements TestInterface {
 
         // Partition
         JaBeJa<double[]> partitioner = new JaBeJa<>(16);
+        partitioner.setBudget(new TimeBudget((long) time));
         Partitioning<double[]> partition = partitioner.partition(graph);
 
         // Check result

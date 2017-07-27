@@ -43,12 +43,18 @@ public class TestCase {
      */
     public static void main(final String[] args) throws Exception {
 
-        OptionParser parser = new OptionParser("t:r:d:");
+        OptionParser parser = new OptionParser("i:r:d:t:");
         OptionSet options = parser.parse(args);
 
         JaBeJaTest.dataset_path = (String) options.valueOf("d");
 
-        int tests = Integer.valueOf((String) options.valueOf("t"));
+        int iterations = Integer.valueOf((String) options.valueOf("i"));
+
+        List<String> time_list = (List<String>) options.valuesOf("t");
+        double[] times = new double[time_list.size()];
+        for (int i = 0; i < times.length; i++) {
+            times[i] = Double.valueOf(time_list.get(i));
+        }
 
         // Reduce Spark output logs
         Logger.getLogger("org").setLevel(Level.WARN);
@@ -57,11 +63,11 @@ public class TestCase {
         Case test = new Case();
         test.setDescription(TestCase.class.getName() + " : "
                 + String.join(" ", Arrays.asList(args)));
-        test.setIterations(tests);
+        test.setIterations(iterations);
         test.setParallelism(1);
         test.commitToGit(false);
         test.setBaseDir((String) options.valueOf("r"));
-        test.setParamValues(new double[]{0});
+        test.setParamValues(times);
 
         test.addTest(JaBeJaTest.class);
 
