@@ -45,9 +45,6 @@ import scala.Tuple2;
  */
 public abstract class AbstractTest implements TestInterface {
 
-    // SPAM is a difficult dataset to search => use lower speedup
-    private static final int SPEEDUP = 4;
-
     static String graph_path;
     static LinkedList<String> queries;
 
@@ -70,12 +67,10 @@ public abstract class AbstractTest implements TestInterface {
         partitioner.setBudget(new TimeBudget((long) budget));
         Partitioning<String> partition = partitioner.partition(graph);
 
+        // Use default parameters
         ApproximateSearch<String> fast_search = new ApproximateSearch<>(
                 partition.graph,
-                new JWSimilarity(),
-                SPEEDUP,
-                ApproximateSearch.DEFAULT_JUMPS,
-                ApproximateSearch.DEFAULT_EXPANSION);
+                new JWSimilarity());
 
         ExhaustiveSearch<String> search = new ExhaustiveSearch<>(
                 partition.graph, new JWSimilarity());
