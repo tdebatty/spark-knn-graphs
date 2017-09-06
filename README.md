@@ -1,5 +1,5 @@
 # spark-knn-graphs
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs/badge.svg)](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs) [![Build Status](https://travis-ci.org/tdebatty/spark-knn-graphs.svg?branch=master)](https://travis-ci.org/tdebatty/spark-knn-graphs) [![API](http://api123.io/api123-head.svg)](http://api123.io/api/spark-knn-graphs/head/index.html)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs/badge.svg)](https://maven-badges.herokuapp.com/maven-central/info.debatty/spark-knn-graphs) [![Build Status](https://travis-ci.org/tdebatty/spark-knn-graphs.svg?branch=master)](https://travis-ci.org/tdebatty/spark-knn-graphs) [![Javadocs](http://www.javadoc.io/badge/info.debatty/spark-knn-graphs.svg)](http://www.javadoc.io/doc/info.debatty/spark-knn-graphs)
 
 Spark algorithms for building and processing k-nn graphs.
 
