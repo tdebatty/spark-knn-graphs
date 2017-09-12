@@ -25,7 +25,6 @@ package info.debatty.spark.knngraphs;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
-import java.io.IOException;
 import org.apache.spark.api.java.JavaPairRDD;
 
 /**
