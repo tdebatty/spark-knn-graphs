@@ -44,7 +44,7 @@ public interface Partitioner<T> {
      * @param graph
      * @return
      */
-    public Partitioning<T> partition(JavaPairRDD<Node<T>, NeighborList> graph);
+    Partitioning<T> partition(JavaPairRDD<Node<T>, NeighborList> graph);
 
     void setBudget(Budget budget);
 }
