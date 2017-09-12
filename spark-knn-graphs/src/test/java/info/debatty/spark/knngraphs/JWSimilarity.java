@@ -32,7 +32,14 @@ import info.debatty.java.stringsimilarity.JaroWinkler;
  * @author Thibault Debatty
  */
 public class JWSimilarity implements SimilarityInterface<String> {
-    public double similarity(final String value1, final String value2) {
+
+    /**
+     *
+     * @param value1
+     * @param value2
+     * @return
+     */
+    public final double similarity(final String value1, final String value2) {
         JaroWinkler jw = new JaroWinkler();
         return jw.similarity(value1, value2);
     }

@@ -26,205 +26,89 @@ package info.debatty.spark.knngraphs;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
-import info.debatty.spark.knngraphs.builder.Brute;
-import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import junit.framework.TestCase;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
 /**
  *
  * @author Thibault Debatty
  */
-public class JaBeJaTest extends TestCase implements Serializable {
+public class JaBeJaTest extends SparkTest {
 
-    private static final int K = 10;
+    private static final int PARTITIONS = 8;
+    private static final int TIME_BUDGET = 15;
 
     /**
-     * Test of computeGraph method, of class NNDescent.
-     * @throws java.io.IOException
+     * Build the color index.
      */
-    public final void testBuildIndex() throws IOException, Exception {
+    public final void testBuildIndex() {
         System.out.println("BuildIndex");
         System.out.println("==========");
 
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
+        JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
 
-        String file =  getClass().getClassLoader().
-                getResource("726-unique-spams").getPath();
-
-        // Read the file
-        ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
-
-        // Convert to nodes
-        List<Node<String>> data = new ArrayList<Node<String>>();
-        for (String s : strings) {
-            data.add(new Node<String>(String.valueOf(data.size()), s));
-        }
-
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        JavaSparkContext sc = new JavaSparkContext(conf);
-
-        // Parallelize the dataset in Spark
-        JavaRDD<Node<String>> nodes = sc.parallelize(data);
-
-        // Build the graph
-        Brute<String> builder = new Brute<String>();
-        builder.setK(K);
-        builder.setSimilarity(new JWSimilarity());
-
-        // Compute the graph and force execution
-        JavaPairRDD<Node<String>, NeighborList> graph =
-                builder.computeGraph(nodes);
-        Tuple2<Node<String>, NeighborList> first = graph.first();
-        System.out.println(first);
-        assertEquals(726, graph.count());
-        assertEquals(K, first._2.size());
-
-        JaBeJa<String> jbj = new JaBeJa<String>(8);
+        JaBeJa<String> jbj = new JaBeJa<String>(PARTITIONS);
         graph = jbj.randomize(graph);
         graph.cache();
-        first = graph.first();
+        Tuple2<Node<String>, NeighborList> first = graph.first();
         int first_partition = (Integer) first._1
                 .getAttribute(NodePartitioner.PARTITION_KEY);
         int first_id = Integer.valueOf(first._1.id);
 
         int[] index = JaBeJa.buildColorIndex(graph);
         assertEquals(first_partition, index[first_id]);
-        sc.close();
     }
 
-    public final void testSwap() throws IOException, Exception {
+    /**
+     * Perform a single swap and check the number of cross-partition edges
+     * decreases.
+     */
+    public final void testSwap() {
         System.out.println("Swap");
         System.out.println("====");
 
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
-        Logger.getLogger("info").setLevel(Level.WARN);
-        Logger.getLogger("info.debatty.spark.knngraphs.JaBeJa")
-                .setLevel(Level.INFO);
+        JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
 
-        String file =  getClass().getClassLoader().
-                getResource("726-unique-spams").getPath();
-
-        // Read the file
-        ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
-
-        // Convert to nodes
-        List<Node<String>> data = new ArrayList<Node<String>>();
-        for (String s : strings) {
-            data.add(new Node<String>(String.valueOf(data.size()), s));
-        }
-
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        JavaSparkContext sc = new JavaSparkContext(conf);
-
-        // Parallelize the dataset in Spark
-        JavaRDD<Node<String>> nodes = sc.parallelize(data);
-
-        // Build the graph
-        Brute<String> builder = new Brute<String>();
-        builder.setK(K);
-        builder.setSimilarity(new JWSimilarity());
-
-        // Compute the graph and force execution
-        JavaPairRDD<Node<String>, NeighborList> graph =
-                builder.computeGraph(nodes);
-        graph.cache();
-        graph.count();
-
-        JaBeJa<String> jbj = new JaBeJa<String>(8);
+        JaBeJa<String> jbj = new JaBeJa<String>(PARTITIONS);
 
         // Randomize
         graph = jbj.randomize(graph);
-        graph = DistributedGraph.moveNodes(graph, 8);
+        graph = DistributedGraph.moveNodes(graph, PARTITIONS);
         graph.cache();
 
         testPartitionNotNull(graph);
 
-        int cross_edges_before = JaBeJa.countCrossEdges(graph, 8);
+        int cross_edges_before = JaBeJa.countCrossEdges(graph, PARTITIONS);
 
         // Perform Swap
         graph = jbj.swap(graph, 2.0, 1).graph;
-        graph = DistributedGraph.moveNodes(graph, 8);
+        graph = DistributedGraph.moveNodes(graph, PARTITIONS);
         graph.cache();
         graph.count();
         testPartitionNotNull(graph);
 
-        int cross_edges_after = JaBeJa.countCrossEdges(graph, 8);
+        int cross_edges_after = JaBeJa.countCrossEdges(graph, PARTITIONS);
 
         assertTrue("Number of cross edges should decrease!",
                 cross_edges_after < cross_edges_before);
 
-        sc.close();
     }
 
-    public final void testTimeBudget() throws IOException, Exception {
+    /**
+     * Run for a fixed time.
+     */
+    public final void testTimeBudget() {
         System.out.println("TimeBudget");
         System.out.println("==========");
 
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
-        //Logger.getLogger("info").setLevel(Level.WARN);
-        Logger.getLogger("info.debatty.spark.knngraphs.JaBeJa")
-                .setLevel(Level.INFO);
+        JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
 
-        String file =  getClass().getClassLoader().
-                getResource("726-unique-spams").getPath();
-
-        // Read the file
-        ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
-
-        // Convert to nodes
-        List<Node<String>> data = new ArrayList<Node<String>>();
-        for (String s : strings) {
-            data.add(new Node<String>(String.valueOf(data.size()), s));
-        }
-
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        JavaSparkContext sc = new JavaSparkContext(conf);
-
-        // Parallelize the dataset in Spark
-        JavaRDD<Node<String>> nodes = sc.parallelize(data);
-
-        // Build the graph
-        Brute<String> builder = new Brute<String>();
-        builder.setK(K);
-        builder.setSimilarity(new JWSimilarity());
-
-        // Compute the graph and force execution
-        JavaPairRDD<Node<String>, NeighborList> graph =
-                builder.computeGraph(nodes);
-        graph.cache();
-        graph.count();
-
-        JaBeJa<String> jbj = new JaBeJa<String>(8);
-        jbj.setBudget(new TimeBudget(60)); // in seconds
+        JaBeJa<String> jbj = new JaBeJa<String>(PARTITIONS);
+        jbj.setBudget(new TimeBudget(TIME_BUDGET));
         Partitioning<String> solution = jbj.partition(graph);
-        System.out.println(solution.runTime());
-        System.out.println(JaBeJa.countCrossEdges(solution.graph, 8));
+        System.out.println(JaBeJa.countCrossEdges(solution.graph, PARTITIONS));
         testPartitionNotNull(solution.graph);
-
-        sc.close();
+        assertEquals(TIME_BUDGET, solution.runTime() / 1000);
     }
 
     /**

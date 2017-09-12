@@ -29,7 +29,7 @@ import info.debatty.java.graphs.SimilarityInterface;
  *
  * @author tibo
  */
-public class L2Similarity extends onlineknn.spark.kmedoids.L2Similarity
+public class L2Similarity extends info.debatty.spark.kmedoids.L2Similarity
         implements SimilarityInterface<double[]> {
 
 }

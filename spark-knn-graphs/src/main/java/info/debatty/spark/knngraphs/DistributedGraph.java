@@ -76,6 +76,7 @@ public class DistributedGraph {
 
     /**
      * Move the nodes to the correct partition.
+     * Does NOT force execution or cache the resulting partition!
      * @param graph
      * @param partitions
      * @return

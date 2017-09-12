@@ -37,6 +37,10 @@ public interface Partitioner<T> {
     /**
      * Partition the graph and return a Partitioning solution, that contains
      * the partitioned graph itself plus various metadata.
+     *
+     * The contract is that at the end of call, the returned partitioning
+     * is cached and execution has been forced.
+     *
      * @param graph
      * @return
      */

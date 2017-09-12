@@ -24,18 +24,17 @@
 
 package info.debatty.spark.knngraphs.builder;
 
+import info.debatty.java.datasets.gaussian.Dataset;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.JWSimilarity;
+import info.debatty.spark.knngraphs.L2Similarity;
+import info.debatty.spark.knngraphs.SparkTest;
+import java.io.File;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import junit.framework.TestCase;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -45,14 +44,20 @@ import scala.Tuple2;
  *
  * @author Thibault Debatty
  */
-public class BruteTest extends TestCase implements Serializable {
+public class BruteTest extends SparkTest {
 
     private static final int K = 10;
 
-    public final void testComputeGraph() throws IOException, Exception {
+    /**
+     * Build the exact SPAM graph.
+     * @throws IOException if we cannot read spam file
+     * @throws Exception if we cannot build the graph
+     */
+    public final void testBuildSpamGraph() throws IOException, Exception {
+        System.out.println("Build SPAM graph");
+        System.out.println("================");
 
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
+        JavaSparkContext sc = getSpark();
 
         String file =  getClass().getClassLoader().
                 getResource("726-unique-spams").getPath();
@@ -66,12 +71,6 @@ public class BruteTest extends TestCase implements Serializable {
             data.add(new Node<String>(String.valueOf(data.size()), s));
         }
 
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        JavaSparkContext sc = new JavaSparkContext(conf);
-
         // Parallelize the dataset in Spark
         JavaRDD<Node<String>> nodes = sc.parallelize(data);
 
@@ -82,14 +81,23 @@ public class BruteTest extends TestCase implements Serializable {
         // Compute the graph and force execution
         JavaPairRDD<Node<String>, NeighborList> graph =
                 brute.computeGraph(nodes);
-        graph.first();
+        graph.count();
+
+        // Save to disk
+        File temp = File.createTempFile("graph-spam-", "");
+        temp.delete();
+        graph = graph.coalesce(1);
+        graph.saveAsObjectFile(temp.getAbsolutePath());
+        System.out.println("Graph saved to " + temp.getAbsolutePath());
+
         List<Tuple2<Node<String>, NeighborList>> local_graph = graph.collect();
 
-        sc.close();
-
-
-        // Check wether a node receives himself as neighbor...
+        assertEquals(726, graph.count());
         for (Tuple2<Node<String>, NeighborList> tuple : local_graph) {
+            // Check each node has 10 neighbors
+            assertEquals(K, tuple._2.size());
+
+            // Check wether a node receives himself as neighbor...
             Node<String> node = tuple._1;
             for (Neighbor neighbor : tuple._2) {
                 assertTrue(!node.equals(neighbor.node));
@@ -97,6 +105,46 @@ public class BruteTest extends TestCase implements Serializable {
         }
     }
 
+    /**
+     * Build a synthetic graph.
+     * @throws Exception if we cannot build the graph
+     */
+    public final void testBuildSyntheticGraph() throws Exception {
+        System.out.println("Build synthetic graph");
+        System.out.println("=====================");
+
+        JavaSparkContext sc = getSpark();
+
+        Dataset dataset = new Dataset.Builder(10, 13)
+                .setOverlap(Dataset.Builder.Overlap.HIGH)
+                .setSize(10000)
+                .build();
+
+        // Convert to nodes
+        List<Node<double[]>> data = new ArrayList<Node<double[]>>();
+        for (double[] point : dataset) {
+            data.add(new Node<double[]>(String.valueOf(data.size()), point));
+        }
+
+        // Parallelize the dataset in Spark
+        JavaRDD<Node<double[]>> nodes = sc.parallelize(data);
+
+        // Build the graph
+        Brute<double[]> builder = new Brute<double[]>();
+        builder.setK(K);
+        builder.setSimilarity(new L2Similarity());
+        JavaPairRDD<Node<double[]>, NeighborList> graph =
+                builder.computeGraph(nodes);
+
+        graph.count();
+
+        // Save to disk
+        File temp = File.createTempFile("graph-synthetic-", "");
+        temp.delete();
+        graph = graph.coalesce(1);
+        graph.saveAsObjectFile(temp.getAbsolutePath());
+        System.out.println("Graph saved to " + temp.getAbsolutePath());
+    }
 }
 
 

@@ -85,6 +85,8 @@ public class JaBeJa<T> implements Partitioner<T> {
         // Randomize
         solution.graph = randomize(input_graph);
         solution.graph = DistributedGraph.moveNodes(solution.graph, partitions);
+        solution.graph.cache();
+        solution.graph.count();
 
         // Perform swaps
         double tr = T0;
@@ -126,6 +128,7 @@ public class JaBeJa<T> implements Partitioner<T> {
         }
 
         solution.graph = DistributedGraph.moveNodes(solution.graph, partitions);
+        solution.graph.cache();
         solution.graph.count();
         solution.end_time = System.currentTimeMillis();
         return solution;
@@ -346,13 +349,13 @@ class PerformSwapFunction<T>
             tuples.add(tuple);
         }
 
-        logger.info("#tuples: {}", tuples.size());
+        logger.debug("#tuples: {}", tuples.size());
 
         // Process the requests
         for (SwapRequest<T> request : acks) {
             Node<T> local_src_node = index.get(request.src.id);
             if (local_src_node != null) {
-                logger.info(
+                logger.debug(
                         "Moving node {} to partition {}",
                         local_src_node.id,
                         request.dst_color);
@@ -363,7 +366,7 @@ class PerformSwapFunction<T>
 
             Node<T> local_dst_node = index.get(request.dst.id);
             if (local_dst_node != null) {
-                logger.info(
+                logger.debug(
                         "Moving node {} to partition {}",
                         local_dst_node.id,
                         request.src_color);
@@ -419,10 +422,10 @@ class ProcessRequestsFunction<T>
                 continue;
             }
 
-            logger.info("Found a request for me");
+            logger.debug("Found a request for me");
 
             if (nodes_will_swap.contains(request.dst.id)) {
-                logger.info("This dst node already received a swap request");
+                logger.debug("This dst node already received a swap request");
                 continue;
             }
             nodes_will_swap.add(request.dst.id);
@@ -507,7 +510,7 @@ class MakeRequestsFunction<T>
 
             // if (partner not null) : perform swap handshake
             if (dst != null) {
-                logger.info("Found a partner for swap");
+                logger.debug("Found a partner for swap");
                 list.add(
                         new SwapRequest(
                                 src, dst, getColor(src), getColor(dst)));
@@ -549,7 +552,7 @@ class MakeRequestsFunction<T>
 
     private Node<T> findPartner(
             final Node<T> p, final List<Node<T>> nodes, final double tr) {
-        logger.info("Search a partner for swap");
+        logger.debug("Search a partner for swap");
         double highest_score = 0;
         Node<T> partner = null;
 
@@ -567,7 +570,7 @@ class MakeRequestsFunction<T>
             if (new_score * tr > old_score
                     && new_score > highest_score) {
 
-                logger.info("Found new partner");
+                logger.debug("Found new partner");
                 partner = q;
                 highest_score = new_score;
             }

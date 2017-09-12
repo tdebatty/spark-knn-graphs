@@ -29,10 +29,10 @@ import info.debatty.java.graphs.SimilarityInterface;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
-import onlineknn.spark.kmedoids.Clusterer;
-import onlineknn.spark.kmedoids.Similarity;
-import onlineknn.spark.kmedoids.Solution;
-import onlineknn.spark.kmedoids.neighborgenerator.WindowNeighborGenerator;
+import info.debatty.spark.kmedoids.Clusterer;
+import info.debatty.spark.kmedoids.Similarity;
+import info.debatty.spark.kmedoids.Solution;
+import info.debatty.spark.kmedoids.neighborgenerator.WindowNeighborGenerator;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import scala.Tuple2;
@@ -103,7 +103,7 @@ public class KMedoidsPartitioner<T> implements Partitioner<T> {
         // Taking imbalance into account
         solution.graph =
                 graph.mapPartitionsToPair(new AssignToMedoidFunction<T>(
-                        medoids.medoids,
+                        medoids.getMedoids(),
                         similarity,
                         imbalance));
         solution.graph = DistributedGraph.moveNodes(solution.graph, partitions);
@@ -119,11 +119,13 @@ public class KMedoidsPartitioner<T> implements Partitioner<T> {
 }
 
 class BudgetAdapter {
-    public static onlineknn.spark.kmedoids.Budget get(final Budget budget) {
+    public static info.debatty.spark.kmedoids.Budget get(final Budget budget) {
         if (budget.getClass() == TimeBudget.class) {
-            return new onlineknn.spark.kmedoids.Budget() {
+            return new info.debatty.spark.kmedoids.Budget() {
                 public boolean isExhausted(Solution solution) {
-                    return (System.currentTimeMillis() - solution.start_time) / 1000 >=
+                    return (
+                            System.currentTimeMillis() - solution.getStartTime())
+                            / 1000 >=
                             ((TimeBudget) budget).getValue();
                 }
             };

@@ -23,78 +23,53 @@
  */
 package info.debatty.spark.knngraphs;
 
-import info.debatty.java.datasets.gaussian.Dataset;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
-import info.debatty.spark.knngraphs.builder.Brute;
-import java.util.ArrayList;
-import java.util.List;
-import junit.framework.TestCase;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
 
 /**
  *
  * @author tibo
  */
-public class Edge1DPartitionerTest extends TestCase {
+public class Edge1DPartitionerTest extends SparkTest {
 
-    public void testPartition() throws Exception {
+    private static final int PARTITIONS = 8;
+    private static final int K = 10;
+
+    /**
+     * Partition synthetic graph with Edge1D and test cross partitions and
+     * imbalance.
+     */
+    public void testPartition() {
         System.out.println("Partition");
         System.out.println("=========");
 
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
-
-        Dataset dataset = new Dataset.Builder(10, 13)
-                .setOverlap(Dataset.Builder.Overlap.HIGH)
-                .setSize(2000)
-                .build();
-
-        // Convert to nodes
-        List<Node<double[]>> data = new ArrayList<Node<double[]>>();
-        for (double[] point : dataset) {
-            data.add(new Node<double[]>(String.valueOf(data.size()), point));
-        }
-
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        JavaSparkContext sc = new JavaSparkContext(conf);
-
-        // Parallelize the dataset in Spark
-        JavaRDD<Node<double[]>> nodes = sc.parallelize(data);
-
-        // Build the graph
-        Brute<double[]> builder = new Brute<double[]>();
-        builder.setK(10);
-        builder.setSimilarity(new L2Similarity());
-        JavaPairRDD<Node<double[]>, NeighborList> graph =
-                builder.computeGraph(nodes);
-
-        graph.repartition(8);
-        graph.cache();
-        graph.count();
+        JavaPairRDD<Node<double[]>, NeighborList> graph = readSyntheticGraph();
 
         // Partition
         Edge1DPartitioner<double[]> partitioner =
-                new Edge1DPartitioner<double[]>(8);
+                new Edge1DPartitioner<double[]>(PARTITIONS);
         graph = partitioner.partition(graph).graph;
         graph.cache();
         graph.count();
 
         // Check result...
-        System.out.println("Cross-partition edges: "
-                + JaBeJa.countCrossEdges(graph, 8));
-        double imbalance = JaBeJa.computeBalance(graph, 8);
-        System.out.println("Imbalance: " + imbalance);
+        long random_cross_edges = graph.count() * K
+                * (PARTITIONS - 1) / PARTITIONS;
+        int cross_edges = JaBeJa.countCrossEdges(graph, PARTITIONS);
 
-        sc.close();
+        assertEquals(
+                "Incorrect number of cross edges!",
+                random_cross_edges,
+                cross_edges,
+                0.001 * random_cross_edges);
+
+        double imbalance = JaBeJa.computeBalance(graph, PARTITIONS);
+        assertEquals(
+                "Imbalance must be ~ 1.0",
+                1.0,
+                imbalance,
+                0.0001);
     }
 
 
