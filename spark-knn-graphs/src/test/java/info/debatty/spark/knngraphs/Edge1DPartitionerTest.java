@@ -40,7 +40,7 @@ public class Edge1DPartitionerTest extends SparkTest {
      * Partition synthetic graph with Edge1D and test cross partitions and
      * imbalance.
      */
-    public void testPartition() {
+    public final void testPartition() {
         System.out.println("Partition");
         System.out.println("=========");
 
