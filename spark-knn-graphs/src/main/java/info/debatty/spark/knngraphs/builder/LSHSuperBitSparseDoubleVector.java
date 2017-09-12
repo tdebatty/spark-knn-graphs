@@ -5,7 +5,7 @@ import info.debatty.java.utils.SparseDoubleVector;
 
 /**
  *
- * @author tibo
+ * @author Thibault Debatty
  */
 public class LSHSuperBitSparseDoubleVector extends LSHSuperBit<SparseDoubleVector> {
 

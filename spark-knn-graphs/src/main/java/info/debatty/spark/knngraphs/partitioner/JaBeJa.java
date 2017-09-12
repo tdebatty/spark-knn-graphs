@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2017 tibo.
+ * Copyright 2017 Thibault Debatty.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -48,7 +48,7 @@ import scala.Tuple2;
 
 /**
  *
- * @author tibo
+ * @author Thibault Debatty
  * @param <T> type of data to process
  */
 public class JaBeJa<T> implements Partitioner<T> {
@@ -319,7 +319,7 @@ public class JaBeJa<T> implements Partitioner<T> {
 
 /**
  * Perform the actual swap, using validated swap requests.
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 class PerformSwapFunction<T>
@@ -385,7 +385,7 @@ class PerformSwapFunction<T>
 /**
  * Check requests, to avoid same nodes is swapped twice during the same
  * iteration.
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 class ProcessRequestsFunction<T>
@@ -441,7 +441,7 @@ class ProcessRequestsFunction<T>
 
 /**
  * Create swap requests, using JaBeJa procedure.
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 class MakeRequestsFunction<T>
@@ -613,7 +613,7 @@ class MakeRequestsFunction<T>
 
 /**
  * Compute the degrees of each node, using the color index.
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 class GetDegreesFunction<T>
@@ -648,7 +648,7 @@ class GetDegreesFunction<T>
 
 /**
  * Return the Tuple node.id => partition.
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 class GetPartitionFunction<T>

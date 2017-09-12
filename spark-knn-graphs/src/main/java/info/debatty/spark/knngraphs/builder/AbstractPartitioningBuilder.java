@@ -16,7 +16,7 @@ import scala.Tuple2;
 
 /**
  *
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 public abstract class AbstractPartitioningBuilder<T> extends DistributedGraphBuilder<T> {

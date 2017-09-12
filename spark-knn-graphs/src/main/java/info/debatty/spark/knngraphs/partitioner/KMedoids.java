@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2017 tibo.
+ * Copyright 2017 Thibault Debatty.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -40,7 +40,7 @@ import scala.Tuple2;
 
 /**
  *
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 public class KMedoids<T> implements Partitioner<T> {
@@ -122,7 +122,7 @@ public class KMedoids<T> implements Partitioner<T> {
 
 /**
  * Wraps a knngraphs.Budget for use in kmedoids clustering.
- * @author tibo
+ * @author Thibault Debatty
  */
 class BudgetAdapter implements info.debatty.spark.kmedoids.Budget {
 
@@ -140,7 +140,7 @@ class BudgetAdapter implements info.debatty.spark.kmedoids.Budget {
 
 /**
  *
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 class AssignToMedoidFunction<T>
@@ -236,7 +236,7 @@ class AssignToMedoidFunction<T>
 
 /**
  *
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 class ClusteringSimilarityAdapter<T> implements Similarity<Node<T>> {

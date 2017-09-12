@@ -10,7 +10,7 @@ import scala.Tuple2;
 
 /**
  *
- * @author tibo
+ * @author Thibault Debatty
  */
 abstract class LSHSuperBit<T> extends AbstractPartitioningBuilder<T> {
 

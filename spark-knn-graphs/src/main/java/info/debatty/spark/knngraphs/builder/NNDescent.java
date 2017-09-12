@@ -93,7 +93,7 @@ public class NNDescent<T> extends DistributedGraphBuilder<T> {
 
 /**
  * Randomize: associate each node to 10 buckets out of 20.
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 class RandomizeFunction<T>
@@ -115,7 +115,7 @@ class RandomizeFunction<T>
 
 /**
  * Inside bucket, associate each node to neighbors.
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 class AssociateFunction<T>
@@ -159,7 +159,7 @@ class AssociateFunction<T>
 
 /**
  * Merge neighborlists together.
- * @author tibo
+ * @author Thibault Debatty
  */
 class MergeFunction
         implements Function2<NeighborList, NeighborList, NeighborList> {
@@ -181,7 +181,7 @@ class MergeFunction
 
 /**
  * Reverse the neighborlists.
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 class ReverseFunction<T>
@@ -208,7 +208,7 @@ class ReverseFunction<T>
 
 /**
  * Update neighborlists.
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 class UpdateNLFunction<T>

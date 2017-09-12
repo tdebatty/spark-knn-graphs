@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2017 tibo.
+ * Copyright 2017 Thibault Debatty.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,7 @@ package info.debatty.spark.knngraphs.partitioner;
  * Set a running time budget in seconds.
  * As the partitioning algorithms are very different (k-medoids, JaBeJa etc.)
  * the only common measure is the running time.
- * @author tibo
+ * @author Thibault Debatty
  */
 public class Budget {
 

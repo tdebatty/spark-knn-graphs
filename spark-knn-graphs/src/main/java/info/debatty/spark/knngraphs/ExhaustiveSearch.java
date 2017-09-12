@@ -79,7 +79,7 @@ public class ExhaustiveSearch<T> implements Serializable {
  * Searches all partitions in parallel.
  *
  * Each partition returns a neighborlist of k nearest neighbors.
- * @author tibo
+ * @author Thibault Debatty
  * @param <T>
  */
 class SearchFunction<T>

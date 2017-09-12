@@ -11,7 +11,7 @@ import info.debatty.java.utils.SparseIntegerVector;
 
 /**
  *
- * @author tibo
+ * @author Thibault Debatty
  */
 public class LSHSuperBitSparseIntegerVector extends LSHSuperBit<SparseIntegerVector> {
 
