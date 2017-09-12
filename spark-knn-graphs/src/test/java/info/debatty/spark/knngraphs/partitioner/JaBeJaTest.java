@@ -27,7 +27,8 @@ package info.debatty.spark.knngraphs.partitioner;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.DistributedGraph;
-import info.debatty.spark.knngraphs.SparkTest;
+import info.debatty.spark.knngraphs.SparkTestCase;
+import info.debatty.spark.knngraphs.partitioner.jabeja.TimeBudget;
 import org.apache.spark.api.java.JavaPairRDD;
 import scala.Tuple2;
 
@@ -35,7 +36,7 @@ import scala.Tuple2;
  *
  * @author Thibault Debatty
  */
-public class JaBeJaTest extends SparkTest {
+public class JaBeJaTest extends SparkTestCase {
 
     private static final int PARTITIONS = 8;
     private static final int TIME_BUDGET = 15;
@@ -105,8 +106,9 @@ public class JaBeJaTest extends SparkTest {
 
         JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
 
-        JaBeJa<String> jbj = new JaBeJa<String>(PARTITIONS);
-        jbj.setBudget(new Budget(TIME_BUDGET));
+        JaBeJa<String> jbj = new JaBeJa<String>(
+                PARTITIONS,
+                new TimeBudget(TIME_BUDGET));
         Partitioning<String> solution = jbj.partition(graph);
         System.out.println(JaBeJa.countCrossEdges(solution.graph, PARTITIONS));
         testPartitionNotNull(solution.graph);

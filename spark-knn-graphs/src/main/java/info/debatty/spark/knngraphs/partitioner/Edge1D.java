@@ -38,7 +38,6 @@ import scala.Tuple2;
 public class Edge1D<T> implements Partitioner<T> {
 
     private final int partitions;
-    private Budget budget;
 
     /**
      *
@@ -65,15 +64,6 @@ public class Edge1D<T> implements Partitioner<T> {
         solution.end_time = System.currentTimeMillis();
         return solution;
     }
-
-    /**
-     * {@inheritDoc}
-     * @param budget
-     */
-    public final void setBudget(final Budget budget) {
-        this.budget = budget;
-    }
-
 }
 
 class Edge1DFunction<T>

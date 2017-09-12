@@ -23,13 +23,14 @@
  */
 package info.debatty.spark.knngraphs.partitioner;
 
-import info.debatty.spark.knngraphs.partitioner.Budget;
 import static com.google.common.primitives.Ints.max;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.DistributedGraph;
+import info.debatty.spark.knngraphs.partitioner.jabeja.Budget;
+import info.debatty.spark.knngraphs.partitioner.jabeja.UnlimitedBudget;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -62,14 +63,29 @@ public class JaBeJa<T> implements Partitioner<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(JaBeJa.class);
 
     private final int partitions;
-    private Budget budget;
+    private final Budget budget;
+
+
+
+
+
+
+
+
 
     /**
      *
      * @param partitions
+     * @param budget
      */
+    public JaBeJa(final int partitions, final Budget budget) {
+        this.partitions = partitions;
+        this.budget = budget;
+    }
+
     public JaBeJa(final int partitions) {
         this.partitions = partitions;
+        this.budget = new UnlimitedBudget();
     }
 
     /**
@@ -122,7 +138,7 @@ public class JaBeJa<T> implements Partitioner<T> {
                 break;
             }
 
-            if (budget != null && budget.isExhausted(solution)) {
+            if (budget.isExhausted(solution)) {
                 break;
             }
 
@@ -238,7 +254,6 @@ public class JaBeJa<T> implements Partitioner<T> {
             index[entry.getKey()] = entry.getValue();
         }
         return index;
-
     }
 
     /**
@@ -310,10 +325,6 @@ public class JaBeJa<T> implements Partitioner<T> {
         }
 
         return count;
-    }
-
-    public void setBudget(final Budget budget) {
-        this.budget = budget;
     }
 }
 

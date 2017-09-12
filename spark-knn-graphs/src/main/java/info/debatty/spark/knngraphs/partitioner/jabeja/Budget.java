@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2017 Thibault Debatty.
+ * Copyright 2017 tibo.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,43 +21,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.debatty.spark.knngraphs.partitioner;
+package info.debatty.spark.knngraphs.partitioner.jabeja;
+
+import info.debatty.spark.knngraphs.partitioner.Partitioning;
 
 /**
- * Set a running time budget in seconds.
- * As the partitioning algorithms are very different (k-medoids, JaBeJa etc.)
- * the only common measure is the running time.
- * @author Thibault Debatty
+ * When should the algorithm stop.
+ *
+ * @param <T>
  */
-public class Budget {
-
-    private final long budget;
+public interface Budget<T> {
 
     /**
-     * Set a time budget in seconds.
-     * @param budget
-     */
-    public Budget(final long budget) {
-        this.budget = budget;
-    }
-
-    /**
-     * {@inheritDoc}
+     * Returns true if algorithm has to stop.
      *
      * @param solution
      * @return
      */
-    public final boolean isExhausted(final Partitioning solution) {
-        return (System.currentTimeMillis() - solution.start_time) / 1000
-                >= budget;
-    }
-
-    /**
-     *
-     * @return
-     */
-    public final long getValue() {
-        return budget;
-    }
-
+    boolean isExhausted(Partitioning<T> solution);
 }

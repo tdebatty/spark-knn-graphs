@@ -34,7 +34,7 @@ import org.apache.spark.api.java.JavaPairRDD;
  *
  * @author Thibault Debatty
  */
-public class ApproximateSearchTest extends SparkTest {
+public class ApproximateSearchTest extends SparkTestCase {
 
     private static final int N_TEST = 100;
     private static final int N_CORRECT = 60;

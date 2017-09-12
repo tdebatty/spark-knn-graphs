@@ -26,12 +26,14 @@ package info.debatty.spark.knngraphs.partitioner;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
+import info.debatty.spark.kmedoids.Budget;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 import info.debatty.spark.kmedoids.Clusterer;
 import info.debatty.spark.kmedoids.Similarity;
 import info.debatty.spark.kmedoids.Solution;
+import info.debatty.spark.kmedoids.budget.TrialsBudget;
 import info.debatty.spark.kmedoids.neighborgenerator.WindowNeighborGenerator;
 import info.debatty.spark.knngraphs.DistributedGraph;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -46,12 +48,12 @@ import scala.Tuple2;
 public class KMedoids<T> implements Partitioner<T> {
 
     private static final double DEFAULT_IMBALANCE = Double.POSITIVE_INFINITY;
-
+    private static final int DEFAULT_TRIALS = 1000;
 
     private final SimilarityInterface<T> similarity;
     private final int partitions;
     private final double imbalance;
-    private Budget budget;
+    private final Budget budget;
 
     /**
      *
@@ -64,7 +66,7 @@ public class KMedoids<T> implements Partitioner<T> {
     }
 
     /**
-     *
+     * Use default budget (1000 trials).
      * @param similarity
      * @param partitions
      * @param imbalance
@@ -77,6 +79,26 @@ public class KMedoids<T> implements Partitioner<T> {
         this.similarity = similarity;
         this.partitions = partitions;
         this.imbalance = imbalance;
+        this.budget = new TrialsBudget(DEFAULT_TRIALS);
+    }
+
+    /**
+     *
+     * @param similarity
+     * @param partitions
+     * @param imbalance
+     * @param budget
+     */
+    public KMedoids(
+            final SimilarityInterface<T> similarity,
+            final int partitions,
+            final double imbalance,
+            final Budget budget) {
+
+        this.similarity = similarity;
+        this.partitions = partitions;
+        this.imbalance = imbalance;
+        this.budget = budget;
     }
 
     /**
@@ -98,7 +120,7 @@ public class KMedoids<T> implements Partitioner<T> {
         clusterer.setSimilarity(new ClusteringSimilarityAdapter<T>(similarity));
         clusterer.setNeighborGenerator(new WindowNeighborGenerator<Node<T>>());
         clusterer.setImbalance(imbalance);
-        clusterer.setBudget(new BudgetAdapter(budget));
+        clusterer.setBudget(budget);
         Solution<Node<T>> medoids = clusterer.cluster(graph.keys());
 
         // Assign each node to the most similar medoid
@@ -115,27 +137,6 @@ public class KMedoids<T> implements Partitioner<T> {
         return solution;
     }
 
-    public void setBudget(final Budget budget) {
-        this.budget = budget;
-    }
-}
-
-/**
- * Wraps a knngraphs.Budget for use in kmedoids clustering.
- * @author Thibault Debatty
- */
-class BudgetAdapter implements info.debatty.spark.kmedoids.Budget {
-
-    private final Budget budget;
-
-    BudgetAdapter(final Budget budget) {
-        this.budget = budget;
-    }
-
-    public boolean isExhausted(final Solution solution) {
-        return (System.currentTimeMillis() - solution.getStartTime())
-                / 1000 >= budget.getValue();
-    }
 }
 
 /**
@@ -196,24 +197,6 @@ class AssignToMedoidFunction<T>
         }
 
         return tuples.iterator();
-
-        /*
-        int most_similar = 0;
-        double highest_similarity = 0;
-
-        for (int i = 0; i < medoids.size(); i++) {
-            Node<T> medoid = medoids.get(i);
-            double sim = similarity.similarity(tuple._1.value, medoid.value);
-
-            if (sim > highest_similarity) {
-                highest_similarity = sim;
-                most_similar = i;
-            }
-
-        }
-
-        tuple._1.setAttribute(NodePartitioner.PARTITION_KEY, most_similar);
-        return tuple;*/
     }
 
     /**

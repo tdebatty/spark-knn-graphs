@@ -28,7 +28,7 @@ import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.DistributedGraph;
 import info.debatty.spark.knngraphs.JWSimilarity;
-import info.debatty.spark.knngraphs.SparkTest;
+import info.debatty.spark.knngraphs.SparkTestCase;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -46,7 +46,7 @@ import scala.Tuple2;
  *
  * @author Thibault Debatty
  */
-public class NNDescentTest extends SparkTest {
+public class NNDescentTest extends SparkTestCase {
 
     public static final int K = 10;
 

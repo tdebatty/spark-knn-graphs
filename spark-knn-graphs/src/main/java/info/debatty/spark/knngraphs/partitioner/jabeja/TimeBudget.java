@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2017 Thibault Debatty.
+ * Copyright 2017 tibo.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,28 +21,35 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.debatty.spark.knngraphs.partitioner;
+package info.debatty.spark.knngraphs.partitioner.jabeja;
 
-import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
-import org.apache.spark.api.java.JavaPairRDD;
+import info.debatty.spark.knngraphs.partitioner.Partitioning;
 
 /**
+ * A time budget (in seconds).
  *
- * @author Thibault Debatty
- * @param <T> type of nodes in the graph
+ * @param <T>
  */
-public interface Partitioner<T> {
+public class TimeBudget<T> implements Budget<T> {
+
+    private final int budget;
 
     /**
-     * Partition the graph and return a Partitioning solution, that contains
-     * the partitioned graph itself plus various metadata.
      *
-     * The contract is that at the end of call, the returned partitioning
-     * is cached and execution has been forced.
+     * @param budget
+     */
+    public TimeBudget(final int budget) {
+        this.budget = budget;
+    }
+
+    /**
      *
-     * @param graph
+     * @param solution
      * @return
      */
-    Partitioning<T> partition(JavaPairRDD<Node<T>, NeighborList> graph);
+    public final boolean isExhausted(final Partitioning<T> solution) {
+        return (System.currentTimeMillis() - solution.start_time) / 1000
+                >= budget;
+    }
+
 }

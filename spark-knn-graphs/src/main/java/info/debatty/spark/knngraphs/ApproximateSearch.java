@@ -23,14 +23,13 @@
  */
 package info.debatty.spark.knngraphs;
 
-import info.debatty.spark.knngraphs.partitioner.KMedoids;
-import info.debatty.spark.knngraphs.partitioner.Budget;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
 import info.debatty.spark.knngraphs.builder.StatisticsAccumulator;
+import info.debatty.spark.knngraphs.partitioner.KMedoids;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
@@ -89,10 +88,8 @@ public class ApproximateSearch<T> {
         // Partition the graph
         KMedoids<T> partitioner
                 = new KMedoids<T>(similarity, partitions);
-        partitioner.setBudget(new Budget(10));
         JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
                 partitioner.partition(graph).graph;
-
 
         this.distributed_graph = DistributedGraph.toGraph(
                 partitioned_graph, similarity);

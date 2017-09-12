@@ -30,7 +30,7 @@ import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.JWSimilarity;
 import info.debatty.spark.knngraphs.L2Similarity;
-import info.debatty.spark.knngraphs.SparkTest;
+import info.debatty.spark.knngraphs.SparkTestCase;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -44,7 +44,7 @@ import scala.Tuple2;
  *
  * @author Thibault Debatty
  */
-public class BruteTest extends SparkTest {
+public class BruteTest extends SparkTestCase {
 
     private static final int K = 10;
 

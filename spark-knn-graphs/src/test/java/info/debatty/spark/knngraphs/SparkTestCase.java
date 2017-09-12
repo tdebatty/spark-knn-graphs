@@ -42,7 +42,7 @@ import scala.Tuple2;
  *
  * @author Thibault Debatty
  */
-public class SparkTest extends TestCase {
+public class SparkTestCase extends TestCase {
 
     private JavaSparkContext sc = null;
 

@@ -27,14 +27,14 @@ import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.JWSimilarity;
 import info.debatty.spark.knngraphs.L2Similarity;
-import info.debatty.spark.knngraphs.SparkTest;
+import info.debatty.spark.knngraphs.SparkTestCase;
 import org.apache.spark.api.java.JavaPairRDD;
 
 /**
  *
  * @author Thibault Debatty
  */
-public class KMedoidsTest extends SparkTest {
+public class KMedoidsTest extends SparkTestCase {
 
     private static final int K = 10;
     private static final int PARTITIONS = 8;
@@ -52,7 +52,6 @@ public class KMedoidsTest extends SparkTest {
         KMedoids<String> partitioner
                 = new KMedoids<String>(
                         new JWSimilarity(), PARTITIONS);
-        partitioner.setBudget(new Budget(10));
         graph = partitioner.partition(graph).graph;
         graph.cache();
         graph.count();
@@ -80,7 +79,6 @@ public class KMedoidsTest extends SparkTest {
                         new L2Similarity(),
                         PARTITIONS,
                         IMBALANCE);
-        partitioner.setBudget(new Budget(10));
         graph = partitioner.partition(graph).graph;
         graph.cache();
         graph.count();
