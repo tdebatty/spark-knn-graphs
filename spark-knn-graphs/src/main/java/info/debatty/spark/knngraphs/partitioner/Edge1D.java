@@ -21,10 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.debatty.spark.knngraphs;
+package info.debatty.spark.knngraphs.partitioner;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
+import info.debatty.spark.knngraphs.DistributedGraph;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
@@ -34,7 +35,7 @@ import scala.Tuple2;
  * @author tibo
  * @param <T>
  */
-public class Edge1DPartitioner<T> implements Partitioner<T> {
+public class Edge1D<T> implements Partitioner<T> {
 
     private final int partitions;
     private Budget budget;
@@ -43,7 +44,7 @@ public class Edge1DPartitioner<T> implements Partitioner<T> {
      *
      * @param partitions
      */
-    public Edge1DPartitioner(final int partitions) {
+    public Edge1D(final int partitions) {
         this.partitions = partitions;
     }
 

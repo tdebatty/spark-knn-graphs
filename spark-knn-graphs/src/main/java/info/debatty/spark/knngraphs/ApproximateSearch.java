@@ -23,6 +23,8 @@
  */
 package info.debatty.spark.knngraphs;
 
+import info.debatty.spark.knngraphs.partitioner.KMedoids;
+import info.debatty.spark.knngraphs.partitioner.Budget;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
@@ -58,7 +60,6 @@ public class ApproximateSearch<T> {
 
     // Fast search parameters
     private final JavaRDD<Graph<T>> distributed_graph;
-    private final SimilarityInterface<T> similarity;
     private final double speedup;
     private final int jumps;
     private final double expansion;
@@ -68,6 +69,7 @@ public class ApproximateSearch<T> {
      *
      * @param graph
      * @param similarity
+     * @param partitions
      * @param speedup
      * @param jumps
      * @param expansion
@@ -75,18 +77,49 @@ public class ApproximateSearch<T> {
     public ApproximateSearch(
             final JavaPairRDD<Node<T>, NeighborList> graph,
             final SimilarityInterface<T> similarity,
+            final int partitions,
             final double speedup,
             final int jumps,
             final double expansion) {
 
-        // Partition the graph
-        this.distributed_graph = DistributedGraph.toGraph(graph, similarity);
-        this.distributed_graph.cache();
-        this.distributed_graph.count();
-        this.similarity = similarity;
         this.speedup = speedup;
         this.jumps = jumps;
         this.expansion = expansion;
+
+        // Partition the graph
+        KMedoids<T> partitioner
+                = new KMedoids<T>(similarity, partitions);
+        partitioner.setBudget(new Budget(10));
+        JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
+                partitioner.partition(graph).graph;
+
+
+        this.distributed_graph = DistributedGraph.toGraph(
+                partitioned_graph, similarity);
+        this.distributed_graph.cache();
+        this.distributed_graph.count();
+    }
+
+    /**
+     *
+     * @param graph
+     * @param similarity
+     * @param partitions
+     * @param speedup
+     */
+    public ApproximateSearch(
+            final JavaPairRDD<Node<T>, NeighborList> graph,
+            final SimilarityInterface<T> similarity,
+            final int partitions,
+            final double speedup) {
+
+        this(
+                graph,
+                similarity,
+                partitions,
+                speedup,
+                DEFAULT_JUMPS,
+                DEFAULT_EXPANSION);
     }
 
     /**
@@ -94,14 +127,17 @@ public class ApproximateSearch<T> {
      * parameters.
      * @param graph
      * @param similarity
+     * @param partitions
      */
     public ApproximateSearch(
             final JavaPairRDD<Node<T>, NeighborList> graph,
-            final SimilarityInterface<T> similarity) {
+            final SimilarityInterface<T> similarity,
+            final int partitions) {
 
         this(
                 graph,
                 similarity,
+                partitions,
                 DEFAULT_SPEEDUP,
                 DEFAULT_JUMPS,
                 DEFAULT_EXPANSION);

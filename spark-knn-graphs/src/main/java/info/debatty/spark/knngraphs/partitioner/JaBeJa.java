@@ -21,13 +21,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.debatty.spark.knngraphs;
+package info.debatty.spark.knngraphs.partitioner;
 
+import info.debatty.spark.knngraphs.partitioner.Budget;
 import static com.google.common.primitives.Ints.max;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
+import info.debatty.spark.knngraphs.DistributedGraph;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Iterator;

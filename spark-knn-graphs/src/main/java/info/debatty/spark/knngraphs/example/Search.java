@@ -133,7 +133,7 @@ public final class Search {
         // Prepare the graph for approximate graph based search
         // (and force execution)
         ApproximateSearch approximate_search_algorithm
-                = new ApproximateSearch(graph, similarity);
+                = new ApproximateSearch(graph, similarity, partitioning_medoids);
 
         // Prepare exhaustive search
         ExhaustiveSearch exhaustive_search

@@ -21,13 +21,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.debatty.spark.knngraphs;
+package info.debatty.spark.knngraphs.partitioner;
 
 /**
  * Set a running time budget in seconds.
+ * As the partitioning algorithms are very different (k-medoids, JaBeJa etc.)
+ * the only common measure is the running time.
  * @author tibo
  */
-public class TimeBudget implements Budget {
+public class Budget {
 
     private final long budget;
 
@@ -35,7 +37,7 @@ public class TimeBudget implements Budget {
      * Set a time budget in seconds.
      * @param budget
      */
-    public TimeBudget(final long budget) {
+    public Budget(final long budget) {
         this.budget = budget;
     }
 
@@ -50,7 +52,11 @@ public class TimeBudget implements Budget {
                 >= budget;
     }
 
-    public long getValue() {
+    /**
+     *
+     * @return
+     */
+    public final long getValue() {
         return budget;
     }
 

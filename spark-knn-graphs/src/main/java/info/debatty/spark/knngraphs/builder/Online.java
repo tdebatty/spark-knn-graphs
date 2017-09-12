@@ -30,7 +30,7 @@ import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
 import info.debatty.spark.knngraphs.ApproximateSearch;
-import info.debatty.spark.knngraphs.NodePartitioner;
+import info.debatty.spark.knngraphs.partitioner.NodePartitioner;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -132,7 +132,8 @@ public class Online<T> {
         // Use the distributed search algorithm to partition the graph
         this.searcher = new ApproximateSearch<T>(
                 initial_graph,
-                similarity);
+                similarity,
+                partitioning_medoids);
 
         this.spark_context = sc;
 

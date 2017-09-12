@@ -22,10 +22,12 @@
  * THE SOFTWARE.
  */
 
-package info.debatty.spark.knngraphs;
+package info.debatty.spark.knngraphs.partitioner;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
+import info.debatty.spark.knngraphs.DistributedGraph;
+import info.debatty.spark.knngraphs.SparkTest;
 import org.apache.spark.api.java.JavaPairRDD;
 import scala.Tuple2;
 
@@ -104,7 +106,7 @@ public class JaBeJaTest extends SparkTest {
         JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
 
         JaBeJa<String> jbj = new JaBeJa<String>(PARTITIONS);
-        jbj.setBudget(new TimeBudget(TIME_BUDGET));
+        jbj.setBudget(new Budget(TIME_BUDGET));
         Partitioning<String> solution = jbj.partition(graph);
         System.out.println(JaBeJa.countCrossEdges(solution.graph, PARTITIONS));
         testPartitionNotNull(solution.graph);

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2017 tibo.
+ * Copyright 2016 Thibault Debatty.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,30 +21,51 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.debatty.spark.knngraphs;
 
+package info.debatty.spark.knngraphs.partitioner;
+
+import info.debatty.spark.knngraphs.partitioner.NodePartitioner;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
-import org.apache.spark.api.java.JavaPairRDD;
+import java.util.Random;
+import org.apache.spark.api.java.function.PairFunction;
+import scala.Tuple2;
 
 /**
+ * Randomize dataset by assigning a random value to each node (in attribute
+ * NodePartition.PARTITION_KEY).
  *
- * @author tibo
- * @param <T> type of nodes in the graph
+ * Usage:
+ * graph = graph.mapToPair(new RandomizeFunction(partitions))
+ *              .partitionBy(new NodePartitioner(partitions));
+ * @author Thibault Debatty
+ * @param <T> type of data to process
  */
-public interface Partitioner<T> {
+class RandomizeFunction<T>
+        implements PairFunction<
+            Tuple2<Node<T>, NeighborList>,
+            Node<T>,
+            NeighborList> {
 
-    /**
-     * Partition the graph and return a Partitioning solution, that contains
-     * the partitioned graph itself plus various metadata.
-     *
-     * The contract is that at the end of call, the returned partitioning
-     * is cached and execution has been forced.
-     *
-     * @param graph
-     * @return
-     */
-    Partitioning<T> partition(JavaPairRDD<Node<T>, NeighborList> graph);
+    private final int partitions;
+    private Random rand;
 
-    void setBudget(Budget budget);
+    RandomizeFunction(final int partitions) {
+        this.partitions = partitions;
+    }
+
+    public Tuple2<Node<T>, NeighborList> call(
+            final Tuple2<Node<T>, NeighborList> tuple) {
+
+        if (rand == null) {
+            rand = new Random();
+        }
+
+        tuple._1.setAttribute(
+                NodePartitioner.PARTITION_KEY,
+                rand.nextInt(partitions));
+
+        return tuple;
+    }
+
 }

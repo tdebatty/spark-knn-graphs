@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.debatty.spark.knngraphs;
+package info.debatty.spark.knngraphs.partitioner;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
@@ -30,13 +30,21 @@ import org.apache.spark.api.java.JavaPairRDD;
 /**
  *
  * @author tibo
+ * @param <T> type of nodes in the graph
  */
-public class Partitioning<T> {
-    public long start_time = System.currentTimeMillis();
-    public long end_time;
-    public JavaPairRDD<Node<T>, NeighborList> graph;
+public interface Partitioner<T> {
 
-    long runTime() {
-        return end_time - start_time;
-    }
+    /**
+     * Partition the graph and return a Partitioning solution, that contains
+     * the partitioned graph itself plus various metadata.
+     *
+     * The contract is that at the end of call, the returned partitioning
+     * is cached and execution has been forced.
+     *
+     * @param graph
+     * @return
+     */
+    public Partitioning<T> partition(JavaPairRDD<Node<T>, NeighborList> graph);
+
+    void setBudget(Budget budget);
 }

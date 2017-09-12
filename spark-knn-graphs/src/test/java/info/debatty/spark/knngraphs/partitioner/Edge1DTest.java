@@ -21,17 +21,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.debatty.spark.knngraphs;
+package info.debatty.spark.knngraphs.partitioner;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
+import info.debatty.spark.knngraphs.SparkTest;
 import org.apache.spark.api.java.JavaPairRDD;
 
 /**
  *
  * @author tibo
  */
-public class Edge1DPartitionerTest extends SparkTest {
+public class Edge1DTest extends SparkTest {
 
     private static final int PARTITIONS = 8;
     private static final int K = 10;
@@ -47,8 +48,8 @@ public class Edge1DPartitionerTest extends SparkTest {
         JavaPairRDD<Node<double[]>, NeighborList> graph = readSyntheticGraph();
 
         // Partition
-        Edge1DPartitioner<double[]> partitioner =
-                new Edge1DPartitioner<double[]>(PARTITIONS);
+        Edge1D<double[]> partitioner =
+                new Edge1D<double[]>(PARTITIONS);
         graph = partitioner.partition(graph).graph;
         graph.cache();
         graph.count();

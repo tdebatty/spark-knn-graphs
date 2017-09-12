@@ -21,18 +21,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.debatty.spark.knngraphs;
+package info.debatty.spark.knngraphs.partitioner;
+
+import info.debatty.java.graphs.NeighborList;
+import info.debatty.java.graphs.Node;
+import org.apache.spark.api.java.JavaPairRDD;
 
 /**
  *
  * @author tibo
  */
-public interface Budget {
+public class Partitioning<T> {
+    public long start_time = System.currentTimeMillis();
+    public long end_time;
+    public JavaPairRDD<Node<T>, NeighborList> graph;
 
-    /**
-     * Return true if the allowed budget is exhausted.
-     * @param solution
-     * @return
-     */
-    boolean isExhausted(Partitioning solution);
+    long runTime() {
+        return end_time - start_time;
+    }
 }

@@ -21,17 +21,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package info.debatty.spark.knngraphs;
+package info.debatty.spark.knngraphs.partitioner;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
+import info.debatty.spark.knngraphs.JWSimilarity;
+import info.debatty.spark.knngraphs.L2Similarity;
+import info.debatty.spark.knngraphs.SparkTest;
 import org.apache.spark.api.java.JavaPairRDD;
 
 /**
  *
  * @author tibo
  */
-public class KMedoidsPartitionerTest extends SparkTest {
+public class KMedoidsTest extends SparkTest {
 
     private static final int K = 10;
     private static final int PARTITIONS = 8;
@@ -46,10 +49,10 @@ public class KMedoidsPartitionerTest extends SparkTest {
 
         JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
 
-        KMedoidsPartitioner<String> partitioner
-                = new KMedoidsPartitioner<String>(
+        KMedoids<String> partitioner
+                = new KMedoids<String>(
                         new JWSimilarity(), PARTITIONS);
-        partitioner.setBudget(new TimeBudget(10));
+        partitioner.setBudget(new Budget(10));
         graph = partitioner.partition(graph).graph;
         graph.cache();
         graph.count();
@@ -72,12 +75,12 @@ public class KMedoidsPartitionerTest extends SparkTest {
         JavaPairRDD<Node<double[]>, NeighborList> graph = readSyntheticGraph();
 
         // Partition
-        KMedoidsPartitioner<double[]> partitioner
-                = new KMedoidsPartitioner<double[]>(
+        KMedoids<double[]> partitioner
+                = new KMedoids<double[]>(
                         new L2Similarity(),
                         PARTITIONS,
                         IMBALANCE);
-        partitioner.setBudget(new TimeBudget(10));
+        partitioner.setBudget(new Budget(10));
         graph = partitioner.partition(graph).graph;
         graph.cache();
         graph.count();

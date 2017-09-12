@@ -22,49 +22,53 @@
  * THE SOFTWARE.
  */
 
-package info.debatty.spark.knngraphs;
+package info.debatty.spark.knngraphs.partitioner;
 
-import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
-import java.util.Random;
-import org.apache.spark.api.java.function.PairFunction;
-import scala.Tuple2;
+import org.apache.spark.Partitioner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Randomize dataset by assigning a random value to each node (in attribute
- * NodePartition.PARTITION_KEY).
- *
- * Usage:
+ * Partition the graph using a specific node attribute.
+ * Example usage:
  * graph = graph.mapToPair(new RandomizeFunction(partitions))
  *              .partitionBy(new NodePartitioner(partitions));
  * @author Thibault Debatty
- * @param <T> type of data to process
  */
-class RandomizeFunction<T>
-        implements PairFunction<
-            Tuple2<Node<T>, NeighborList>,
-            Node<T>,
-            NeighborList> {
+public class NodePartitioner extends Partitioner {
 
+    /**
+     * Key used by the partitioner to store the partition id in the node
+     * attributes.
+     */
+    public static final String PARTITION_KEY = "NP_PARTITION_ID";
+
+    private final Logger logger = LoggerFactory.getLogger(
+            NodePartitioner.class);
     private final int partitions;
-    private Random rand;
 
-    RandomizeFunction(final int partitions) {
+    /**
+     *
+     * @param partitions
+     */
+    public NodePartitioner(final int partitions) {
         this.partitions = partitions;
     }
 
-    public Tuple2<Node<T>, NeighborList> call(
-            final Tuple2<Node<T>, NeighborList> tuple) {
-
-        if (rand == null) {
-            rand = new Random();
-        }
-
-        tuple._1.setAttribute(
-                NodePartitioner.PARTITION_KEY,
-                rand.nextInt(partitions));
-
-        return tuple;
+    @Override
+    public final int numPartitions() {
+        return partitions;
     }
 
+    @Override
+    public final int getPartition(final Object obj) {
+        Node node = (Node) obj;
+        Integer partition = (Integer) node.getAttribute(PARTITION_KEY);
+        if (partition == null) {
+            logger.error("Node has no partition value: " + node);
+            partition = 0;
+        }
+        return partition;
+    }
 }
