@@ -23,7 +23,6 @@
  */
 package info.debatty.spark.knngraphs.partitioner;
 
-import info.debatty.spark.knngraphs.partitioner.Budget;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
