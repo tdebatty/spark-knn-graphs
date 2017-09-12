@@ -26,7 +26,9 @@ package info.debatty.spark.knngraphs.builder;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
+import info.debatty.spark.knngraphs.DistributedGraph;
 import info.debatty.spark.knngraphs.JWSimilarity;
+import info.debatty.spark.knngraphs.SparkTest;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -44,42 +46,19 @@ import scala.Tuple2;
  *
  * @author Thibault Debatty
  */
-public class NNDescentTest extends TestCase implements Serializable {
+public class NNDescentTest extends SparkTest {
 
     public static final int K = 10;
 
     /**
      * Test of computeGraph method, of class NNDescent.
-     * @throws java.io.IOException
+     * @throws java.lang.Exception if we cannot build the graph
      */
-    public void testComputeGraph() throws IOException, Exception {
+    public final void testComputeGraph() throws Exception {
         System.out.println("NNDescent");
         System.out.println("=========");
 
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
-        Logger.getLogger("info").setLevel(Level.DEBUG);
-
-        String file =  getClass().getClassLoader().
-                getResource("726-unique-spams").getPath();
-
-        // Read the file
-        ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
-
-        // Convert to nodes
-        List<Node<String>> data = new ArrayList<Node<String>>();
-        for (String s : strings) {
-            data.add(new Node<String>(String.valueOf(data.size()), s));
-        }
-
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        JavaSparkContext sc = new JavaSparkContext(conf);
-
-        // Parallelize the dataset in Spark
-        JavaRDD<Node<String>> nodes = sc.parallelize(data);
+        JavaRDD<Node<String>> nodes = readSpam();
 
         NNDescent builder = new NNDescent();
         builder.setK(K);
@@ -89,11 +68,20 @@ public class NNDescentTest extends TestCase implements Serializable {
         // Compute the graph and force execution
         JavaPairRDD<Node<String>, NeighborList> graph =
                 builder.computeGraph(nodes);
-        Tuple2<Node<String>, NeighborList> first = graph.first();
-        System.out.println(first);
-        assertEquals(726, graph.count());
-        assertEquals(K, first._2.size());
-        sc.close();
-    }
+        graph.cache();
 
+        // Perform tests
+        assertEquals(nodes.count(), graph.count());
+        assertEquals(K, graph.first()._2.size());
+
+        JavaPairRDD<Node<String>, NeighborList> exact_graph = readSpamGraph();
+        long correct_edges = DistributedGraph.countCommonEdges(
+                exact_graph, graph);
+
+        int correct_threshold = (int) (nodes.count() * K * 0.9);
+
+        assertTrue(
+                "Not enough correct edges: " + correct_edges,
+                correct_edges >= correct_threshold);
+    }
 }

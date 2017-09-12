@@ -57,22 +57,7 @@ public class BruteTest extends SparkTest {
         System.out.println("Build SPAM graph");
         System.out.println("================");
 
-        JavaSparkContext sc = getSpark();
-
-        String file =  getClass().getClassLoader().
-                getResource("726-unique-spams").getPath();
-
-        // Read the file
-        ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
-
-        // Convert to nodes
-        List<Node<String>> data = new ArrayList<Node<String>>();
-        for (String s : strings) {
-            data.add(new Node<String>(String.valueOf(data.size()), s));
-        }
-
-        // Parallelize the dataset in Spark
-        JavaRDD<Node<String>> nodes = sc.parallelize(data);
+        JavaRDD<Node<String>> nodes = readSpam();
 
         Brute brute = new Brute();
         brute.setK(K);

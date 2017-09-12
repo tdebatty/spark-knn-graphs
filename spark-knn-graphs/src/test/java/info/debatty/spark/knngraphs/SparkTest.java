@@ -25,6 +25,10 @@ package info.debatty.spark.knngraphs;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
+import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import junit.framework.TestCase;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -70,6 +74,29 @@ public class SparkTest extends TestCase {
             sc.close();
         }
         super.tearDown();
+    }
+
+    /**
+     * Read the SPAM dataset from resources and parallelize in Spark.
+     * @return
+     * @throws IOException if we cannot read the file
+     */
+    public final JavaRDD<Node<String>> readSpam() throws IOException {
+        String file =  getClass().getClassLoader().
+                getResource("726-unique-spams").getPath();
+
+        // Read the file
+        ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
+
+        // Convert to nodes
+        List<Node<String>> data = new ArrayList<Node<String>>();
+        for (String s : strings) {
+            data.add(new Node<String>(String.valueOf(data.size()), s));
+        }
+
+        // Parallelize the dataset in Spark
+        JavaRDD<Node<String>> nodes = sc.parallelize(data);
+        return nodes;
     }
 
     /**
