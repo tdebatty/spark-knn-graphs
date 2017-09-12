@@ -37,7 +37,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 public class ApproximateSearchTest extends SparkTestCase {
 
     private static final int N_TEST = 100;
-    private static final int N_CORRECT = 60;
+    private static final int N_CORRECT = 50;
     private static final int DIMENSIONALITY = 10;
     private static final int NUM_CENTERS = 3;
     private static final double SPEEDUP = 4;
@@ -85,6 +85,8 @@ public class ApproximateSearchTest extends SparkTestCase {
             NeighborList exhaustive_result = exhaustive_search.search(query, 1);
             correct += approximate_result.countCommons(exhaustive_result);
         }
+
+        System.out.println("Found " + correct + " correct search results");
 
         assertTrue(
                 "Not enough correct search results: " + correct,
