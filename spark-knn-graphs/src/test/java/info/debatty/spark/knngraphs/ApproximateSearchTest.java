@@ -60,8 +60,7 @@ public class ApproximateSearchTest extends SparkTestCase {
                 new ApproximateSearch<double[]>(
                         graph,
                         new L2Similarity(),
-                        PARTITIONS,
-                        SPEEDUP);
+                        PARTITIONS);
 
         System.out.println("Perform some search queries...");
 
@@ -80,7 +79,11 @@ public class ApproximateSearchTest extends SparkTestCase {
 
             NeighborList approximate_result = approximate_search.search(
                     query,
-                    1);
+                    1,
+                    null,
+                    SPEEDUP,
+                    ApproximateSearch.DEFAULT_JUMPS,
+                    ApproximateSearch.DEFAULT_EXPANSION);
 
             NeighborList exhaustive_result = exhaustive_search.search(query, 1);
             correct += approximate_result.countCommons(exhaustive_result);

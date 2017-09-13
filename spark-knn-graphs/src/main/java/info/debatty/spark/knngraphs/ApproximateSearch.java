@@ -59,9 +59,6 @@ public class ApproximateSearch<T> {
 
     // Fast search parameters
     private final JavaRDD<Graph<T>> distributed_graph;
-    private final double speedup;
-    private final int jumps;
-    private final double expansion;
 
     /**
      * Prepare the graph for distributed search.
@@ -69,21 +66,12 @@ public class ApproximateSearch<T> {
      * @param graph
      * @param similarity
      * @param partitions
-     * @param speedup
-     * @param jumps
-     * @param expansion
      */
     public ApproximateSearch(
             final JavaPairRDD<Node<T>, NeighborList> graph,
             final SimilarityInterface<T> similarity,
-            final int partitions,
-            final double speedup,
-            final int jumps,
-            final double expansion) {
+            final int partitions) {
 
-        this.speedup = speedup;
-        this.jumps = jumps;
-        this.expansion = expansion;
 
         // Partition the graph
         KMedoids<T> partitioner
@@ -95,49 +83,6 @@ public class ApproximateSearch<T> {
                 partitioned_graph, similarity);
         this.distributed_graph.cache();
         this.distributed_graph.count();
-    }
-
-    /**
-     *
-     * @param graph
-     * @param similarity
-     * @param partitions
-     * @param speedup
-     */
-    public ApproximateSearch(
-            final JavaPairRDD<Node<T>, NeighborList> graph,
-            final SimilarityInterface<T> similarity,
-            final int partitions,
-            final double speedup) {
-
-        this(
-                graph,
-                similarity,
-                partitions,
-                speedup,
-                DEFAULT_JUMPS,
-                DEFAULT_EXPANSION);
-    }
-
-    /**
-     * Build an instance of the distributed search algorithm with default
-     * parameters.
-     * @param graph
-     * @param similarity
-     * @param partitions
-     */
-    public ApproximateSearch(
-            final JavaPairRDD<Node<T>, NeighborList> graph,
-            final SimilarityInterface<T> similarity,
-            final int partitions) {
-
-        this(
-                graph,
-                similarity,
-                partitions,
-                DEFAULT_SPEEDUP,
-                DEFAULT_JUMPS,
-                DEFAULT_EXPANSION);
     }
 
     /**
@@ -156,7 +101,13 @@ public class ApproximateSearch<T> {
    public final NeighborList search(
             final Node<T> query,
             final int k) {
-       return search(query, k, null);
+       return search(
+               query,
+               k,
+               null,
+               DEFAULT_SPEEDUP,
+               DEFAULT_JUMPS,
+               DEFAULT_EXPANSION);
    }
 
     /**
@@ -164,12 +115,18 @@ public class ApproximateSearch<T> {
      * @param query
      * @param k
      * @param stats_accumulator
+     * @param speedup
+     * @param jumps
+     * @param expansion
      * @return
      */
     public final NeighborList search(
             final Node<T> query,
             final int k,
-            final StatisticsAccumulator stats_accumulator) {
+            final StatisticsAccumulator stats_accumulator,
+            final double speedup,
+            final int jumps,
+            final double expansion) {
 
         JavaRDD<NeighborList> candidates_neighborlists
                 = distributed_graph.map(
