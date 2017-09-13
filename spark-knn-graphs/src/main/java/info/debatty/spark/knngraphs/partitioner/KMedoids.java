@@ -109,10 +109,6 @@ public class KMedoids<T> implements Partitioner<T> {
     public final Partitioning<T> partition(
             final JavaPairRDD<Node<T>, NeighborList> graph) {
 
-        if (budget == null) {
-            throw new IllegalStateException("Budget is undefined!");
-        }
-
         Partitioning<T> solution = new Partitioning<T>();
 
         Clusterer<Node<T>> clusterer = new Clusterer<Node<T>>();
