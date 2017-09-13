@@ -30,15 +30,17 @@ import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
 import info.debatty.spark.knngraphs.ApproximateSearch;
+import info.debatty.spark.knngraphs.DistributedGraph;
+import info.debatty.spark.knngraphs.partitioner.KMedoids;
+import info.debatty.spark.knngraphs.partitioner.KMedoidsPartitioning;
 import info.debatty.spark.knngraphs.partitioner.NodePartitioner;
-import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import org.apache.spark.Accumulator;
+import java.util.Random;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -54,7 +56,7 @@ import scala.Tuple2;
  */
 public class Online<T> {
 
-    private static final int DEFAULT_PARTITIONING_ITERATIONS = 5;
+    // ------ Default values ------
     private static final int DEFAULT_UPDATE_DEPTH = 2;
     private static final double DEFAULT_MEDOID_UPDATE_RATIO = 0.1;
 
@@ -65,48 +67,28 @@ public class Online<T> {
     // Number of RDD's to cache
     private static final int RDDS_TO_CACHE = 3;
 
-    // the search algorithm also contains a reference to the current graph
-    private final ApproximateSearch<T> searcher;
+    // ------ Algorithm parameters ------
+    private final JavaSparkContext spark_context;
     private final int k;
     private final SimilarityInterface<T> similarity;
-    // Number of nodes to add before recomputing centroids
-    private double medoid_update_ratio = DEFAULT_MEDOID_UPDATE_RATIO;
 
+    // Number of nodes to add before recomputing centroids
+    private final double medoid_update_ratio;
+
+    // Parameters used to add or remove nodes
+    private final double search_speedup;
+    private final int search_random_jumps;
+    private final double search_expansion;
+    private final int update_depth;
+    private final double imbalance = 1.1;
+
+    // ------ Algorithm state ------
     private final long[] partitions_size;
     private final LinkedList<JavaRDD<Graph<T>>> previous_rdds;
-
-    private double search_speedup = ApproximateSearch.DEFAULT_SPEEDUP;
-    private int search_random_jumps = ApproximateSearch.DEFAULT_JUMPS;
-    private double search_expansion = ApproximateSearch.DEFAULT_EXPANSION;
-
-    private long nodes_added_or_removed;
-    private long nodes_before_update_medoids;
-    private final JavaSparkContext spark_context;
-    private int update_depth = DEFAULT_UPDATE_DEPTH;
-
-    /**
-     *
-     * @param k number of edges per node
-     * @param similarity similarity to use for computing edges
-     * @param sc spark context
-     * @param initial_graph initial graph
-     * @param partitioning_medoids number of partitions
-     */
-    public Online(
-            final int k,
-            final SimilarityInterface<T> similarity,
-            final JavaSparkContext sc,
-            final JavaPairRDD<Node<T>, NeighborList> initial_graph,
-            final int partitioning_medoids) {
-
-        this(
-                k,
-                similarity,
-                sc,
-                initial_graph,
-                partitioning_medoids,
-                DEFAULT_PARTITIONING_ITERATIONS);
-    }
+    private long nodes_added_or_removed = 0;
+    private long nodes_before_update_medoids = 0;
+    private JavaRDD<Graph<T>> distributed_graph;
+    private final ArrayList<Node<T>> medoids;
 
     /**
      *
@@ -115,34 +97,40 @@ public class Online<T> {
      * @param sc
      * @param initial_graph
      * @param partitioning_medoids
-     * @param partitioning_iterations
      */
     public Online(
             final int k,
             final SimilarityInterface<T> similarity,
             final JavaSparkContext sc,
             final JavaPairRDD<Node<T>, NeighborList> initial_graph,
-            final int partitioning_medoids,
-            final int partitioning_iterations) {
+            final int partitioning_medoids) {
 
-        this.nodes_added_or_removed = 0;
         this.similarity = similarity;
         this.k = k;
-
-        // Use the distributed search algorithm to partition the graph
-        this.searcher = new ApproximateSearch<T>(
-                initial_graph,
-                similarity,
-                partitioning_medoids);
-
         this.spark_context = sc;
 
-        sc.setCheckpointDir("/tmp/checkpoints");
-
-        // FIXME!
-        this.partitions_size = new long[]{0}; //getPartitionsSize(searcher.getGraph());
+        this.medoid_update_ratio = DEFAULT_MEDOID_UPDATE_RATIO;
+        this.search_speedup = ApproximateSearch.DEFAULT_SPEEDUP;
+        this.search_random_jumps = ApproximateSearch.DEFAULT_JUMPS;
+        this.search_expansion = ApproximateSearch.DEFAULT_EXPANSION;
+        this.update_depth = DEFAULT_UPDATE_DEPTH;
 
         this.previous_rdds = new LinkedList<JavaRDD<Graph<T>>>();
+
+        // Use kmedoids to partition the graph
+        KMedoids<T> partitioner
+                = new KMedoids<T>(similarity, partitioning_medoids);
+
+        KMedoidsPartitioning<T> partitioning =
+                partitioner.partition(initial_graph);
+
+        this.medoids = partitioning.medoids;
+        this.distributed_graph = DistributedGraph.toGraph(
+                partitioning.graph, similarity);
+        this.distributed_graph.cache();
+        this.distributed_graph.count();
+
+        this.partitions_size = getPartitionsSize(distributed_graph);
         this.nodes_before_update_medoids = computeNodesBeforeUpdate();
 
     }
@@ -154,15 +142,6 @@ public class Online<T> {
         for (JavaRDD<Graph<T>> rdd : previous_rdds) {
             rdd.unpersist();
         }
-        searcher.clean();
-    }
-
-    /**
-     * Set the update depth for fast adding or removing nodes (default is 2).
-     * @param update_depth
-     */
-    public final void setUpdateDepth(final int update_depth) {
-        this.update_depth = update_depth;
     }
 
     /**
@@ -175,43 +154,6 @@ public class Online<T> {
             agg += value;
         }
         return agg;
-    }
-
-    /**
-     * Set the speedup of the search step to add a node (default: 4).
-     * @param search_speedup speedup
-     */
-    public final void setSearchSpeedup(final double search_speedup) {
-        this.search_speedup = search_speedup;
-    }
-
-    /**
-     *
-     * @param search_random_jumps
-     */
-    public final void setSearchRandomJumps(final int search_random_jumps) {
-        this.search_random_jumps = search_random_jumps;
-    }
-
-    /**
-     *
-     * @param search_expansion
-     */
-    public final void setSearchExpansion(final double search_expansion) {
-        this.search_expansion = search_expansion;
-    }
-
-    /**
-     * Set the ratio of nodes to add to the graph before recomputing the
-     * medoids (default: 0.1).
-     * @param update_ratio [0.0 ...] (0 = disable medoid update)
-     */
-    public final void setMedoidUpdateRatio(final double update_ratio) {
-        if (update_ratio < 0) {
-            throw new InvalidParameterException("Update ratio must be >= 0!");
-        }
-        this.medoid_update_ratio = update_ratio;
-        this.nodes_before_update_medoids = computeNodesBeforeUpdate();
     }
 
     /**
@@ -232,32 +174,32 @@ public class Online<T> {
             final StatisticsAccumulator stats_accumulator) {
 
         // Find the neighbors of this node
+        ApproximateSearch<T> searcher = new ApproximateSearch<T>(
+                distributed_graph);
         NeighborList neighborlist = searcher.search(
                 node,
                 k,
-                stats_accumulator);
+                null,
+                search_speedup,
+                search_random_jumps,
+                search_expansion);
 
         // Assign the node to a partition (most similar medoid, with partition
         // size constraint)
-
-        // FIXME
-        // searcher.assign(node, partitions_size);
-
-        //similarities += k;
+        assign(node);
 
         // bookkeeping: update the counts
         partitions_size[(Integer) node
                 .getAttribute(NodePartitioner.PARTITION_KEY)]++;
 
         // update the existing graph edges
-        // FIXME
-        JavaRDD<Graph<T>> updated_graph = null; //searcher.getGraph().map(
-        /*            new UpdateFunction<T>(
+        JavaRDD<Graph<T>> updated_graph = distributed_graph.map(
+                    new UpdateFunction<T>(
                             node,
                             neighborlist,
                             similarity,
                             stats_accumulator,
-                            update_depth));*/
+                            update_depth));
 
         // Add the new <Node, NeighborList> to the distributed graph
         updated_graph = updated_graph.map(new AddNode(node, neighborlist));
@@ -265,7 +207,7 @@ public class Online<T> {
 
         //  truncate RDD DAG (would cause a stack overflow, even with caching)
         if ((nodes_added_or_removed % ITERATIONS_BEFORE_CHECKPOINT) == 0) {
-            updated_graph.checkpoint();
+            updated_graph.rdd().localCheckpoint();
         }
 
         // Keep a track of updated RDD to unpersist after two iterations
@@ -278,17 +220,86 @@ public class Online<T> {
         updated_graph.count();
 
         // From now on use the new graph...
-        // FIXME
-        //searcher.setGraph(updated_graph);
+        this.distributed_graph = updated_graph;
 
         nodes_added_or_removed++;
         nodes_before_update_medoids--;
         if (nodes_before_update_medoids == 0) {
             // TODO: count number of computed similarities here!!
-            // FIXME
-            // searcher.getPartitioner().computeNewMedoids(updated_graph);
+            // computeNewMedoids(updated_graph);
             nodes_before_update_medoids = computeNodesBeforeUpdate();
         }
+    }
+
+    final void assign(final Node<T> node) {
+        // Total number of elements
+        long n = sum(partitions_size) + 1;
+        int partitions = medoids.size();
+        int partition_constraint = (int) (imbalance * n / partitions);
+
+        double[] similarities = new double[partitions];
+        double[] values = new double[partitions];
+
+        // 1. similarities
+        for (int i = 0; i < partitions; i++) {
+            similarities[i] = similarity.similarity(
+                    medoids.get(i).value,
+                    node.value);
+        }
+
+        // 2. value to maximize :
+        // similarity * (1 - cluster_size / capacity_constraint)
+        for (int center_id = 0; center_id < partitions; center_id++) {
+            values[center_id] = similarities[center_id]
+                    * (1 - partitions_size[center_id] / partition_constraint);
+        }
+
+        // 3. choose partition that maximizes computed value
+        int partition = argmax(values);
+        partitions_size[partition]++;
+        node.setAttribute(
+                NodePartitioner.PARTITION_KEY,
+                partition);
+
+    }
+
+    /*
+    private final void computeNewMedoids(
+            final JavaRDD<Graph<T>> distributed_graph) {
+        medoids = distributed_graph.map(
+                new ComputeMedoids()).collect();
+    }*/
+
+    private static long sum(final long[] values) {
+        long agg = 0;
+        for (long value : values) {
+            agg += value;
+        }
+        return agg;
+    }
+
+    static int argmax(final double[] values) {
+        double max_value = -1.0 * Double.MAX_VALUE;
+        ArrayList<Integer> ties = new ArrayList<Integer>();
+
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] > max_value) {
+                max_value = values[i];
+                ties = new ArrayList<Integer>();
+                ties.add(i);
+
+            } else if (values[i] == max_value) {
+                // add a tie
+                ties.add(i);
+            }
+        }
+
+        if (ties.size() == 1) {
+            return ties.get(0);
+        }
+
+        Random rand = new Random();
+        return ties.get(rand.nextInt(ties.size()));
     }
 
     /**
@@ -301,10 +312,9 @@ public class Online<T> {
             final StatisticsAccumulator stats_accumulator) {
 
         // find the list of nodes to update
-        // FIXME
-        List<Node<T>> nodes_to_update = null; //searcher.getGraph()
-        /*        .flatMap(new FindNodesToUpdate(node_to_remove))
-                .collect();*/
+        List<Node<T>> nodes_to_update = distributed_graph
+                .flatMap(new FindNodesToUpdate(node_to_remove))
+                .collect();
 
         // build the list of candidates
         LinkedList<Node<T>> initial_candidates = new LinkedList<Node<T>>();
@@ -313,14 +323,12 @@ public class Online<T> {
 
         // In spark 1.6.0 the list returned by collect causes an
         // UnsupportedOperationException when you try to remove :(
-        // FIXME
-        LinkedList<Node<T>> candidates  = null;
-        /*        new LinkedList<Node<T>>(
-                        searcher.getGraph()
+        LinkedList<Node<T>> candidates  = new LinkedList<Node<T>>(
+                        distributed_graph
                         .flatMap(new SearchNeighbors(
                                 initial_candidates,
                                 update_depth))
-                        .collect());*/
+                        .collect());
 
         // Find the partition corresponding to node_to_remove
         // The balanced kmedoids partitioner wrote this information in the
@@ -345,21 +353,20 @@ public class Online<T> {
         }
 
         // Update the graph and remove the node
-        // FIXME
-        JavaRDD<Graph<T>> updated_graph = null; /*searcher.getGraph()
+        JavaRDD<Graph<T>> updated_graph = distributed_graph
                 .map(new RemoveUpdate(
                         node_to_remove,
                         nodes_to_update,
                         candidates,
                         stats_accumulator))
-                .cache();*/
+                .cache();
 
         // bookkeeping: update the counts
         partitions_size[partition_of_node_to_remove]--;
 
         //  truncate RDD DAG (would cause a stack overflow, even with caching)
         if ((nodes_added_or_removed % ITERATIONS_BEFORE_CHECKPOINT) == 0) {
-            updated_graph.checkpoint();
+            updated_graph.rdd().localCheckpoint();
         }
 
         // Keep a track of updated RDD to unpersist after two iterations
@@ -372,8 +379,7 @@ public class Online<T> {
 
         // Force execution and use updated graph
         updated_graph.count();
-        // FIXME
-        //searcher.setGraph(updated_graph);
+        distributed_graph = updated_graph;
 
     }
 
@@ -382,7 +388,7 @@ public class Online<T> {
      * @return the current graph
      */
     public final JavaRDD<Graph<T>> getDistributedGraph() {
-        return null; //searcher.getGraph();
+        return distributed_graph;
     }
 
     /**
@@ -390,7 +396,7 @@ public class Online<T> {
      * @return
      */
     public final JavaPairRDD<Node<T>, NeighborList> getGraph() {
-        return null; //searcher.getGraph().flatMapToPair(new MergeGraphs());
+        return distributed_graph.flatMapToPair(new MergeGraphs());
     }
 
     private long[] getPartitionsSize(final JavaRDD<Graph<T>> graph) {
@@ -470,13 +476,13 @@ class UpdateFunction<T>
     private final NeighborList neighborlist;
     private final SimilarityInterface<T> similarity;
     private final Node<T> node;
-    private final Accumulator<StatisticsContainer> stats_accumulator;
+    private final StatisticsAccumulator stats_accumulator;
 
     UpdateFunction(
             final Node<T> node,
             final NeighborList neighborlist,
             final SimilarityInterface<T> similarity,
-            final Accumulator<StatisticsContainer> stats_accumulator,
+            final StatisticsAccumulator stats_accumulator,
             final int update_depth) {
 
         this.node = node;
@@ -630,13 +636,13 @@ class RemoveUpdate<T> implements Function<Graph<T>, Graph<T>> {
     private final Node<T> node_to_remove;
     private final List<Node<T>> nodes_to_update;
     private final List<Node<T>> candidates;
-    private final Accumulator<StatisticsContainer> stats_accumulator;
+    private final StatisticsAccumulator stats_accumulator;
 
     RemoveUpdate(
             final Node<T> node_to_remove,
             final List<Node<T>> nodes_to_update,
             final List<Node<T>> candidates,
-            final Accumulator<StatisticsContainer> stats_accumulator) {
+            final StatisticsAccumulator stats_accumulator) {
 
         this.node_to_remove = node_to_remove;
         this.nodes_to_update = nodes_to_update;
@@ -682,3 +688,52 @@ class RemoveUpdate<T> implements Function<Graph<T>, Graph<T>> {
         return subgraph;
     }
 }
+
+/**
+ * Used to update medoids after nodes are added to the graph. The input is a
+ * RDD of Graph.
+ * @author Thibault Debatty
+ * @param <T>
+ */
+/*
+class ComputeMedoids<T> implements Function<Graph<T>, Node<T>> {
+
+    public Node<T> call(final Graph<T> graph) {
+        if (graph.size() == 0) {
+            return null;
+        }
+
+        // This partition might contain multiple subgraphs
+        // => find largest subgraph
+        ArrayList<Graph<T>> strongly_connected_components
+                = graph.stronglyConnectedComponents();
+        int largest_subgraph_size = 0;
+        Graph<T> largest_subgraph = strongly_connected_components.get(0);
+        for (Graph<T> subgraph : strongly_connected_components) {
+            if (subgraph.size() > largest_subgraph_size) {
+                largest_subgraph = subgraph;
+                largest_subgraph_size = subgraph.size();
+            }
+        }
+
+        int largest_distance = Integer.MAX_VALUE;
+        Node medoid = (Node) largest_subgraph.getNodes().iterator().next();
+        for (Node n : largest_subgraph.getNodes()) {
+            //Node n = (Node) o;
+            Dijkstra dijkstra = new Dijkstra(largest_subgraph, n);
+
+            int node_largest_distance = dijkstra.getLargestDistance();
+
+            if (node_largest_distance == 0) {
+                continue;
+            }
+
+            if (node_largest_distance < largest_distance) {
+                largest_distance = node_largest_distance;
+                medoid = n;
+            }
+        }
+
+        return medoid;
+    }
+}*/

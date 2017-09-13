@@ -106,10 +106,10 @@ public class KMedoids<T> implements Partitioner<T> {
      * @param graph
      * @return
      */
-    public final Partitioning<T> partition(
+    public final KMedoidsPartitioning<T> partition(
             final JavaPairRDD<Node<T>, NeighborList> graph) {
 
-        Partitioning<T> solution = new Partitioning<T>();
+        KMedoidsPartitioning<T> solution = new KMedoidsPartitioning<T>();
 
         Clusterer<Node<T>> clusterer = new Clusterer<Node<T>>();
         clusterer.setK(partitions);
@@ -121,6 +121,7 @@ public class KMedoids<T> implements Partitioner<T> {
 
         // Assign each node to the most similar medoid
         // Taking imbalance into account
+        solution.medoids = medoids.getMedoids();
         solution.graph =
                 graph.mapPartitionsToPair(new AssignToMedoidFunction<T>(
                         medoids.getMedoids(),

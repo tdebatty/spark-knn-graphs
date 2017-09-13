@@ -72,7 +72,6 @@ public class ApproximateSearch<T> {
             final SimilarityInterface<T> similarity,
             final int partitions) {
 
-
         // Partition the graph
         KMedoids<T> partitioner
                 = new KMedoids<T>(similarity, partitions);
@@ -83,6 +82,14 @@ public class ApproximateSearch<T> {
                 partitioned_graph, similarity);
         this.distributed_graph.cache();
         this.distributed_graph.count();
+    }
+
+    /**
+     * Use the graph as it is, without repartitioning.
+     * @param distributed_graph
+     */
+    public ApproximateSearch(final JavaRDD<Graph<T>> distributed_graph) {
+        this.distributed_graph = distributed_graph;
     }
 
     /**

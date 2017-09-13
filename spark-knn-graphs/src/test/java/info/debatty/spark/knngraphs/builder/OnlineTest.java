@@ -115,7 +115,6 @@ public class OnlineTest extends TestCase implements Serializable {
         System.out.println("Prepare the graph for online processing");
         Online<double[]> online_graph =
                 new Online<double[]>(K, new L2Similarity(), sc, graph, PARTITIONS);
-        online_graph.setSearchSpeedup(SPEEDUP);
 
         System.out.println("Add some nodes...");
         long start_time = System.currentTimeMillis();
@@ -169,93 +168,6 @@ public class OnlineTest extends TestCase implements Serializable {
     }
 
     /**
-     * Test the fastAdd algorithm without partitioning (zero partitioning
-     * iterations).
-     * @throws Exception if we cannot build the graph.
-     */
-    public final void testWithoutPartitioning() throws Exception {
-
-        System.out.println("Add nodes without partitioning");
-        System.out.println("==============================");
-
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
-
-        System.out.println("Create some random nodes");
-
-        List<Node<double[]>> data = new ArrayList<Node<double[]>>();
-        Dataset dataset = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
-                .setOverlap(Dataset.Builder.Overlap.MEDIUM)
-                .build();
-
-
-        Iterator<double[]> iterator = dataset.iterator();
-        while (data.size() < N) {
-            double[] point = iterator.next();
-            data.add(new Node<double[]>(
-                    String.valueOf(data.size()),
-                    point));
-        }
-
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        JavaSparkContext sc = new JavaSparkContext(conf);
-
-        // Parallelize the dataset in Spark
-        JavaRDD<Node<double[]>> nodes = sc.parallelize(data);
-
-        Brute brute = new Brute();
-        brute.setK(K);
-        brute.setSimilarity(new L2Similarity());
-
-        System.out.println("Compute the graph and force execution");
-        JavaPairRDD<Node<double[]>, NeighborList> graph
-                = brute.computeGraph(nodes);
-        graph.cache();
-        graph.count();
-
-        System.out.println("Prepare the graph for online processing");
-        Online<double[]> online_graph =
-                new Online<double[]>(K, new L2Similarity(), sc, graph, PARTITIONS, 0);
-        online_graph.setSearchSpeedup(SPEEDUP);
-
-        System.out.println("Add some nodes...");
-        for (int i = 0; i < N_TEST; i++) {
-            double[] point = iterator.next();
-            Node<double[]> new_node =
-                    new Node<double[]>(
-                            String.valueOf(data.size()),
-                            point);
-            online_graph.fastAdd(new_node);
-
-            // keep the node for later testing
-            data.add(new_node);
-        }
-        Graph<double[]> local_approximate_graph =
-                list2graph(online_graph.getGraph().collect());
-
-        System.out.println("Compute the exact graph...");
-        Graph<Double> local_exact_graph =
-                list2graph(brute.computeGraph(sc.parallelize(data)).collect());
-
-        sc.close();
-
-        int correct = 0;
-        for (Node<Double> node : local_exact_graph.getNodes()) {
-            correct += local_exact_graph.get(node).countCommons(
-                    local_approximate_graph.get(node));
-        }
-
-        double ratio = 1.0 * correct / (data.size() * K);
-        System.out.printf("Found %d correct edges (%f)\n", correct, ratio);
-
-        assertEquals(data.size(), local_approximate_graph.size());
-        assertEquals(online_graph.getGraph().partitions().size(), PARTITIONS);
-    }
-
-    /**
      * Test fastRemove().
      * @throws Exception if we cannot build the graph.
      */
@@ -304,7 +216,6 @@ public class OnlineTest extends TestCase implements Serializable {
         System.out.println("Prepare the graph for online processing");
         Online<double[]> online_graph =
                 new Online<double[]>(K, new L2Similarity(), sc, graph, PARTITIONS);
-        online_graph.setSearchSpeedup(SPEEDUP);
 
         System.out.println("Remove some nodes...");
         LinkedList<Node<Double>> removed_nodes = new LinkedList<Node<Double>>();
