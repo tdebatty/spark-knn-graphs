@@ -114,9 +114,14 @@ public class OnlineTest extends TestCase implements Serializable {
 
         System.out.println("Prepare the graph for online processing");
         Online<double[]> online_graph =
-                new Online<double[]>(K, new L2Similarity(), sc, graph, PARTITIONS);
+                new Online<double[]>(
+                        K,
+                        new L2Similarity(),
+                        sc,
+                        graph,
+                        PARTITIONS);
 
-        System.out.println("Add some nodes...");
+        System.out.println("Add " + N_TEST + "nodes...");
         long start_time = System.currentTimeMillis();
         for (int i = 0; i < N_TEST; i++) {
             double[] point = dataset.next();

@@ -231,7 +231,7 @@ public class Online<T> {
         }
     }
 
-    final void assign(final Node<T> node) {
+    private final void assign(final Node<T> node) {
         // Total number of elements
         long n = sum(partitions_size) + 1;
         int partitions = medoids.size();
@@ -278,7 +278,7 @@ public class Online<T> {
         return agg;
     }
 
-    static int argmax(final double[] values) {
+    private static int argmax(final double[] values) {
         double max_value = -1.0 * Double.MAX_VALUE;
         ArrayList<Integer> ties = new ArrayList<Integer>();
 

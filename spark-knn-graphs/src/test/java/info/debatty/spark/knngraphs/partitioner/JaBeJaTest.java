@@ -27,7 +27,7 @@ package info.debatty.spark.knngraphs.partitioner;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.DistributedGraph;
-import info.debatty.spark.knngraphs.SparkTestCase;
+import info.debatty.spark.knngraphs.SparkCase;
 import info.debatty.spark.knngraphs.partitioner.jabeja.TimeBudget;
 import org.apache.spark.api.java.JavaPairRDD;
 import scala.Tuple2;
@@ -36,7 +36,7 @@ import scala.Tuple2;
  *
  * @author Thibault Debatty
  */
-public class JaBeJaTest extends SparkTestCase {
+public class JaBeJaTest extends SparkCase {
 
     private static final int PARTITIONS = 8;
     private static final int TIME_BUDGET = 15;

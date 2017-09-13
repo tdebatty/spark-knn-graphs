@@ -39,10 +39,10 @@ import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
 /**
- *
+ * A base class for spark test cases. Contains no test...
  * @author Thibault Debatty
  */
-public class SparkTestCase extends TestCase {
+public class SparkCase extends TestCase {
 
     private JavaSparkContext sc = null;
 

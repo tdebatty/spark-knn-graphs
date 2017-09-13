@@ -25,14 +25,14 @@ package info.debatty.spark.knngraphs.partitioner;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
-import info.debatty.spark.knngraphs.SparkTestCase;
+import info.debatty.spark.knngraphs.SparkCase;
 import org.apache.spark.api.java.JavaPairRDD;
 
 /**
  *
  * @author Thibault Debatty
  */
-public class Edge1DTest extends SparkTestCase {
+public class Edge1DTest extends SparkCase {
 
     private static final int PARTITIONS = 8;
     private static final int K = 10;
