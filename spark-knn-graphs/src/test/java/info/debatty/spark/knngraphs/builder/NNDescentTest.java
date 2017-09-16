@@ -29,18 +29,8 @@ import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.DistributedGraph;
 import info.debatty.spark.knngraphs.JWSimilarity;
 import info.debatty.spark.knngraphs.SparkCase;
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import junit.framework.TestCase;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
-import scala.Tuple2;
 
 /**
  *
@@ -48,7 +38,7 @@ import scala.Tuple2;
  */
 public class NNDescentTest extends SparkCase {
 
-    public static final int K = 10;
+    private static final int K = 10;
 
     /**
      * Test of computeGraph method, of class NNDescent.
@@ -63,7 +53,7 @@ public class NNDescentTest extends SparkCase {
         NNDescent builder = new NNDescent();
         builder.setK(K);
         builder.setSimilarity(new JWSimilarity());
-        builder.setMaxIterations(2);
+        builder.setMaxIterations(5);
 
         // Compute the graph and force execution
         JavaPairRDD<Node<String>, NeighborList> graph =
