@@ -21,13 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package partitioning.synthetic;
+package partitioning.commercials;
 
+import info.debatty.java.datasets.tv.Sequence;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.jinu.TestInterface;
-import info.debatty.spark.knngraphs.JaBeJa;
-import info.debatty.spark.knngraphs.Partitioning;
+import info.debatty.spark.knngraphs.partitioner.JaBeJa;
+import info.debatty.spark.knngraphs.partitioner.Partitioning;
 import info.debatty.spark.knngraphs.TimeBudget;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -53,15 +54,17 @@ public class JaBeJaTest implements TestInterface {
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Read graph from HDFS
-        JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
-                sc.objectFile(dataset_path);
-        JavaPairRDD<Node<double[]>, NeighborList> graph =
+        JavaRDD<Tuple2<Node<Sequence>, NeighborList>> tuples =
+                sc.objectFile(dataset_path, 16);
+        JavaPairRDD<Node<Sequence>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
+        graph.cache();
+        graph.count();
 
         // Partition
-        JaBeJa<double[]> partitioner = new JaBeJa<>(16);
+        JaBeJa<Sequence> partitioner = new JaBeJa<>(16);
         partitioner.setBudget(new TimeBudget((long) budget));
-        Partitioning<double[]> partition = partitioner.partition(graph);
+        Partitioning<Sequence> partition = partitioner.partition(graph);
 
         // Check result
         double[] result = new double[] {

@@ -1,0 +1,12 @@
+partitioning.synthetic.JaBeJaTest;	5.0;	17629;	937641.0;	1.0184;	
+partitioning.synthetic.JaBeJaTest;	10.0;	16680;	937108.0;	1.01488;	
+partitioning.synthetic.JaBeJaTest;	20.0;	23656;	935294.0;	1.02112;	
+partitioning.synthetic.KMedoidsTest;	5.0;	14538;	433430.0;	1.08528;	
+partitioning.synthetic.KMedoidsTest;	10.0;	16714;	384289.0;	1.1104;	
+partitioning.synthetic.KMedoidsTest;	20.0;	26316;	320506.0;	1.08144;	
+partitioning.synthetic.Edg1DTest;	15.0;	12148;	938092.0;	1.0;	
+partitioning.synthetic.JaBeJaTest;	15.0;	18757;	937088.0;	1.02848;	
+partitioning.synthetic.Edg1DTest;	5.0;	13724;	938092.0;	1.0;	
+partitioning.synthetic.Edg1DTest;	10.0;	13274;	938092.0;	1.0;	
+partitioning.synthetic.Edg1DTest;	20.0;	13632;	938092.0;	1.0;	
+partitioning.synthetic.KMedoidsTest;	15.0;	21236;	352326.0;	1.09168;	

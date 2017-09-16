@@ -1,0 +1,13 @@
+partitioning.spam.KMedoidsTest;	5.0;	16847;	579344.0;	1.02912;	
+partitioning.spam.KMedoidsTest;	10.0;	17469;	570024.0;	1.05616;	
+partitioning.spam.KMedoidsTest;	20.0;	26307;	531742.0;	1.03312;	
+partitioning.spam.JaBeJaTest;	15.0;	18790;	937554.0;	1.01088;	
+partitioning.spam.Edg1DTest;	15.0;	11259;	937488.0;	1.0;	
+partitioning.spam.KMedoidsTest;	15.0;	20622;	602907.0;	1.01952;	
+partitioning.spam.JaBeJaTest;	5.0;	27836;	937379.0;	1.01472;	
+partitioning.spam.JaBeJaTest;	5.0;	17077;	937241.0;	1.01728;	
+partitioning.spam.JaBeJaTest;	10.0;	17032;	937361.0;	1.01888;	
+partitioning.spam.JaBeJaTest;	20.0;	26584;	937022.0;	1.01568;	
+partitioning.spam.Edg1DTest;	5.0;	10781;	937488.0;	1.0;	
+partitioning.spam.Edg1DTest;	10.0;	11721;	937488.0;	1.0;	
+partitioning.spam.Edg1DTest;	20.0;	11387;	937488.0;	1.0;	

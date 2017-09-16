@@ -23,7 +23,7 @@
  */
 package search.synthetic;
 
-import info.debatty.spark.knngraphs.JaBeJa;
+import info.debatty.spark.knngraphs.partitioner.JaBeJa;
 import info.debatty.spark.knngraphs.Partitioner;
 
 /**

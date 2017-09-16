@@ -21,16 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package partitioning.synthetic;
+package partitioning.commercials;
 
+import info.debatty.java.datasets.tv.Sequence;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.jinu.TestInterface;
-import info.debatty.spark.knngraphs.JaBeJa;
-import info.debatty.spark.knngraphs.KMedoidsPartitioner;
-import info.debatty.spark.knngraphs.Partitioning;
+import info.debatty.spark.knngraphs.partitioner.JaBeJa;
+import info.debatty.spark.knngraphs.partitioner.KMedoids;
+import info.debatty.spark.knngraphs.partitioner.Partitioning;
 import info.debatty.spark.knngraphs.TimeBudget;
-import info.debatty.spark.knngraphs.eval.JWSimilarity;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -55,16 +55,18 @@ public class KMedoidsTest implements TestInterface {
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
-        JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
-                sc.objectFile(dataset_path);
-        JavaPairRDD<Node<double[]>, NeighborList> graph =
+        JavaRDD<Tuple2<Node<Sequence>, NeighborList>> tuples =
+                sc.objectFile(dataset_path, 16);
+        JavaPairRDD<Node<Sequence>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
+        graph.cache();
+        graph.count();
 
-        KMedoidsPartitioner<double[]> partitioner =
-                new KMedoidsPartitioner<double[]>(
-                        new L2Similarity(), 16, IMBALANCE);
+        KMedoids<Sequence> partitioner =
+                new KMedoids<>(
+                        new SequenceSimilarity(), 16, IMBALANCE);
         partitioner.setBudget(new TimeBudget((long) budget));
-        Partitioning<double[]> partition = partitioner.partition(graph);
+        Partitioning<Sequence> partition = partitioner.partition(graph);
         double[] result = new double[] {
             JaBeJa.countCrossEdges(partition.graph, 16),
             JaBeJa.computeBalance(partition.graph, 16)

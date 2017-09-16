@@ -21,11 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package search.synthetic;
+package search2.commercials;
 
-import info.debatty.spark.knngraphs.KMedoidsPartitioner;
+import info.debatty.spark.knngraphs.partitioner.KMedoids;
 import info.debatty.spark.knngraphs.Partitioner;
-import info.debatty.spark.knngraphs.eval.L2Similarity;
+import partitioning.synthetic.L2Similarity;
 
 /**
  *
@@ -35,7 +35,7 @@ public class KMedoidsTest extends AbstractTest {
 
     @Override
     final Partitioner<double[]> getPartitioner() {
-        return new KMedoidsPartitioner<>(new L2Similarity(), 16, 1.2);
+        return new KMedoids<>(new L2Similarity(), 16, 1.2);
     }
 
 }

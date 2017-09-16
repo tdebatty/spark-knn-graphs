@@ -27,9 +27,9 @@ import info.debatty.java.datasets.fish.TimeSerie;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.jinu.TestInterface;
-import info.debatty.spark.knngraphs.Edge1DPartitioner;
-import info.debatty.spark.knngraphs.JaBeJa;
-import info.debatty.spark.knngraphs.Partitioning;
+import info.debatty.spark.knngraphs.partitioner.Edge1D;
+import info.debatty.spark.knngraphs.partitioner.JaBeJa;
+import info.debatty.spark.knngraphs.partitioner.Partitioning;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -57,8 +57,8 @@ public class Edg1DTest implements TestInterface {
         JavaPairRDD<Node<TimeSerie>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
-        Edge1DPartitioner<TimeSerie> partitioner =
-                new Edge1DPartitioner<TimeSerie>(16);
+        Edge1D<TimeSerie> partitioner =
+                new Edge1D<TimeSerie>(16);
         Partitioning<TimeSerie> partition = partitioner.partition(graph);
         double[] result = new double[] {
             JaBeJa.countCrossEdges(partition.graph, 16),

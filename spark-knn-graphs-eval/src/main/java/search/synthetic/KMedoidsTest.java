@@ -23,7 +23,7 @@
  */
 package search.synthetic;
 
-import info.debatty.spark.knngraphs.KMedoidsPartitioner;
+import info.debatty.spark.knngraphs.partitioner.KMedoids;
 import info.debatty.spark.knngraphs.Partitioner;
 import info.debatty.spark.knngraphs.eval.L2Similarity;
 
@@ -35,7 +35,7 @@ public class KMedoidsTest extends AbstractTest {
 
     @Override
     final Partitioner<double[]> getPartitioner() {
-        return new KMedoidsPartitioner<>(new L2Similarity(), 16, 1.2);
+        return new KMedoids<>(new L2Similarity(), 16, 1.2);
     }
 
 }

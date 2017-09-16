@@ -26,9 +26,9 @@ package partitioning.synthetic;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.jinu.TestInterface;
-import info.debatty.spark.knngraphs.JaBeJa;
-import info.debatty.spark.knngraphs.KMedoidsPartitioner;
-import info.debatty.spark.knngraphs.Partitioning;
+import info.debatty.spark.knngraphs.partitioner.JaBeJa;
+import info.debatty.spark.knngraphs.partitioner.KMedoids;
+import info.debatty.spark.knngraphs.partitioner.Partitioning;
 import info.debatty.spark.knngraphs.TimeBudget;
 import info.debatty.spark.knngraphs.eval.JWSimilarity;
 import org.apache.spark.SparkConf;
@@ -60,8 +60,8 @@ public class KMedoidsTest implements TestInterface {
         JavaPairRDD<Node<double[]>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
-        KMedoidsPartitioner<double[]> partitioner =
-                new KMedoidsPartitioner<double[]>(
+        KMedoids<double[]> partitioner =
+                new KMedoids<double[]>(
                         new L2Similarity(), 16, IMBALANCE);
         partitioner.setBudget(new TimeBudget((long) budget));
         Partitioning<double[]> partition = partitioner.partition(graph);

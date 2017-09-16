@@ -23,7 +23,7 @@
  */
 package search.synthetic;
 
-import info.debatty.spark.knngraphs.Edge1DPartitioner;
+import info.debatty.spark.knngraphs.partitioner.Edge1D;
 import info.debatty.spark.knngraphs.Partitioner;
 
 /**
@@ -34,7 +34,7 @@ public class Edge1DTest extends AbstractTest {
 
     @Override
     final Partitioner<double[]> getPartitioner() {
-        return new Edge1DPartitioner<>(16);
+        return new Edge1D<>(16);
     }
 
 }

@@ -21,9 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package search.synthetic;
+package search2.commercials;
 
-import info.debatty.spark.knngraphs.JaBeJa;
+import info.debatty.java.datasets.tv.Sequence;
+import info.debatty.spark.knngraphs.partitioner.JaBeJa;
 import info.debatty.spark.knngraphs.Partitioner;
 
 /**

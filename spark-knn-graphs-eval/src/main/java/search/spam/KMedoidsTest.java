@@ -23,7 +23,7 @@
  */
 package search.spam;
 
-import info.debatty.spark.knngraphs.KMedoidsPartitioner;
+import info.debatty.spark.knngraphs.partitioner.KMedoids;
 import info.debatty.spark.knngraphs.Partitioner;
 import info.debatty.spark.knngraphs.eval.JWSimilarity;
 
@@ -35,7 +35,7 @@ public class KMedoidsTest extends AbstractTest {
 
     @Override
     final Partitioner<String> getPartitioner() {
-        return new KMedoidsPartitioner<>(new JWSimilarity(), 16, 1.2);
+        return new KMedoids<>(new JWSimilarity(), 16, 1.2);
     }
 
 }

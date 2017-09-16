@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package search.synthetic;
+package search2.commercials;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
@@ -29,11 +29,11 @@ import info.debatty.jinu.TestInterface;
 import info.debatty.spark.knngraphs.ApproximateSearch;
 import info.debatty.spark.knngraphs.ExhaustiveSearch;
 import info.debatty.spark.knngraphs.Partitioner;
-import info.debatty.spark.knngraphs.Partitioning;
+import info.debatty.spark.knngraphs.partitioner.Partitioning;
 import info.debatty.spark.knngraphs.TimeBudget;
-import info.debatty.spark.knngraphs.eval.JWSimilarity;
 import info.debatty.spark.knngraphs.eval.L2Similarity;
 import java.util.LinkedList;
+import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -46,6 +46,8 @@ import scala.Tuple2;
  */
 public abstract class AbstractTest implements TestInterface {
 
+    private static final Logger LOGGER = Logger.getLogger(AbstractTest.class);
+
     static String graph_path;
     static LinkedList<double[]> queries;
 
@@ -55,18 +57,27 @@ public abstract class AbstractTest implements TestInterface {
     public final double[] run(final double budget) throws Exception {
 
         SparkConf conf = new SparkConf();
-        conf.setAppName("Spark graph partitioning with synthetic dataset");
+        conf.setAppName("Spark graph partitioning with commercials dataset");
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
+
+        LOGGER.info("Load graph...");
+
         JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
-                sc.objectFile(graph_path);
+                sc.objectFile(graph_path, 16);
         JavaPairRDD<Node<double[]>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
+        graph = graph.cache();
+        graph.count();
+
+        LOGGER.info("Partition graph...");
 
         Partitioner<double[]> partitioner = getPartitioner();
         partitioner.setBudget(new TimeBudget((long) budget));
         Partitioning<double[]> partition = partitioner.partition(graph);
+
+        LOGGER.info("Perform distributed search...");
 
         ApproximateSearch<double[]> fast_search = new ApproximateSearch<>(
                 partition.graph, new L2Similarity());
@@ -75,7 +86,7 @@ public abstract class AbstractTest implements TestInterface {
                 partition.graph, new L2Similarity());
 
         int correct = 0;
-        int i = 100000;
+        int i = 200000;
         for (double[] query : queries) {
             Node<double[]> query_node = new Node("" + i++, query);
             NeighborList fast_result = fast_search.search(query_node, 1);

@@ -21,13 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package search.synthetic;
+package search.commercials;
 
+import info.debatty.java.datasets.tv.Sequence;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.jinu.Case;
 import info.debatty.spark.knngraphs.builder.Brute;
-import info.debatty.spark.knngraphs.eval.L2Similarity;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -42,6 +42,8 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import partitioning.commercials.ParseSequenceFunction;
+import partitioning.synthetic.L2Similarity;
 
 /**
  *
@@ -49,7 +51,7 @@ import org.apache.spark.api.java.JavaSparkContext;
  */
 public class TestCase {
 
-    private static final int N_TEST = 100;
+    private static final int N_TEST = 1000;
     private static final Logger LOGGER = Logger.getLogger(TestCase.class);
 
     /**
@@ -78,24 +80,29 @@ public class TestCase {
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
-        LinkedList<double[]> vectors = new LinkedList(
-                sc
-                    .objectFile((String) options.valueOf("d"), 8)
-                    .collect());
+        JavaRDD<String> strings = sc.textFile((String) options.valueOf("d"), 8);
+        JavaRDD<Sequence> sequences = strings.map(new ParseSequenceFunction());
+        LinkedList<Sequence> vectors = new LinkedList(sequences.collect());
 
         // Split between main and test data
         Random rand = new Random();
         LinkedList<double[]> queries = new LinkedList<>();
         for (int i = 0; i < N_TEST; i++) {
-            queries.add(vectors.remove(rand.nextInt(vectors.size())));
+            queries.add(
+                    Sequence.normalize(
+                            vectors
+                                    .remove(
+                                        rand.nextInt(vectors.size()))
+                                    .getSummary()));
         }
-
 
         // Build the list of nodes
         LinkedList<Node<double[]>> nodes = new LinkedList<>();
         int i = 0;
-        for (double[] vector : vectors) {
-            nodes.add(new Node<>(String.valueOf(i), vector));
+        for (Sequence vector : vectors) {
+            nodes.add(new Node<>(
+                    String.valueOf(i),
+                    Sequence.normalize(vector.getSummary())));
             i++;
         }
 

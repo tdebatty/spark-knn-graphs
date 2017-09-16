@@ -29,7 +29,7 @@ import info.debatty.jinu.TestInterface;
 import info.debatty.spark.knngraphs.ApproximateSearch;
 import info.debatty.spark.knngraphs.ExhaustiveSearch;
 import info.debatty.spark.knngraphs.Partitioner;
-import info.debatty.spark.knngraphs.Partitioning;
+import info.debatty.spark.knngraphs.partitioner.Partitioning;
 import info.debatty.spark.knngraphs.TimeBudget;
 import info.debatty.spark.knngraphs.eval.JWSimilarity;
 import java.util.LinkedList;

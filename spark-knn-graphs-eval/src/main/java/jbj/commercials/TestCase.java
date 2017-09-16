@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package jbj.spam;
+package jbj.commercials;
 
 import info.debatty.jinu.Case;
 import java.util.Arrays;

@@ -21,8 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package partitioning.synthetic;
+package partitioning.commercials;
 
+import info.debatty.java.datasets.tv.Sequence;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.builder.Brute;
@@ -57,21 +58,27 @@ public class BuildGraph {
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
-        JavaRDD<double[]> data = sc.objectFile(dataset_path);
+        JavaRDD<String> strings = sc.textFile(dataset_path);
 
-        LinkedList<Node<double[]>> nodes = new LinkedList<Node<double[]>>();
+        // Parse TV sequences
+        JavaRDD<Sequence> sequences =
+                strings.map(new ParseSequenceFunction());
+        sequences.cache();
+        sequences.count();
+
+        LinkedList<Node<Sequence>> nodes = new LinkedList<>();
         int i = 0;
-        for (double[] value : data.collect()) {
-            nodes.add(new Node<double[]>(String.valueOf(i), value));
+        for (Sequence value : sequences.collect()) {
+            nodes.add(new Node<>(String.valueOf(i), value));
             i++;
         }
 
-        JavaRDD<Node<double[]>> nodes_rdd = sc.parallelize(nodes);
+        JavaRDD<Node<Sequence>> nodes_rdd = sc.parallelize(nodes);
 
-        Brute<double[]> brute = new Brute();
+        Brute<Sequence> brute = new Brute<>();
         brute.setK(10);
-        brute.setSimilarity(new L2Similarity());
-        JavaPairRDD<Node<double[]>, NeighborList> graph =
+        brute.setSimilarity(new SequenceSimilarity());
+        JavaPairRDD<Node<Sequence>, NeighborList> graph =
                 brute.computeGraph(nodes_rdd);
 
         graph.saveAsObjectFile(output_path);

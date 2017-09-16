@@ -21,14 +21,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package partitioning.synthetic;
+package partitioning.commercials;
 
+import info.debatty.java.datasets.tv.Sequence;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.jinu.TestInterface;
-import info.debatty.spark.knngraphs.Edge1DPartitioner;
-import info.debatty.spark.knngraphs.JaBeJa;
-import info.debatty.spark.knngraphs.Partitioning;
+import info.debatty.spark.knngraphs.partitioner.Edge1D;
+import info.debatty.spark.knngraphs.partitioner.JaBeJa;
+import info.debatty.spark.knngraphs.partitioner.Partitioning;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -51,14 +52,16 @@ public class Edg1DTest implements TestInterface {
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
-        JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
-                sc.objectFile(dataset_path);
-        JavaPairRDD<Node<double[]>, NeighborList> graph =
+        JavaRDD<Tuple2<Node<Sequence>, NeighborList>> tuples =
+                sc.objectFile(dataset_path, 16);
+        JavaPairRDD<Node<Sequence>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
+        graph.cache();
+        graph.count();
 
-        Edge1DPartitioner<double[]> partitioner =
-                new Edge1DPartitioner<double[]>(16);
-        Partitioning<double[]> partition = partitioner.partition(graph);
+        Edge1D<Sequence> partitioner =
+                new Edge1D<>(16);
+        Partitioning<Sequence> partition = partitioner.partition(graph);
         double[] result = new double[] {
             JaBeJa.countCrossEdges(partition.graph, 16),
             JaBeJa.computeBalance(partition.graph, 16)

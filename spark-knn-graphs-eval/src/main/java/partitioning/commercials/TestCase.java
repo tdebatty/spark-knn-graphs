@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package partitioning.synthetic;
+package partitioning.commercials;
 
 import info.debatty.jinu.Case;
 import java.util.Arrays;
