@@ -30,45 +30,30 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
-import junit.framework.TestCase;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
 
 /**
  *
  * @author Thibault Debatty
  */
-public class SparkTest extends TestCase implements Serializable {
+public class SparkTest extends SparkCase implements Serializable {
 
     /**
      * Test of computeGraph method, of class NNDescent.
-     * @throws java.io.IOException
+     * @throws java.io.IOException if we cannot read test file
      */
-    public final void testSpark() throws IOException, Exception {
+    public final void testSpark() throws IOException {
         System.out.println("Spark test");
         System.out.println("==========");
 
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
-
+        // Read the file
         String file =  getClass().getClassLoader().
                 getResource("726-unique-spams").getPath();
-
-        // Read the file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
 
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        JavaSparkContext sc = new JavaSparkContext(conf);
-
         // Parallelize the dataset in Spark
-        JavaRDD<String> data = sc.parallelize(strings);
+        JavaRDD<String> data = getSpark().parallelize(strings);
 
         JavaRDD<String> mapped =
                 data.flatMap(new FlatMapFunction<String, String>() {
@@ -79,8 +64,5 @@ public class SparkTest extends TestCase implements Serializable {
         });
 
         assertEquals(0, mapped.count());
-
-        sc.close();
     }
-
 }

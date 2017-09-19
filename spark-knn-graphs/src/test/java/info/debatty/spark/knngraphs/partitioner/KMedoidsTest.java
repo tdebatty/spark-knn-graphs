@@ -27,14 +27,14 @@ import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.JWSimilarity;
 import info.debatty.spark.knngraphs.L2Similarity;
-import info.debatty.spark.knngraphs.SparkCase;
+import info.debatty.spark.knngraphs.KNNGraphCase;
 import org.apache.spark.api.java.JavaPairRDD;
 
 /**
  *
  * @author Thibault Debatty
  */
-public class KMedoidsTest extends SparkCase {
+public class KMedoidsTest extends KNNGraphCase {
 
     private static final int K = 10;
     private static final int PARTITIONS = 8;

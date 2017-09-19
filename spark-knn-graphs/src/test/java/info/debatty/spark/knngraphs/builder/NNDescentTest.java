@@ -28,7 +28,7 @@ import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.DistributedGraph;
 import info.debatty.spark.knngraphs.JWSimilarity;
-import info.debatty.spark.knngraphs.SparkCase;
+import info.debatty.spark.knngraphs.KNNGraphCase;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 
@@ -36,7 +36,7 @@ import org.apache.spark.api.java.JavaRDD;
  *
  * @author Thibault Debatty
  */
-public class NNDescentTest extends SparkCase {
+public class NNDescentTest extends KNNGraphCase {
 
     private static final int K = 10;
 

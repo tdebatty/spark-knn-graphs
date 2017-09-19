@@ -25,56 +25,20 @@ package info.debatty.spark.knngraphs;
 
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
+import info.debatty.spark.SparkCase;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import junit.framework.TestCase;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
 /**
  * A base class for spark test cases. Contains no test...
  * @author Thibault Debatty
  */
-public class SparkCase extends TestCase {
-
-    private JavaSparkContext sc = null;
-
-    /**
-     * Get SparkContext.
-     * @return
-     */
-    protected final JavaSparkContext getSpark() {
-        return sc;
-    }
-
-    @Override
-    protected final void setUp() throws Exception {
-        super.setUp();
-
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
-
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        sc = new JavaSparkContext(conf);
-    }
-
-    @Override
-    protected final void tearDown() throws Exception {
-        if (sc != null) {
-            sc.close();
-        }
-        super.tearDown();
-    }
+public class KNNGraphCase extends SparkCase {
 
     /**
      * Read the SPAM dataset from resources and parallelize in Spark.
@@ -95,7 +59,7 @@ public class SparkCase extends TestCase {
         }
 
         // Parallelize the dataset in Spark
-        JavaRDD<Node<String>> nodes = sc.parallelize(data);
+        JavaRDD<Node<String>> nodes = getSpark().parallelize(data);
         return nodes;
     }
 
@@ -108,7 +72,7 @@ public class SparkCase extends TestCase {
                 getResource("graph-spam").getPath();
 
         JavaRDD<Tuple2<Node<String>, NeighborList>> tuples =
-                sc.objectFile(file, 8);
+                getSpark().objectFile(file, 8);
         JavaPairRDD<Node<String>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
@@ -126,7 +90,7 @@ public class SparkCase extends TestCase {
                 getResource("graph-synthetic-10K").getPath();
 
         JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
-                sc.objectFile(file, 8);
+                getSpark().objectFile(file, 8);
         JavaPairRDD<Node<double[]>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 

@@ -55,12 +55,12 @@ public class BruteExample {
                     Search.class.getCanonicalName() + " " +
                     "<dataset>");
         }
-        
+
         String file =  args[0];
-        
+
         // Read the file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
-        
+
         // Convert to nodes
         List<Node<String>> data = new ArrayList<Node<String>>();
         for (String s : strings) {
@@ -72,10 +72,10 @@ public class BruteExample {
         conf.setAppName("SparkTest");
         conf.setIfMissing("spark.master", "local[*]");
         JavaSparkContext sc = new JavaSparkContext(conf);
-        
+
         // Parallelize the dataset in Spark
         JavaRDD<Node<String>> nodes = sc.parallelize(data);
-        
+
         Brute brute = new Brute();
         brute.setK(10);
         brute.setSimilarity(new SimilarityInterface<String>() {
@@ -85,11 +85,11 @@ public class BruteExample {
                 return jw.similarity(value1, value2);
             }
         });
-        
+
         // Compute the graph...
-        JavaPairRDD<Node<String>, NeighborList> graph = 
+        JavaPairRDD<Node<String>, NeighborList> graph =
                 brute.computeGraph(nodes);
         System.out.println(graph.first());
     }
-    
+
 }
