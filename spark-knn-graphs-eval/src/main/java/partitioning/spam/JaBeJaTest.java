@@ -28,7 +28,7 @@ import info.debatty.java.graphs.Node;
 import info.debatty.jinu.TestInterface;
 import info.debatty.spark.knngraphs.partitioner.JaBeJa;
 import info.debatty.spark.knngraphs.partitioner.Partitioning;
-import info.debatty.spark.knngraphs.TimeBudget;
+import info.debatty.spark.knngraphs.partitioner.jabeja.TimeBudget;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -56,8 +56,8 @@ public class JaBeJaTest implements TestInterface {
         JavaPairRDD<Node<String>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
-        JaBeJa<String> partitioner = new JaBeJa<String>(16);
-        partitioner.setBudget(new TimeBudget((long) budget));
+        JaBeJa<String> partitioner = new JaBeJa<String>(
+                16, new TimeBudget((int) budget));
         Partitioning<String> partition = partitioner.partition(graph);
         double[] result = new double[] {
             JaBeJa.countCrossEdges(partition.graph, 16),

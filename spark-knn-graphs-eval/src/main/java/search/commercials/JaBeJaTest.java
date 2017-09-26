@@ -24,7 +24,8 @@
 package search.commercials;
 
 import info.debatty.spark.knngraphs.partitioner.JaBeJa;
-import info.debatty.spark.knngraphs.Partitioner;
+import info.debatty.spark.knngraphs.partitioner.Partitioner;
+import info.debatty.spark.knngraphs.partitioner.jabeja.TimeBudget;
 
 /**
  *
@@ -33,8 +34,8 @@ import info.debatty.spark.knngraphs.Partitioner;
 public class JaBeJaTest extends AbstractTest {
 
     @Override
-    final Partitioner<double[]> getPartitioner() {
-        return new JaBeJa<>(16);
+    final Partitioner<double[]> getPartitioner(int budget) {
+        return new JaBeJa<>(16, new TimeBudget(budget));
     }
 
 }

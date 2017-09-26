@@ -65,7 +65,7 @@
         <dependency>
             <groupId>info.debatty</groupId>
             <artifactId>java-datasets</artifactId>
-            <version>0.14-SNAPSHOT</version>
+            <version>0.14</version>
         </dependency>
 
         <dependency>
@@ -90,13 +90,13 @@
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>spark-knn-graphs</artifactId>
-            <version>0.15-SNAPSHOT</version>
+            <version>0.15</version>
         </dependency>
 
         <dependency>
             <groupId>info.debatty</groupId>
             <artifactId>jinu</artifactId>
-            <version>0.8-SNAPSHOT</version>
+            <version>0.8</version>
         </dependency>
     </dependencies>
 

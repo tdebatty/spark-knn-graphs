@@ -29,8 +29,7 @@ import info.debatty.jinu.TestInterface;
 import info.debatty.spark.knngraphs.partitioner.JaBeJa;
 import info.debatty.spark.knngraphs.partitioner.KMedoids;
 import info.debatty.spark.knngraphs.partitioner.Partitioning;
-import info.debatty.spark.knngraphs.TimeBudget;
-import info.debatty.spark.knngraphs.eval.JWSimilarity;
+import info.debatty.spark.kmedoids.budget.TimeBudget;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -61,9 +60,11 @@ public class KMedoidsTest implements TestInterface {
                 JavaPairRDD.fromJavaRDD(tuples);
 
         KMedoids<double[]> partitioner =
-                new KMedoids<double[]>(
-                        new L2Similarity(), 16, IMBALANCE);
-        partitioner.setBudget(new TimeBudget((long) budget));
+                new KMedoids<>(
+                        new L2Similarity(),
+                        16,
+                        IMBALANCE,
+                        new TimeBudget((int) budget));
         Partitioning<double[]> partition = partitioner.partition(graph);
         double[] result = new double[] {
             JaBeJa.countCrossEdges(partition.graph, 16),

@@ -50,7 +50,6 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
-import org.apache.spark.Accumulator;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -165,14 +164,15 @@ public abstract class AbstractTest<T> {
                 similarity,
                 sc,
                 graph,
-                partitioning_medoids,
-                partitioning_iterations);
+                partitioning_medoids);
 
+        /*
         online_graph.setUpdateDepth(update_depth);
         online_graph.setSearchSpeedup(search_speedup);
         online_graph.setSearchRandomJumps(search_random_jumps);
         online_graph.setSearchExpansion(search_expansion);
         online_graph.setMedoidUpdateRatio(medoids_update_ratio);
+        */
 
         long time_partition_graph = System.currentTimeMillis() - start_time;
         log("DONE!");

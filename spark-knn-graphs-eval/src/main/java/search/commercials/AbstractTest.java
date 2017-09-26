@@ -23,21 +23,18 @@
  */
 package search.commercials;
 
-import info.debatty.java.datasets.tv.Sequence;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.Node;
 import info.debatty.jinu.TestInterface;
 import info.debatty.spark.knngraphs.ApproximateSearch;
 import info.debatty.spark.knngraphs.ExhaustiveSearch;
-import info.debatty.spark.knngraphs.Partitioner;
+import info.debatty.spark.knngraphs.partitioner.Partitioner;
 import info.debatty.spark.knngraphs.partitioner.Partitioning;
-import info.debatty.spark.knngraphs.TimeBudget;
 import java.util.LinkedList;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import partitioning.commercials.SequenceSimilarity;
 import partitioning.synthetic.L2Similarity;
 import scala.Tuple2;
 
@@ -50,7 +47,7 @@ public abstract class AbstractTest implements TestInterface {
     static String graph_path;
     static LinkedList<double[]> queries;
 
-    abstract Partitioner<double[]> getPartitioner();
+    abstract Partitioner<double[]> getPartitioner(int time_budget);
 
     @Override
     public final double[] run(final double budget) throws Exception {
@@ -67,12 +64,11 @@ public abstract class AbstractTest implements TestInterface {
         graph = graph.cache();
         graph.count();
 
-        Partitioner<double[]> partitioner = getPartitioner();
-        partitioner.setBudget(new TimeBudget((long) budget));
+        Partitioner<double[]> partitioner = getPartitioner((int) budget);
         Partitioning<double[]> partition = partitioner.partition(graph);
 
         ApproximateSearch<double[]> fast_search = new ApproximateSearch<>(
-                partition.graph, new L2Similarity());
+                partition.graph, new L2Similarity(), 16);
 
         ExhaustiveSearch<double[]> search = new ExhaustiveSearch<>(
                 partition.graph, new L2Similarity());

@@ -23,8 +23,9 @@
  */
 package search.commercials;
 
+import info.debatty.spark.kmedoids.budget.TimeBudget;
 import info.debatty.spark.knngraphs.partitioner.KMedoids;
-import info.debatty.spark.knngraphs.Partitioner;
+import info.debatty.spark.knngraphs.partitioner.Partitioner;
 import partitioning.synthetic.L2Similarity;
 
 /**
@@ -34,8 +35,9 @@ import partitioning.synthetic.L2Similarity;
 public class KMedoidsTest extends AbstractTest {
 
     @Override
-    final Partitioner<double[]> getPartitioner() {
-        return new KMedoids<>(new L2Similarity(), 16, 1.2);
+    final Partitioner<double[]> getPartitioner(final int budget) {
+        return new KMedoids<>(
+                new L2Similarity(), 16, 1.2, new TimeBudget(budget));
     }
 
 }

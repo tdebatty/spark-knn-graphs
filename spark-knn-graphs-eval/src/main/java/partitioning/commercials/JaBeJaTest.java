@@ -29,7 +29,7 @@ import info.debatty.java.graphs.Node;
 import info.debatty.jinu.TestInterface;
 import info.debatty.spark.knngraphs.partitioner.JaBeJa;
 import info.debatty.spark.knngraphs.partitioner.Partitioning;
-import info.debatty.spark.knngraphs.TimeBudget;
+import info.debatty.spark.knngraphs.partitioner.jabeja.TimeBudget;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -62,8 +62,8 @@ public class JaBeJaTest implements TestInterface {
         graph.count();
 
         // Partition
-        JaBeJa<Sequence> partitioner = new JaBeJa<>(16);
-        partitioner.setBudget(new TimeBudget((long) budget));
+        JaBeJa<Sequence> partitioner = new JaBeJa<>(
+                16, new TimeBudget((int) budget));
         Partitioning<Sequence> partition = partitioner.partition(graph);
 
         // Check result

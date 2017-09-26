@@ -28,9 +28,8 @@ import info.debatty.java.graphs.Node;
 import info.debatty.jinu.TestInterface;
 import info.debatty.spark.knngraphs.ApproximateSearch;
 import info.debatty.spark.knngraphs.ExhaustiveSearch;
-import info.debatty.spark.knngraphs.Partitioner;
+import info.debatty.spark.knngraphs.partitioner.Partitioner;
 import info.debatty.spark.knngraphs.partitioner.Partitioning;
-import info.debatty.spark.knngraphs.TimeBudget;
 import info.debatty.spark.knngraphs.eval.JWSimilarity;
 import java.util.LinkedList;
 import org.apache.spark.SparkConf;
@@ -48,7 +47,7 @@ public abstract class AbstractTest implements TestInterface {
     static String graph_path;
     static LinkedList<String> queries;
 
-    abstract Partitioner<String> getPartitioner();
+    abstract Partitioner<String> getPartitioner(int budget);
 
     @Override
     public final double[] run(final double budget) throws Exception {
@@ -63,14 +62,14 @@ public abstract class AbstractTest implements TestInterface {
         JavaPairRDD<Node<String>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
-        Partitioner<String> partitioner = getPartitioner();
-        partitioner.setBudget(new TimeBudget((long) budget));
+        Partitioner<String> partitioner = getPartitioner((int) budget);
         Partitioning<String> partition = partitioner.partition(graph);
 
         // Use default parameters
         ApproximateSearch<String> fast_search = new ApproximateSearch<>(
                 partition.graph,
-                new JWSimilarity());
+                new JWSimilarity(),
+                    16);
 
         ExhaustiveSearch<String> search = new ExhaustiveSearch<>(
                 partition.graph, new JWSimilarity());
