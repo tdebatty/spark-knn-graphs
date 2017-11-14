@@ -35,8 +35,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 
 /**
- * Perform a fast distributed nn search, but does not care for partitioning the
- * graph.
+ * Perform a fast distributed nn search, first partitioning the graph.
  * @author Thibault Debatty
  * @param <T>
  */
@@ -57,7 +56,7 @@ public class ApproximateSearch<T> {
      */
     public static final double DEFAULT_EXPANSION = 1.2;
 
-    // Fast search parameters
+    // State: the partitioned graph
     private final JavaRDD<Graph<T>> distributed_graph;
 
     /**
