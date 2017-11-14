@@ -74,7 +74,7 @@ public class ApproximateSearch<T> {
 
         // Partition the graph
         KMedoids<T> partitioner
-                = new KMedoids<T>(similarity, partitions);
+                = new KMedoids<>(similarity, partitions);
         JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
                 partitioner.partition(graph).graph;
 
