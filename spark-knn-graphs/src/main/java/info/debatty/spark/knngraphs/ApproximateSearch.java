@@ -184,6 +184,7 @@ class DistributedSearch<T>
         this.stats_accumulator = stats_accumulator;
     }
 
+    @Override
     public NeighborList call(final Graph<T> local_graph) throws Exception {
 
         StatisticsContainer local_stats = new StatisticsContainer();
