@@ -1,8 +1,10 @@
 package info.debatty.spark.knngraphs.builder;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.java.graphs.SimilarityInterface;
+import info.debatty.spark.knngraphs.DistributedGraph;
+import info.debatty.spark.knngraphs.Node;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -18,7 +20,7 @@ import org.apache.spark.api.java.JavaRDD;
  * @author Thibault Debatty
  * @param <T> the type of element the actual graph builder works with...
  */
-public abstract class DistributedGraphBuilder<T> implements Serializable {
+public abstract class DistributedGraphBuilder<T> {
 
     protected int k = 10;
     protected SimilarityInterface<T> similarity;
@@ -28,7 +30,7 @@ public abstract class DistributedGraphBuilder<T> implements Serializable {
      * Default value is 10
      * @param k
      */
-    public void setK(int k) {
+    public final void setK(final int k) {
         if (k <= 0) {
             throw new InvalidParameterException("k must be positive!");
         }
@@ -41,25 +43,26 @@ public abstract class DistributedGraphBuilder<T> implements Serializable {
      * NNDescent can use any similarity (even non metric).
      * @param similarity
      */
-    public void setSimilarity(SimilarityInterface<T> similarity) {
+    public final void setSimilarity(final SimilarityInterface<T> similarity) {
         this.similarity = similarity;
     }
 
     /**
      * Compute and return the graph.
-     * Children classes must implement _computeGraph(nodes) method
+     * Children classes must implement doComputeGraph(nodes) method
      *
      * @param nodes
      * @return the graph
-     * @throws java.lang.Exception
+     * @throws java.lang.Exception if cannot build graph
      */
-    public JavaPairRDD<Node<T>, NeighborList>
-        computeGraph(JavaRDD<Node<T>> nodes) throws Exception {
+    public final JavaPairRDD<Node<T>, NeighborList> computeGraph(
+            final JavaRDD<T> nodes) throws Exception {
+
         if (similarity == null) {
             throw new InvalidParameterException("Similarity is not defined!");
         }
 
-        return doComputeGraph(nodes);
+        return doComputeGraph(DistributedGraph.wrapNodes(nodes));
     }
 
     /**

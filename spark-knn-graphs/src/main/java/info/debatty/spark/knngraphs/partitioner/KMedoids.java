@@ -24,7 +24,7 @@
 package info.debatty.spark.knngraphs.partitioner;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.spark.kmedoids.Budget;
 import java.util.ArrayList;
@@ -107,17 +107,17 @@ public class KMedoids<T> implements Partitioner<T> {
      * @return
      */
     public final KMedoidsPartitioning<T> partition(
-            final JavaPairRDD<Node<T>, NeighborList> graph) {
+            final JavaPairRDD<T, NeighborList> graph) {
 
         KMedoidsPartitioning<T> solution = new KMedoidsPartitioning<T>();
 
-        Clusterer<Node<T>> clusterer = new Clusterer<Node<T>>();
+        Clusterer<T> clusterer = new Clusterer<T>();
         clusterer.setK(partitions);
         clusterer.setSimilarity(new ClusteringSimilarityAdapter<T>(similarity));
-        clusterer.setNeighborGenerator(new WindowNeighborGenerator<Node<T>>());
+        clusterer.setNeighborGenerator(new WindowNeighborGenerator<T>());
         clusterer.setImbalance(imbalance);
         clusterer.setBudget(budget);
-        Solution<Node<T>> medoids = clusterer.cluster(graph.keys());
+        Solution<T> medoids = clusterer.cluster(graph.keys());
 
         // Assign each node to the most similar medoid
         // Taking imbalance into account
@@ -143,16 +143,16 @@ public class KMedoids<T> implements Partitioner<T> {
  */
 class AssignToMedoidFunction<T>
         implements PairFlatMapFunction<
-            Iterator<Tuple2<Node<T>, NeighborList>>,
-            Node<T>,
+            Iterator<Tuple2<T, NeighborList>>,
+            T,
             NeighborList> {
 
-    private final ArrayList<Node<T>> medoids;
+    private final ArrayList<T> medoids;
     private final SimilarityInterface<T> similarity;
     private final double imbalance;
 
     AssignToMedoidFunction(
-            final ArrayList<Node<T>> medoids,
+            final ArrayList<T> medoids,
             final SimilarityInterface<T> similarity,
             final double imbalance) {
 
@@ -161,14 +161,14 @@ class AssignToMedoidFunction<T>
         this.imbalance = imbalance;
     }
 
-    public Iterator<Tuple2<Node<T>, NeighborList>> call(
-            final Iterator<Tuple2<Node<T>, NeighborList>> iterator) {
+    public Iterator<Tuple2<T, NeighborList>> call(
+            final Iterator<Tuple2<T, NeighborList>> iterator) {
 
         int k = medoids.size();
 
         // Collect all tuples
-        LinkedList<Tuple2<Node<T>, NeighborList>> tuples =
-                new LinkedList<Tuple2<Node<T>, NeighborList>>();
+        LinkedList<Tuple2<T, NeighborList>> tuples =
+                new LinkedList<Tuple2<T, NeighborList>>();
         while (iterator.hasNext()) {
             tuples.add(iterator.next());
         }
@@ -177,13 +177,13 @@ class AssignToMedoidFunction<T>
         double capacity = imbalance * n_local / k;
         int[] cluster_sizes = new int[k];
 
-        for (Tuple2<Node<T>, NeighborList> tuple : tuples) {
+        for (Tuple2<T, NeighborList> tuple : tuples) {
             double[] sims = new double[k];
             double[] values = new double[k];
 
             for (int i = 0; i < k; i++) {
                 sims[i] = similarity.similarity(
-                        tuple._1.value, medoids.get(i).value);
+                        tuple._1, medoids.get(i));
                 values[i] =
                         sims[i] * (1.0 - (double) cluster_sizes[i] / capacity);
             }
@@ -219,7 +219,7 @@ class AssignToMedoidFunction<T>
  * @author Thibault Debatty
  * @param <T>
  */
-class ClusteringSimilarityAdapter<T> implements Similarity<Node<T>> {
+class ClusteringSimilarityAdapter<T> implements Similarity<T> {
 
     private final SimilarityInterface<T> similarity;
 
@@ -227,8 +227,8 @@ class ClusteringSimilarityAdapter<T> implements Similarity<Node<T>> {
         this.similarity = similarity;
     }
 
-    public double similarity(final Node<T> obj1, final Node<T> obj2) {
-        return similarity.similarity(obj1.value, obj2.value);
+    public double similarity(final T obj1, final T obj2) {
+        return similarity.similarity(obj1, obj2);
     }
 }
 

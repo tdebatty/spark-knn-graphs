@@ -25,7 +25,7 @@
 package info.debatty.spark.knngraphs.builder;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.spark.knngraphs.DistributedGraph;
 import info.debatty.spark.knngraphs.JWSimilarity;
 import info.debatty.spark.knngraphs.KNNGraphCase;
@@ -48,7 +48,7 @@ public class NNDescentTest extends KNNGraphCase {
         System.out.println("NNDescent");
         System.out.println("=========");
 
-        JavaRDD<Node<String>> nodes = readSpam();
+        JavaRDD<String> nodes = readSpam();
 
         NNDescent builder = new NNDescent();
         builder.setK(K);
@@ -56,7 +56,7 @@ public class NNDescentTest extends KNNGraphCase {
         builder.setMaxIterations(5);
 
         // Compute the graph and force execution
-        JavaPairRDD<Node<String>, NeighborList> graph =
+        JavaPairRDD<String, NeighborList> graph =
                 builder.computeGraph(nodes);
         graph.cache();
 
@@ -64,7 +64,7 @@ public class NNDescentTest extends KNNGraphCase {
         assertEquals(nodes.count(), graph.count());
         assertEquals(K, graph.first()._2.size());
 
-        JavaPairRDD<Node<String>, NeighborList> exact_graph = readSpamGraph();
+        JavaPairRDD<String, NeighborList> exact_graph = readSpamGraph();
         long correct_edges = DistributedGraph.countCommonEdges(
                 exact_graph, graph);
 

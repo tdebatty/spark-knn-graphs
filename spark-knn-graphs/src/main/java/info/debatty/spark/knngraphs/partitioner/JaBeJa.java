@@ -23,11 +23,11 @@
  */
 package info.debatty.spark.knngraphs.partitioner;
 
+import info.debatty.spark.knngraphs.Node;
 import static com.google.common.primitives.Ints.max;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.DistributedGraph;
 import info.debatty.spark.knngraphs.partitioner.jabeja.Budget;
 import info.debatty.spark.knngraphs.partitioner.jabeja.UnlimitedBudget;
@@ -94,11 +94,11 @@ public class JaBeJa<T> implements Partitioner<T> {
      * @return
      */
     public final Partitioning<T> partition(
-            final JavaPairRDD<Node<T>, NeighborList> input_graph) {
+            final JavaPairRDD<T, NeighborList> input_graph) {
 
         Partitioning<T> solution = new Partitioning<T>();
-        LinkedList<JavaPairRDD<Node<T>, NeighborList>> previous_rdds =
-                new LinkedList<JavaPairRDD<Node<T>, NeighborList>>();
+        LinkedList<JavaPairRDD<T, NeighborList>> previous_rdds =
+                new LinkedList<JavaPairRDD<T, NeighborList>>();
 
         // Randomize
         solution.graph = randomize(input_graph);
@@ -163,24 +163,32 @@ public class JaBeJa<T> implements Partitioner<T> {
             final JavaPairRDD<Node<U>, NeighborList> graph,
             final int partitions) {
 
-        int[] color_index = buildColorIndex(graph);
+        Map<Long, Integer> color_index = buildColorIndex(graph);
         int[][] degrees_index = buildDegreesIndex(
                 graph, color_index, partitions);
 
         return countCrossEdges(color_index, degrees_index);
     }
 
+    /**
+     * Compute the imbalance between partitions.
+     * max / sum * partitions
+     * @param <U>
+     * @param graph
+     * @param partitions
+     * @return
+     */
     public static final <U> double computeBalance(
             final JavaPairRDD<Node<U>, NeighborList> graph,
             final int partitions) {
 
-        int[] color_index = buildColorIndex(graph);
+        Map<Long, Integer> color_index = buildColorIndex(graph);
         return computeBalance(color_index, partitions);
     }
 
 
-    final JavaPairRDD<Node<T>, NeighborList> randomize(
-            final JavaPairRDD<Node<T>, NeighborList> input_graph) {
+    final JavaPairRDD<T, NeighborList> randomize(
+            final JavaPairRDD<T, NeighborList> input_graph) {
 
         return input_graph.mapToPair(new RandomizeFunction<T>(partitions));
     }
@@ -193,17 +201,10 @@ public class JaBeJa<T> implements Partitioner<T> {
      * @param graph
      * @return
      */
-    public static final <U> int[] buildColorIndex(
+    public static final <U> Map<Long, Integer> buildColorIndex(
             final JavaPairRDD<Node<U>, NeighborList> graph) {
 
-        Map<Integer, Integer> index_map =
-                graph.mapToPair(new GetPartitionFunction<U>()).collectAsMap();
-
-        int[] index = new int[index_map.size()];
-        for (Map.Entry<Integer, Integer> entry : index_map.entrySet()) {
-            index[entry.getKey()] = entry.getValue();
-        }
-        return index;
+        return graph.mapToPair(new GetPartitionFunction<U>()).collectAsMap();
     }
 
     /**
@@ -216,10 +217,10 @@ public class JaBeJa<T> implements Partitioner<T> {
      * @return
      */
     public static final <U> double computeBalance(
-            final int[] color_index, final int partitions) {
+            final Map<Long, Integer> color_index, final int partitions) {
 
         int[] sizes = new int[partitions];
-        for (int color : color_index) {
+        for (int color : color_index.values()) {
             sizes[color]++;
         }
 
@@ -240,20 +241,14 @@ public class JaBeJa<T> implements Partitioner<T> {
         return sum;
     }
 
-    static final <U> int[][] buildDegreesIndex(
-            final JavaPairRDD<Node<U>, NeighborList> graph,
-            final int[] color_index,
+    static final <U> Map<Integer, int[]> buildDegreesIndex(
+            final JavaPairRDD<U, NeighborList> graph,
+            final Map<Long, Integer> color_index,
             final int partitions) {
 
-        Map<Integer, int[]> index_map = graph
+        return graph
                 .mapToPair(new GetDegreesFunction<U>(partitions, color_index))
                 .collectAsMap();
-
-        int[][] index = new int[index_map.size()][];
-        for (Map.Entry<Integer, int[]> entry : index_map.entrySet()) {
-            index[entry.getKey()] = entry.getValue();
-        }
-        return index;
     }
 
     /**
@@ -271,7 +266,7 @@ public class JaBeJa<T> implements Partitioner<T> {
      * @param index
      */
     final SwapResult<T> swap(
-            final JavaPairRDD<Node<T>, NeighborList> graph,
+            final JavaPairRDD<T, NeighborList> graph,
             final double tr,
             final int swaps_per_iteration) {
 
@@ -303,7 +298,7 @@ public class JaBeJa<T> implements Partitioner<T> {
         assert acks.size() <= requests.size();
 
         // Perform the swap
-        JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
+        JavaPairRDD<T, NeighborList> partitioned_graph =
                 graph.mapPartitionsToPair(new PerformSwapFunction<T>(acks));
 
         return new SwapResult(
@@ -335,8 +330,8 @@ public class JaBeJa<T> implements Partitioner<T> {
  */
 class PerformSwapFunction<T>
         implements PairFlatMapFunction<
-            Iterator<Tuple2<Node<T>, NeighborList>>,
-            Node<T>,
+            Iterator<Tuple2<T, NeighborList>>,
+            T,
             NeighborList> {
 
     private final Logger logger =
@@ -348,16 +343,15 @@ class PerformSwapFunction<T>
         this.acks = acks;
     }
 
-    public Iterator<Tuple2<Node<T>, NeighborList>> call(
-            final Iterator<Tuple2<Node<T>, NeighborList>> tuples_iterator) {
+    public Iterator<Tuple2<T, NeighborList>> call(
+            final Iterator<Tuple2<T, NeighborList>> tuples_iterator) {
 
         // Collect all nodes
-        HashMap<String, Node<T>> index = new HashMap<String, Node<T>>();
-        List<Tuple2<Node<T>, NeighborList>> tuples =
-                new LinkedList<Tuple2<Node<T>, NeighborList>>();
+        HashMap<String, T> index = new HashMap<>();
+        List<Tuple2<T, NeighborList>> tuples = new LinkedList<>();
 
         while (tuples_iterator.hasNext()) {
-            Tuple2<Node<T>, NeighborList> tuple  = tuples_iterator.next();
+            Tuple2<T, NeighborList> tuple  = tuples_iterator.next();
             index.put(tuple._1.id, tuple._1);
             tuples.add(tuple);
         }
@@ -366,7 +360,7 @@ class PerformSwapFunction<T>
 
         // Process the requests
         for (SwapRequest<T> request : acks) {
-            Node<T> local_src_node = index.get(request.src.id);
+            T local_src_node = index.get(request.src.id);
             if (local_src_node != null) {
                 logger.debug(
                         "Moving node {} to partition {}",
@@ -377,7 +371,7 @@ class PerformSwapFunction<T>
                         request.dst_color);
             }
 
-            Node<T> local_dst_node = index.get(request.dst.id);
+            T local_dst_node = index.get(request.dst.id);
             if (local_dst_node != null) {
                 logger.debug(
                         "Moving node {} to partition {}",
@@ -401,7 +395,7 @@ class PerformSwapFunction<T>
  */
 class ProcessRequestsFunction<T>
         implements FlatMapFunction<
-            Iterator<Tuple2<Node<T>, NeighborList>>,
+            Iterator<Tuple2<T, NeighborList>>,
             SwapRequest<T>> {
 
     private final List<SwapRequest> swap_requests;
@@ -413,12 +407,12 @@ class ProcessRequestsFunction<T>
     }
 
     public Iterator<SwapRequest<T>> call(
-            final Iterator<Tuple2<Node<T>, NeighborList>> tuples) {
+            final Iterator<Tuple2<T, NeighborList>> tuples) {
 
         // Collect all nodes
         Graph<T> local_graph = new Graph<T>();
         while (tuples.hasNext()) {
-            Tuple2<Node<T>, NeighborList> tuple  = tuples.next();
+            Tuple2<T, NeighborList> tuple  = tuples.next();
             local_graph.put(tuple._1, tuple._2);
         }
 
@@ -457,7 +451,7 @@ class ProcessRequestsFunction<T>
  */
 class MakeRequestsFunction<T>
         implements FlatMapFunction<
-            Iterator<Tuple2<Node<T>, NeighborList>>,
+            Iterator<Tuple2<T, NeighborList>>,
             SwapRequest> {
 
     private static final int SAMPLE_COUNT = 10;
@@ -488,13 +482,13 @@ class MakeRequestsFunction<T>
     }
 
     public Iterator<SwapRequest> call(
-            final Iterator<Tuple2<Node<T>, NeighborList>> tuples)
+            final Iterator<Tuple2<T, NeighborList>> tuples)
             throws Exception {
 
         // Collect all nodes
         local_graph = new Graph<T>();
         while (tuples.hasNext()) {
-            Tuple2<Node<T>, NeighborList> tuple  = tuples.next();
+            Tuple2<T, NeighborList> tuple  = tuples.next();
             local_graph.put(tuple._1, tuple._2);
         }
 
@@ -503,7 +497,7 @@ class MakeRequestsFunction<T>
         for (int i = 0; i < swaps_per_iteration; i++) {
 
             // Select one node at random
-            Node<T> src = pickRandomNode(local_graph);
+            T src = pickRandomNode(local_graph);
 
             if (nodes_will_swap.contains(src.id)) {
                 continue;
@@ -513,7 +507,8 @@ class MakeRequestsFunction<T>
 
             // Perform JaBeJa:
             // partner = findPartner(p.getNeighbors(), Tr)
-            Node<T> dst = findPartner(src, getNodes(local_graph.get(src)), tr);
+            T dst = findPartner(
+                    src, getNodes(local_graph.getNeighbors(src)), tr);
 
             // if (partner == null) : partner = findPartner(p.getSample, Tr)
             if (dst == null) {
@@ -534,23 +529,23 @@ class MakeRequestsFunction<T>
 
     }
 
-    private Node<T> pickRandomNode(final Graph<T> graph) {
+    private T pickRandomNode(final Graph<T> graph) {
         return pickRandomNodes(graph, 1).get(0);
     }
 
-    private List<Node<T>> pickRandomNodes(
+    private List<T> pickRandomNodes(
             final Graph<T> graph, final int count) {
-        List<Node<T>> list = new LinkedList<Node<T>>();
+        List<T> list = new LinkedList<T>();
 
-        Set<Node<T>> nodes = graph.getHashMap().keySet();
+        Set<T> nodes = graph.getHashMap().keySet();
         int n = nodes.size();
         Random rand = new Random();
 
         while (list.size() < count) {
             int position = rand.nextInt(n);
-            Iterator<Node<T>> iterator = nodes.iterator();
+            Iterator<T> iterator = nodes.iterator();
 
-            Node<T> node = null;
+            T node = null;
             for (int j = 0; j <= position; j++) {
                 node = iterator.next();
             }
@@ -563,13 +558,13 @@ class MakeRequestsFunction<T>
         return list;
     }
 
-    private Node<T> findPartner(
-            final Node<T> p, final List<Node<T>> nodes, final double tr) {
+    private T findPartner(
+            final T p, final List<T> nodes, final double tr) {
         logger.debug("Search a partner for swap");
         double highest_score = 0;
-        Node<T> partner = null;
+        T partner = null;
 
-        for (Node q : nodes) {
+        for (T q : nodes) {
             int p_color = getColor(p);
             int q_color = getColor(q);
             int dpp = getDegree(p, p_color);
@@ -597,15 +592,15 @@ class MakeRequestsFunction<T>
      * @param get
      * @return
      */
-    private List<Node<T>> getNodes(final NeighborList neighborlist) {
-        LinkedList<Node<T>> nodes = new LinkedList<Node<T>>();
-        for (Neighbor neighbor : neighborlist) {
-            nodes.add(neighbor.node);
+    private List<T> getNodes(final NeighborList neighborlist) {
+        LinkedList<T> nodes = new LinkedList<>();
+        for (Neighbor<T> neighbor : neighborlist) {
+            nodes.add(neighbor.getNode());
         }
         return nodes;
     }
 
-    private int getColor(final Node<T> node) {
+    private int getColor(final T node) {
         return color_index[Integer.valueOf(node.id)];
     }
 
@@ -616,7 +611,7 @@ class MakeRequestsFunction<T>
      * @param color
      * @return
      */
-    private int getDegree(final Node<T> node, final int color) {
+    private int getDegree(final T node, final int color) {
         return degrees_index[Integer.valueOf(node.id)][color];
 
     }
@@ -628,22 +623,23 @@ class MakeRequestsFunction<T>
  * @param <T>
  */
 class GetDegreesFunction<T>
-    implements PairFunction<Tuple2<Node<T>, NeighborList>, Integer, int[]> {
+    implements PairFunction<Tuple2<T, NeighborList>, Integer, int[]> {
 
     private final int partitions;
-    private final int[] color_index;
+    private final Map<Long, Integer> color_index;
 
-    GetDegreesFunction(final int partitions, final int[] color_index) {
+    GetDegreesFunction(
+            final int partitions, final Map<Long, Integer> color_index) {
         this.partitions = partitions;
         this.color_index = color_index;
     }
 
     public Tuple2<Integer, int[]> call(
-            final Tuple2<Node<T>, NeighborList> tuple) {
+            final Tuple2<T, NeighborList> tuple) {
 
         int[] degrees = new int[partitions];
-        for (Neighbor neighbor : tuple._2) {
-            degrees[getColor(neighbor.node)]++;
+        for (Neighbor<T> neighbor : tuple._2) {
+            degrees[getColor(neighbor.getNode())]++;
         }
 
         return new Tuple2<Integer, int[]>(
@@ -652,7 +648,7 @@ class GetDegreesFunction<T>
     }
 
     private int getColor(final Node<T> node) {
-        return color_index[Integer.valueOf(node.id)];
+        return color_index.get(node.id);
     }
 
 }
@@ -663,41 +659,30 @@ class GetDegreesFunction<T>
  * @param <T>
  */
 class GetPartitionFunction<T>
-    implements PairFunction<Tuple2<Node<T>, NeighborList>, Integer, Integer> {
+    implements PairFunction<Tuple2<Node<T>, NeighborList>, Long, Integer> {
 
-    private final Logger logger = LoggerFactory.getLogger(
-            GetPartitionFunction.class);
-
-    public Tuple2<Integer, Integer> call(
+    @Override
+    public Tuple2<Long, Integer> call(
             final Tuple2<Node<T>, NeighborList> tuple)
             throws Exception {
 
-        Integer id = Integer.valueOf(tuple._1.id);
-        Integer partition =
-                (Integer) tuple._1.getAttribute(NodePartitioner.PARTITION_KEY);
+        long id = tuple._1.id;
+        int partition = tuple._1.partition;
 
-        if (partition == null) {
-            logger.error("Node has a null partition value : "
-                    + tuple._1.getAttribute(NodePartitioner.PARTITION_KEY)
-                    + " " + tuple._1);
-
-            partition = 0;
-        }
-
-        return new Tuple2<Integer, Integer>(id, partition);
+        return new Tuple2<>(id, partition);
     }
 
 }
 
 class SwapRequest<T> implements Serializable {
-    public final Node<T> src;
-    public final Node<T> dst;
+    public final T src;
+    public final T dst;
     public final int src_color;
     public final int dst_color;
 
     SwapRequest(
-            final Node<T> src,
-            final Node<T> dst,
+            final T src,
+            final T dst,
             final int src_color,
             final int dst_color) {
 
@@ -715,11 +700,11 @@ class SwapRequest<T> implements Serializable {
 
 class SwapResult<T> {
 
-    public final JavaPairRDD<Node<T>, NeighborList> graph;
+    public final JavaPairRDD<T, NeighborList> graph;
     public final int swaps;
 
     SwapResult(
-            final JavaPairRDD<Node<T>, NeighborList> graph, final int swaps) {
+            final JavaPairRDD<T, NeighborList> graph, final int swaps) {
         this.graph = graph;
         this.swaps = swaps;
     }

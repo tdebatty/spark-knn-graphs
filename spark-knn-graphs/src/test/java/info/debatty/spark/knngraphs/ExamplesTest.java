@@ -33,16 +33,31 @@ import org.reflections.Reflections;
  */
 public class ExamplesTest extends TestCase {
 
-    public void testExamples()
-            throws InstantiationException, IllegalAccessException {
+    /**
+     * Try to run all examples.
+     *
+     */
+    public final void testExamples() throws Exception {
         Reflections reflections = new Reflections(
                 "info.debatty.spark.knngraphs.example");
         Set<Class<? extends Runnable>> examples =
                 reflections.getSubTypesOf(Runnable.class);
 
+        boolean fail = false;
+
         for (Class<? extends Runnable> example_class : examples) {
-            Runnable instance = example_class.newInstance();
-            instance.run();
+            try {
+                Runnable instance = example_class.newInstance();
+                instance.run();
+            } catch (Exception ex) {
+                System.out.println("Example failed: "
+                        + example_class.getCanonicalName());
+                fail = true;
+            }
+        }
+
+        if (fail) {
+            throw new Exception("One or more example(s) failed!");
         }
     }
 }

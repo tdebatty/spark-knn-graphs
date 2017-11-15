@@ -25,7 +25,6 @@ package info.debatty.spark.knngraphs;
 
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -41,7 +40,7 @@ import scala.Tuple2;
  * @param <T>
  */
 public class ExhaustiveSearch<T> implements Serializable {
-    private final JavaPairRDD<Node<T>, NeighborList> graph;
+    private final JavaPairRDD<T, NeighborList> graph;
     private final SimilarityInterface<T> similarity;
 
     /**
@@ -50,7 +49,7 @@ public class ExhaustiveSearch<T> implements Serializable {
      * @param similarity
      */
     public ExhaustiveSearch(
-            final JavaPairRDD<Node<T>, NeighborList> graph,
+            final JavaPairRDD<T, NeighborList> graph,
             final SimilarityInterface<T> similarity) {
         this.graph = graph;
         this.similarity = similarity;
@@ -62,7 +61,7 @@ public class ExhaustiveSearch<T> implements Serializable {
      * @param k
      * @return
      */
-    public final NeighborList search(final Node<T> query, final int k) {
+    public final NeighborList search(final T query, final int k) {
         JavaRDD<NeighborList> candidates_neighborlists =
                 graph.mapPartitions(new SearchFunction(k, query, similarity));
 
@@ -84,16 +83,16 @@ public class ExhaustiveSearch<T> implements Serializable {
  */
 class SearchFunction<T>
         implements FlatMapFunction<
-            Iterator<Tuple2<Node<T>, NeighborList>>,
+            Iterator<Tuple2<T, NeighborList>>,
             NeighborList> {
 
     private final int k;
-    private final Node<T> query;
+    private final T query;
     private final SimilarityInterface<T> similarity;
 
     SearchFunction(
             final int k,
-            final Node<T> query,
+            final T query,
             final SimilarityInterface<T> similarity) {
 
         this.k = k;
@@ -102,13 +101,13 @@ class SearchFunction<T>
     }
 
     public Iterator<NeighborList> call(
-            final Iterator<Tuple2<Node<T>, NeighborList>> tuples_iterator) {
+            final Iterator<Tuple2<T, NeighborList>> tuples_iterator) {
         NeighborList local_nl = new NeighborList(k);
         while (tuples_iterator.hasNext()) {
-            Node<T> next = tuples_iterator.next()._1;
+            T next = tuples_iterator.next()._1;
             local_nl.add(new Neighbor(
                     next,
-                    similarity.similarity(query.value, next.value)));
+                    similarity.similarity(query, next)));
         }
 
         ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);

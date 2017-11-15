@@ -27,7 +27,7 @@ import info.debatty.java.datasets.gaussian.Dataset;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.spark.knngraphs.L2Similarity;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -76,7 +76,7 @@ public class OnlineTest extends TestCase implements Serializable {
 
         System.out.println("Create some random nodes");
 
-        List<Node<double[]>> data = new ArrayList<Node<double[]>>();
+        List<double[]> data = new ArrayList<double[]>();
         Iterator<double[]> dataset
                 = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
                 .setOverlap(Dataset.Builder.Overlap.MEDIUM)
@@ -85,7 +85,7 @@ public class OnlineTest extends TestCase implements Serializable {
 
         while (data.size() < N) {
             double[] point = dataset.next();
-            data.add(new Node<double[]>(
+            data.add(new double[](
                     String.valueOf(data.size()),
                     point));
         }
@@ -97,14 +97,14 @@ public class OnlineTest extends TestCase implements Serializable {
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Parallelize the dataset in Spark
-        JavaRDD<Node<double[]>> nodes = sc.parallelize(data);
+        JavaRDD<double[]> nodes = sc.parallelize(data);
 
         Brute brute = new Brute();
         brute.setK(K);
         brute.setSimilarity(new L2Similarity());
 
         System.out.println("Compute the graph and force execution");
-        JavaPairRDD<Node<double[]>, NeighborList> graph
+        JavaPairRDD<double[], NeighborList> graph
                 = brute.computeGraph(nodes);
         graph.cache();
         graph.count();
@@ -122,20 +122,16 @@ public class OnlineTest extends TestCase implements Serializable {
         long start_time = System.currentTimeMillis();
         for (int i = 0; i < N_TEST; i++) {
             double[] point = dataset.next();
-            Node<double[]> new_node =
-                    new Node<double[]>(
-                            String.valueOf(data.size()),
-                            point);
 
             StatisticsAccumulator stats_accumulator
                     = new StatisticsAccumulator();
             sc.sc().register(stats_accumulator);
 
-            online_graph.fastAdd(new_node, stats_accumulator);
+            online_graph.fastAdd(point, stats_accumulator);
             //System.out.println(stats_accumulator.value());
 
             // keep the node for later testing
-            data.add(new_node);
+            data.add(point);
         }
         System.out.println("Time: "
                 + (System.currentTimeMillis() - start_time)
@@ -182,7 +178,7 @@ public class OnlineTest extends TestCase implements Serializable {
         Logger.getLogger("akka").setLevel(Level.WARN);
 
         System.out.println("Create some random nodes");
-        List<Node<double[]>> data = new ArrayList<Node<double[]>>();
+        List<double[]> data = new ArrayList<double[]>();
         Iterator<double[]> dataset
                 = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
                 .setOverlap(Dataset.Builder.Overlap.MEDIUM)
@@ -191,7 +187,7 @@ public class OnlineTest extends TestCase implements Serializable {
 
         while (data.size() < N) {
             double[] point = dataset.next();
-            data.add(new Node<double[]>(
+            data.add(new double[](
                     String.valueOf(data.size()),
                     point));
         }
@@ -203,14 +199,14 @@ public class OnlineTest extends TestCase implements Serializable {
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Parallelize the dataset in Spark
-        JavaRDD<Node<double[]>> nodes = sc.parallelize(data);
+        JavaRDD<double[]> nodes = sc.parallelize(data);
 
         Brute brute = new Brute();
         brute.setK(K);
         brute.setSimilarity(new L2Similarity());
 
         System.out.println("Compute the graph and force execution");
-        JavaPairRDD<Node<double[]>, NeighborList> graph
+        JavaPairRDD<double[], NeighborList> graph
                 = brute.computeGraph(nodes);
         graph.cache();
         graph.count();
@@ -257,7 +253,7 @@ public class OnlineTest extends TestCase implements Serializable {
         }
 
         // Check all nodes have K neighbors
-        for (Node<double[]> node : local_approximate_graph.getNodes()) {
+        for (double[] node : local_approximate_graph.getNodes()) {
             assertEquals(K, local_approximate_graph.get(node).size());
 
             // Check the old nodes are completely removed
@@ -276,10 +272,10 @@ public class OnlineTest extends TestCase implements Serializable {
     }
 
     private Graph<double[]> list2graph(
-            final List<Tuple2<Node<double[]>, NeighborList>> list) {
+            final List<Tuple2<double[], NeighborList>> list) {
 
         Graph<double[]> graph = new Graph<double[]>();
-        for (Tuple2<Node<double[]>, NeighborList> tuple : list) {
+        for (Tuple2<double[], NeighborList> tuple : list) {
             graph.put(tuple._1, tuple._2);
         }
 

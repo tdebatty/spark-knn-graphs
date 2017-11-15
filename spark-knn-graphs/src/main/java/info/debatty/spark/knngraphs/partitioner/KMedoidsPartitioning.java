@@ -23,7 +23,7 @@
  */
 package info.debatty.spark.knngraphs.partitioner;
 
-import info.debatty.java.graphs.Node;
+
 import java.util.ArrayList;
 
 /**
@@ -31,6 +31,6 @@ import java.util.ArrayList;
  * @author tibo
  */
 public class KMedoidsPartitioning<T> extends Partitioning<T> {
-    public ArrayList<Node<T>> medoids;
+    public ArrayList<T> medoids;
 
 }

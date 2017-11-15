@@ -3,7 +3,7 @@ package info.debatty.spark.knngraphs.example;
 import info.debatty.spark.knngraphs.builder.NNDescent;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.java.graphs.SimilarityInterface;
 import java.io.Serializable;
 import java.util.ArrayList;

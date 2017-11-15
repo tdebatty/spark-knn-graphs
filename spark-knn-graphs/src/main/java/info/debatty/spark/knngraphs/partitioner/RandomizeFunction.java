@@ -24,9 +24,8 @@
 
 package info.debatty.spark.knngraphs.partitioner;
 
-import info.debatty.spark.knngraphs.partitioner.NodePartitioner;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import java.util.Random;
 import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
@@ -43,8 +42,8 @@ import scala.Tuple2;
  */
 class RandomizeFunction<T>
         implements PairFunction<
-            Tuple2<Node<T>, NeighborList>,
-            Node<T>,
+            Tuple2<T, NeighborList>,
+            T,
             NeighborList> {
 
     private final int partitions;
@@ -54,8 +53,8 @@ class RandomizeFunction<T>
         this.partitions = partitions;
     }
 
-    public Tuple2<Node<T>, NeighborList> call(
-            final Tuple2<Node<T>, NeighborList> tuple) {
+    public Tuple2<T, NeighborList> call(
+            final Tuple2<T, NeighborList> tuple) {
 
         if (rand == null) {
             rand = new Random();

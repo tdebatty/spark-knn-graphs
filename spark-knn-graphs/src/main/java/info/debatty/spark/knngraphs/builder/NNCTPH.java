@@ -24,8 +24,8 @@
 
 package info.debatty.spark.knngraphs.builder;
 
-import info.debatty.java.graphs.Node;
 import info.debatty.java.spamsum.ESSum;
+import info.debatty.spark.knngraphs.Node;
 import java.util.ArrayList;
 import java.util.Iterator;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -40,23 +40,39 @@ import scala.Tuple2;
 public class NNCTPH extends AbstractPartitioningBuilder<String> {
 
     @Override
-    protected JavaPairRDD<Integer, Node<String>> _binNodes(JavaRDD<Node<String>> nodes) {
-        return nodes.flatMapToPair(
-                new PairFlatMapFunction<Node<String>, Integer, Node<String>>() {
+    protected JavaPairRDD<Integer, Node<String>> bin(
+            final JavaRDD<Node<String>> nodes) {
 
-            public Iterator<Tuple2<Integer, Node<String>>> call(Node<String> n) throws Exception {
+        return nodes.flatMapToPair(new NNCTPHBinFunction(stages, buckets));
+    }
+}
 
-                ESSum ess = new ESSum(stages, buckets, 1);
+/**
+ *
+ * @author tibo
+ */
+class NNCTPHBinFunction
+        implements PairFlatMapFunction<Node<String>, Integer, Node<String>> {
 
-                ArrayList<Tuple2<Integer, Node<String>>> r = new ArrayList<Tuple2<Integer, Node<String>>>();
-                int[] hash = ess.HashString(n.value);
-                for (int v : hash) {
-                    r.add(new Tuple2<Integer, Node<String>>(v, n));
-                }
+    private final int stages;
+    private final int buckets;
 
-                return r.iterator();
-            }
-        });
+    NNCTPHBinFunction(final int stages, final int buckets) {
+        this.stages = stages;
+        this.buckets = buckets;
     }
 
+    @Override
+    public Iterator<Tuple2<Integer, Node<String>>> call(final Node<String> n) {
+
+        ESSum ess = new ESSum(stages, buckets, 1);
+
+        ArrayList<Tuple2<Integer, Node<String>>> r = new ArrayList<>();
+        int[] hash = ess.HashString(n.value);
+        for (int v : hash) {
+            r.add(new Tuple2<>(v, n));
+        }
+
+        return r.iterator();
+    }
 }

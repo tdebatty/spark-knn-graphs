@@ -25,7 +25,7 @@
 package info.debatty.spark.knngraphs.partitioner;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.spark.knngraphs.DistributedGraph;
 import info.debatty.spark.knngraphs.KNNGraphCase;
 import info.debatty.spark.knngraphs.partitioner.jabeja.TimeBudget;
@@ -48,12 +48,12 @@ public class JaBeJaTest extends KNNGraphCase {
         System.out.println("BuildIndex");
         System.out.println("==========");
 
-        JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
+        JavaPairRDD<String, NeighborList> graph = readSpamGraph();
 
         JaBeJa<String> jbj = new JaBeJa<String>(PARTITIONS);
         graph = jbj.randomize(graph);
         graph.cache();
-        Tuple2<Node<String>, NeighborList> first = graph.first();
+        Tuple2<String, NeighborList> first = graph.first();
         int first_partition = (Integer) first._1
                 .getAttribute(NodePartitioner.PARTITION_KEY);
         int first_id = Integer.valueOf(first._1.id);
@@ -70,7 +70,7 @@ public class JaBeJaTest extends KNNGraphCase {
         System.out.println("Swap");
         System.out.println("====");
 
-        JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
+        JavaPairRDD<String, NeighborList> graph = readSpamGraph();
 
         JaBeJa<String> jbj = new JaBeJa<String>(PARTITIONS);
 
@@ -104,7 +104,7 @@ public class JaBeJaTest extends KNNGraphCase {
         System.out.println("TimeBudget");
         System.out.println("==========");
 
-        JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
+        JavaPairRDD<String, NeighborList> graph = readSpamGraph();
 
         JaBeJa<String> jbj = new JaBeJa<String>(
                 PARTITIONS,
@@ -120,9 +120,9 @@ public class JaBeJaTest extends KNNGraphCase {
      * @param graph
      */
     private void testPartitionNotNull(
-            final JavaPairRDD<Node<String>, NeighborList> graph) {
+            final JavaPairRDD<String, NeighborList> graph) {
 
-        for (Tuple2<Node<String>, NeighborList> tuple : graph.collect()) {
+        for (Tuple2<String, NeighborList> tuple : graph.collect()) {
             assertNotNull("Partition id is null!", tuple._1.getAttribute(
                     NodePartitioner.PARTITION_KEY));
         }

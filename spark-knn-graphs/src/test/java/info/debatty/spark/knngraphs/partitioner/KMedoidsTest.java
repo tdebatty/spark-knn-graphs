@@ -24,7 +24,7 @@
 package info.debatty.spark.knngraphs.partitioner;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.spark.knngraphs.JWSimilarity;
 import info.debatty.spark.knngraphs.L2Similarity;
 import info.debatty.spark.knngraphs.KNNGraphCase;
@@ -47,7 +47,7 @@ public class KMedoidsTest extends KNNGraphCase {
         System.out.println("Partition");
         System.out.println("=========");
 
-        JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
+        JavaPairRDD<String, NeighborList> graph = readSpamGraph();
 
         KMedoids<String> partitioner
                 = new KMedoids<String>(
@@ -71,7 +71,7 @@ public class KMedoidsTest extends KNNGraphCase {
         System.out.println("Imbalance");
         System.out.println("=========");
 
-        JavaPairRDD<Node<double[]>, NeighborList> graph = readSyntheticGraph();
+        JavaPairRDD<double[], NeighborList> graph = readSyntheticGraph();
 
         // Partition
         KMedoids<double[]> partitioner

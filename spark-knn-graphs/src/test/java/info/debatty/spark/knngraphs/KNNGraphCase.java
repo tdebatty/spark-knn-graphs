@@ -24,12 +24,11 @@
 package info.debatty.spark.knngraphs;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.spark.SparkCase;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import scala.Tuple2;
@@ -45,35 +44,29 @@ public class KNNGraphCase extends SparkCase {
      * @return
      * @throws IOException if we cannot read the file
      */
-    public final JavaRDD<Node<String>> readSpam() throws IOException {
+    public final JavaRDD<String> readSpam() throws IOException {
         String file =  getClass().getClassLoader().
                 getResource("726-unique-spams").getPath();
 
         // Read the file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
 
-        // Convert to nodes
-        List<Node<String>> data = new ArrayList<Node<String>>();
-        for (String s : strings) {
-            data.add(new Node<String>(String.valueOf(data.size()), s));
-        }
-
         // Parallelize the dataset in Spark
-        JavaRDD<Node<String>> nodes = getSpark().parallelize(data);
-        return nodes;
+        JavaRDD<String> data = getSpark().parallelize(strings);
+        return data;
     }
 
     /**
      * Read the exact SPAM graph from resources.
      * @return
      */
-    public final JavaPairRDD<Node<String>, NeighborList> readSpamGraph() {
+    public final JavaPairRDD<String, NeighborList> readSpamGraph() {
         String file =  getClass().getClassLoader().
                 getResource("graph-spam").getPath();
 
-        JavaRDD<Tuple2<Node<String>, NeighborList>> tuples =
+        JavaRDD<Tuple2<String, NeighborList>> tuples =
                 getSpark().objectFile(file, 8);
-        JavaPairRDD<Node<String>, NeighborList> graph =
+        JavaPairRDD<String, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
         return graph;
@@ -83,15 +76,15 @@ public class KNNGraphCase extends SparkCase {
      * Read the exact synthetic graph from resources.
      * @return
      */
-    public final JavaPairRDD<Node<double[]>, NeighborList>
+    public final JavaPairRDD<double[], NeighborList>
         readSyntheticGraph() {
 
         String file =  getClass().getClassLoader().
                 getResource("graph-synthetic-10K").getPath();
 
-        JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
+        JavaRDD<Tuple2<double[], NeighborList>> tuples =
                 getSpark().objectFile(file, 8);
-        JavaPairRDD<Node<double[]>, NeighborList> graph =
+        JavaPairRDD<double[], NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
         return graph;

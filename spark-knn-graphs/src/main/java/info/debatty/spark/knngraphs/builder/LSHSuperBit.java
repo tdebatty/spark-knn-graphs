@@ -1,6 +1,7 @@
 package info.debatty.spark.knngraphs.builder;
 
-import info.debatty.java.graphs.Node;
+
+import info.debatty.spark.knngraphs.Node;
 import java.util.ArrayList;
 import java.util.Iterator;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -22,7 +23,9 @@ abstract class LSHSuperBit<T> extends AbstractPartitioningBuilder<T> {
     }
 
     @Override
-    protected JavaPairRDD<Integer, Node<T>> _binNodes(JavaRDD<Node<T>> nodes)  throws Exception {
+    protected JavaPairRDD<Integer, Node<T>> bin(final JavaRDD<Node<T>> nodes)
+            throws Exception {
+
         lsh = new info.debatty.java.lsh.LSHSuperBit(stages, buckets, this.dim);
 
 

@@ -1,13 +1,12 @@
 package info.debatty.spark.knngraphs.example;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+import info.debatty.spark.knngraphs.Node;
+
 import info.debatty.spark.knngraphs.builder.LSHSuperBitDoubleArray;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -36,16 +35,16 @@ public class LSHSuperBitExample implements Runnable {
         int d = 100; // dimensions
         int n = 1000; // items
         Random r = new Random();
-        List<Node<double[]>> data = new ArrayList<>();
+        List<double[]> data = new ArrayList<>();
         for (int i = 0; i < n; i++) {
             double[] vector = new double[d];
             for (int j = 0; j < d; j++) {
                 vector[j] = r.nextDouble() * 100;
             }
 
-            data.add(new Node(String.valueOf(i), vector));
+            data.add(vector);
         }
-        JavaRDD<Node<double[]>> nodes = sc.parallelize(data);
+        JavaRDD<double[]> nodes = sc.parallelize(data);
 
 
         // Configure LSHSuperBit graph builder

@@ -3,8 +3,8 @@ package info.debatty.spark.knngraphs.builder;
 
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
+import info.debatty.spark.knngraphs.Node;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -55,6 +55,7 @@ public class NNDescent<T> extends DistributedGraphBuilder<T> {
      * @param nodes
      * @return
      */
+    @Override
     protected final JavaPairRDD<Node<T>, NeighborList> doComputeGraph(
             final JavaRDD<Node<T>> nodes) {
 
@@ -78,10 +79,9 @@ public class NNDescent<T> extends DistributedGraphBuilder<T> {
             JavaPairRDD<Node<T>, Node<T>> exploded_graph = graph.flatMapToPair(
                     new ReverseFunction<T>());
 
-
             // Update
             graph = exploded_graph.groupByKey().flatMapToPair(
-                    new UpdateNLFunction<T>(similarity, k));
+                    new UpdateNLFunction<>(similarity, k));
 
             // Filter
             graph = graph.groupByKey().mapToPair(new FilterFunction<T>(k));
@@ -101,12 +101,11 @@ class RandomizeFunction<T>
 
     private final Random rand = new Random();
 
-    public Iterator<Tuple2<Integer, Node<T>>> call(final Node<T> n)
-            throws Exception {
-        ArrayList<Tuple2<Integer, Node<T>>> r =
-                new ArrayList<Tuple2<Integer, Node<T>>>();
+    @Override
+    public Iterator<Tuple2<Integer, Node<T>>> call(final Node<T> n) {
+        ArrayList<Tuple2<Integer, Node<T>>> r = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            r.add(new Tuple2<Integer, Node<T>>(rand.nextInt(20), n));
+            r.add(new Tuple2<>(rand.nextInt(20), n));
         }
 
         return r.iterator();
@@ -131,17 +130,18 @@ class AssociateFunction<T>
         this.k = k;
     }
 
+    @Override
     public Iterator<Tuple2<Node<T>, NeighborList>> call(
             final Tuple2<Integer, Iterable<Node<T>>> tuple) throws Exception {
 
         // Read all nodes in bucket
-        ArrayList<Node<T>> nodes = new ArrayList<Node<T>>();
+        ArrayList<Node<T>> nodes = new ArrayList<>();
         for (Node<T> n : tuple._2) {
             nodes.add(n);
         }
 
         ArrayList<Tuple2<Node<T>, NeighborList>> r =
-                new ArrayList<Tuple2<Node<T>, NeighborList>>();
+                new ArrayList<>();
         for (Node<T> n : nodes) {
             NeighborList nnl = new NeighborList(k);
             for (int i = 0; i < k; i++) {
@@ -150,7 +150,7 @@ class AssociateFunction<T>
                         Double.MAX_VALUE));
             }
 
-            r.add(new Tuple2<Node<T>, NeighborList>(n, nnl));
+            r.add(new Tuple2<>(n, nnl));
         }
 
         return r.iterator();
@@ -170,6 +170,7 @@ class MergeFunction
         this.k = k;
     }
 
+    @Override
     public NeighborList call(final NeighborList nl1, final NeighborList nl2)
             throws Exception {
         NeighborList nnl = new NeighborList(k);
@@ -190,16 +191,14 @@ class ReverseFunction<T>
             Node<T>,
             Node<T>> {
 
+    @Override
     public Iterator<Tuple2<Node<T>, Node<T>>> call(
-            final Tuple2<Node<T>, NeighborList> tuple) throws Exception {
+            final Tuple2<Node<T>, NeighborList> tuple) {
 
-        ArrayList<Tuple2<Node<T>, Node<T>>> r =
-                new ArrayList<Tuple2<Node<T>, Node<T>>>();
-
-        for (Neighbor neighbor : tuple._2()) {
-
-            r.add(new Tuple2<Node<T>, Node<T>>(tuple._1(), neighbor.node));
-            r.add(new Tuple2<Node<T>, Node<T>>(neighbor.node, tuple._1()));
+        ArrayList<Tuple2<Node<T>, Node<T>>> r = new ArrayList<>();
+        for (Neighbor<Node<T>> neighbor : tuple._2()) {
+            r.add(new Tuple2<>(tuple._1(), neighbor.getNode()));
+            r.add(new Tuple2<>(neighbor.getNode(), tuple._1()));
         }
         return r.iterator();
 
@@ -225,11 +224,12 @@ class UpdateNLFunction<T>
         this.k = k;
     }
 
+    @Override
     public Iterator<Tuple2<Node<T>, NeighborList>> call(
             final Tuple2<Node<T>, Iterable<Node<T>>> tuple) throws Exception {
 
         // Fetch all nodes
-        ArrayList<Node<T>> nodes = new ArrayList<Node<T>>();
+        ArrayList<Node<T>> nodes = new ArrayList<>();
         nodes.add(tuple._1);
 
         for (Node<T> n : tuple._2) {
@@ -238,7 +238,7 @@ class UpdateNLFunction<T>
 
         //
         ArrayList<Tuple2<Node<T>, NeighborList>> r =
-                new ArrayList<Tuple2<Node<T>, NeighborList>>(nodes.size());
+                new ArrayList<>(nodes.size());
 
         for (Node<T> n : nodes) {
             NeighborList nl = new NeighborList(k);
@@ -253,7 +253,7 @@ class UpdateNLFunction<T>
                         similarity.similarity(n.value, other.value)));
             }
 
-            r.add(new Tuple2<Node<T>, NeighborList>(n, nl));
+            r.add(new Tuple2<>(n, nl));
         }
 
         return r.iterator();
@@ -273,6 +273,7 @@ class FilterFunction<T>
         this.k = k;
     }
 
+    @Override
     public Tuple2<Node<T>, NeighborList> call(
             final Tuple2<Node<T>, Iterable<NeighborList>> tuple)
             throws Exception {
@@ -282,6 +283,6 @@ class FilterFunction<T>
             nl.addAll(other);
         }
 
-        return new Tuple2<Node<T>, NeighborList>(tuple._1, nl);
+        return new Tuple2<>(tuple._1, nl);
     }
 }

@@ -30,6 +30,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
 
@@ -57,6 +58,7 @@ public class SparkTest extends SparkCase implements Serializable {
 
         JavaRDD<String> mapped =
                 data.flatMap(new FlatMapFunction<String, String>() {
+            @Override
             public Iterator<String> call(final String arg0) throws Exception {
                 return new LinkedList<String>().iterator();
             }
@@ -64,5 +66,19 @@ public class SparkTest extends SparkCase implements Serializable {
         });
 
         assertEquals(0, mapped.count());
+    }
+
+    public final void testZip() throws IOException {
+
+        // Read the file
+        String file =  getClass().getClassLoader().
+                getResource("726-unique-spams").getPath();
+        ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
+
+        // Parallelize the dataset in Spark
+        JavaRDD<String> data = getSpark().parallelize(strings);
+
+        JavaPairRDD<String, Long> ids = data.zipWithUniqueId();
+
     }
 }

@@ -26,7 +26,7 @@ package info.debatty.spark.knngraphs;
 
 import info.debatty.java.datasets.gaussian.Dataset;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import java.util.Iterator;
 import org.apache.spark.api.java.JavaPairRDD;
 
@@ -50,7 +50,7 @@ public class ApproximateSearchTest extends KNNGraphCase {
         System.out.println("Search");
         System.out.println("======");
 
-        JavaPairRDD<Node<double[]>, NeighborList> graph = readSyntheticGraph();
+        JavaPairRDD<double[], NeighborList> graph = readSyntheticGraph();
 
         ExhaustiveSearch<double[]> exhaustive_search =
                 new ExhaustiveSearch<double[]>(graph, new L2Similarity());
@@ -71,11 +71,7 @@ public class ApproximateSearchTest extends KNNGraphCase {
                 .iterator();
         int correct = 0;
         for (int i = 0; i < N_TEST; i++) {
-            double[] point = queryies.next();
-            Node<double[]> query =
-                    new Node<double[]>(
-                            "123456789",
-                            point);
+            double[] query = queryies.next();
 
             NeighborList approximate_result = approximate_search.search(
                     query,

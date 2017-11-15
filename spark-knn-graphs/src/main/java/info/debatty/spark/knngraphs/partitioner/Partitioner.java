@@ -24,7 +24,7 @@
 package info.debatty.spark.knngraphs.partitioner;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import org.apache.spark.api.java.JavaPairRDD;
 
 /**
@@ -44,5 +44,5 @@ public interface Partitioner<T> {
      * @param graph
      * @return
      */
-    Partitioning<T> partition(JavaPairRDD<Node<T>, NeighborList> graph);
+    Partitioning<T> partition(JavaPairRDD<T, NeighborList> graph);
 }

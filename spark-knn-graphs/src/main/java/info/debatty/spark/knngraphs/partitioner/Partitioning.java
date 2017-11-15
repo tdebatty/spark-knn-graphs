@@ -23,8 +23,8 @@
  */
 package info.debatty.spark.knngraphs.partitioner;
 
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
 import org.apache.spark.api.java.JavaPairRDD;
 
 /**
@@ -34,7 +34,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 public class Partitioning<T> {
     public long start_time = System.currentTimeMillis();
     public long end_time;
-    public JavaPairRDD<Node<T>, NeighborList> graph;
+    public JavaPairRDD<Node<T>, NeighborList> wrapped_graph;
 
     long runTime() {
         return end_time - start_time;

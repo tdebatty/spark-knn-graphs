@@ -24,7 +24,7 @@
 package info.debatty.spark.knngraphs.partitioner;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.spark.knngraphs.KNNGraphCase;
 import org.apache.spark.api.java.JavaPairRDD;
 
@@ -45,19 +45,19 @@ public class Edge1DTest extends KNNGraphCase {
         System.out.println("Partition");
         System.out.println("=========");
 
-        JavaPairRDD<Node<double[]>, NeighborList> graph = readSyntheticGraph();
+        JavaPairRDD<double[], NeighborList> graph = readSyntheticGraph();
 
         // Partition
-        Edge1D<double[]> partitioner =
-                new Edge1D<double[]>(PARTITIONS);
-        graph = partitioner.partition(graph).graph;
-        graph.cache();
-        graph.count();
+        Edge1D<double[]> partitioner = new Edge1D<>(PARTITIONS);
+        Partitioning<double[]> partitioning = partitioner.partition(graph);
+        partitioning.wrapped_graph.cache();
+        partitioning.wrapped_graph.count();
 
         // Check result...
         long random_cross_edges = graph.count() * K
                 * (PARTITIONS - 1) / PARTITIONS;
-        int cross_edges = JaBeJa.countCrossEdges(graph, PARTITIONS);
+        int cross_edges = JaBeJa.countCrossEdges(
+                partitioning.wrapped_graph, PARTITIONS);
 
         assertEquals(
                 "Incorrect number of cross edges!",
@@ -65,7 +65,8 @@ public class Edge1DTest extends KNNGraphCase {
                 cross_edges,
                 0.001 * random_cross_edges);
 
-        double imbalance = JaBeJa.computeBalance(graph, PARTITIONS);
+        double imbalance = JaBeJa.computeBalance(
+                partitioning.wrapped_graph, PARTITIONS);
         assertEquals(
                 "Imbalance must be ~ 1.0",
                 1.0,

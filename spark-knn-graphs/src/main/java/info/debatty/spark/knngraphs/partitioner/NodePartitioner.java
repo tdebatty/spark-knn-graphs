@@ -24,7 +24,8 @@
 
 package info.debatty.spark.knngraphs.partitioner;
 
-import info.debatty.java.graphs.Node;
+
+import info.debatty.spark.knngraphs.Node;
 import org.apache.spark.Partitioner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,14 +39,6 @@ import org.slf4j.LoggerFactory;
  */
 public class NodePartitioner extends Partitioner {
 
-    /**
-     * Key used by the partitioner to store the partition id in the node
-     * attributes.
-     */
-    public static final String PARTITION_KEY = "NP_PARTITION_ID";
-
-    private final Logger logger = LoggerFactory.getLogger(
-            NodePartitioner.class);
     private final int partitions;
 
     /**
@@ -64,11 +57,6 @@ public class NodePartitioner extends Partitioner {
     @Override
     public final int getPartition(final Object obj) {
         Node node = (Node) obj;
-        Integer partition = (Integer) node.getAttribute(PARTITION_KEY);
-        if (partition == null) {
-            logger.error("Node has no partition value: " + node);
-            partition = 0;
-        }
-        return partition;
+        return node.partition;
     }
 }

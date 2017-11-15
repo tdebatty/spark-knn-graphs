@@ -23,10 +23,8 @@
  */
 package info.debatty.spark.knngraphs;
 
-import info.debatty.spark.knngraphs.partitioner.NodePartitioner;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -35,6 +33,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
+import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
 /**
@@ -44,6 +43,20 @@ import scala.Tuple2;
 public class DistributedGraph {
 
     /**
+     * Wrap the nodes with a node class (which decorates with an id
+     * and partition).
+     * @param <T>
+     * @param nodes
+     * @return
+     */
+    public static final <T> JavaRDD<Node<T>> wrapNodes(
+            final JavaRDD<T> nodes) {
+
+        return nodes.zipWithUniqueId().map(new WrapNodeFunction());
+
+    }
+
+    /**
      *
      * @param <T>
      * @param graph1
@@ -51,8 +64,8 @@ public class DistributedGraph {
      * @return
      */
     public static final <T> long countCommonEdges(
-            final JavaPairRDD<Node<T>, NeighborList> graph1,
-            final JavaPairRDD<Node<T>, NeighborList> graph2) {
+            final JavaPairRDD<T, NeighborList> graph1,
+            final JavaPairRDD<T, NeighborList> graph2) {
 
         return (Long) graph1
                 .union(graph2)
@@ -69,24 +82,24 @@ public class DistributedGraph {
      * @return
      */
     public static final <T> JavaRDD<Graph<T>> toGraph(
-            final JavaPairRDD<Node<T>, NeighborList> graph,
+            final JavaPairRDD<T, NeighborList> graph,
             final SimilarityInterface<T> similarity) {
         return graph.mapPartitions(
                 new NeighborListToGraph(similarity), true);
     }
+}
 
-    /**
-     * Move the nodes to the correct partition.
-     * Does NOT force execution or cache the resulting partition!
-     * @param graph
-     * @param partitions
-     * @return
-     */
-    public static final <T> JavaPairRDD<Node<T>, NeighborList> moveNodes(
-            final JavaPairRDD<Node<T>, NeighborList> graph,
-            final int partitions) {
+class WrapNodeFunction<T> implements Function<Tuple2<T, Long>, Node<T>> {
 
-        return graph.partitionBy(new NodePartitioner(partitions));
+    @Override
+    public Node<T> call(
+            final Tuple2<T, Long> value) {
+
+        Node<T> node = new Node<>();
+        node.id = value._2;
+        node.value = value._1;
+
+        return node;
     }
 }
 
@@ -97,7 +110,7 @@ public class DistributedGraph {
  */
 class NeighborListToGraph<T>
         implements FlatMapFunction<
-            Iterator<Tuple2<Node<T>, NeighborList>>, Graph<T>> {
+            Iterator<Tuple2<T, NeighborList>>, Graph<T>> {
 
     private final SimilarityInterface<T> similarity;
 
@@ -106,19 +119,21 @@ class NeighborListToGraph<T>
         this.similarity = similarity;
     }
 
+    @Override
     public Iterator<info.debatty.java.graphs.Graph<T>> call(
-            final Iterator<Tuple2<Node<T>, NeighborList>> iterator) {
+            final Iterator<Tuple2<T, NeighborList>> iterator) {
 
-        info.debatty.java.graphs.Graph<T> graph = new Graph<T>();
+        info.debatty.java.graphs.Graph<T> graph = new Graph<>();
         while (iterator.hasNext()) {
-            Tuple2<Node<T>, NeighborList> next = iterator.next();
+            Tuple2<T, NeighborList> next = iterator.next();
             graph.put(next._1, next._2);
         }
 
         graph.setSimilarity(similarity);
-        graph.setK(graph.get(graph.getNodes().iterator().next()).size());
+        graph.setK(
+                graph.getNeighbors(graph.getNodes().iterator().next()).size());
 
-        ArrayList<Graph<T>> list = new ArrayList<Graph<T>>(1);
+        ArrayList<Graph<T>> list = new ArrayList<>(1);
         list.add(graph);
         return list.iterator();
 
@@ -131,14 +146,15 @@ class NeighborListToGraph<T>
  * @param <T>
  */
 class CountFunction<T>
-        implements Function<Tuple2<Node<T>, Iterable<NeighborList>>, Long> {
+        implements Function<Tuple2<T, Iterable<NeighborList>>, Long> {
 
     /**
      *
      * @param tuples
      * @return
      */
-    public Long call(final Tuple2<Node<T>, Iterable<NeighborList>> tuples) {
+    @Override
+    public Long call(final Tuple2<T, Iterable<NeighborList>> tuples) {
         Iterator<NeighborList> iterator = tuples._2.iterator();
         NeighborList nl1 = iterator.next();
         NeighborList nl2 = iterator.next();
@@ -161,6 +177,7 @@ class SumFunction
      * @return
      * @throws Exception
      */
+    @Override
     public Long call(final Long arg0, final Long arg1) {
         return arg0 + arg1;
     }

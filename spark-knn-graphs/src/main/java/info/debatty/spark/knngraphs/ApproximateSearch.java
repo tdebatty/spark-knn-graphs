@@ -25,7 +25,7 @@ package info.debatty.spark.knngraphs;
 
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
 import info.debatty.spark.knngraphs.builder.StatisticsAccumulator;
@@ -67,14 +67,14 @@ public class ApproximateSearch<T> {
      * @param partitions
      */
     public ApproximateSearch(
-            final JavaPairRDD<Node<T>, NeighborList> graph,
+            final JavaPairRDD<T, NeighborList> graph,
             final SimilarityInterface<T> similarity,
             final int partitions) {
 
         // Partition the graph
         KMedoids<T> partitioner
                 = new KMedoids<>(similarity, partitions);
-        JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
+        JavaPairRDD<T, NeighborList> partitioned_graph =
                 partitioner.partition(graph).graph;
 
         this.distributed_graph = DistributedGraph.toGraph(
@@ -105,7 +105,7 @@ public class ApproximateSearch<T> {
     * @return
     */
    public final NeighborList search(
-            final Node<T> query,
+            final T query,
             final int k) {
        return search(
                query,
@@ -127,7 +127,7 @@ public class ApproximateSearch<T> {
      * @return
      */
     public final NeighborList search(
-            final Node<T> query,
+            final T query,
             final int k,
             final StatisticsAccumulator stats_accumulator,
             final double speedup,
@@ -162,13 +162,13 @@ class DistributedSearch<T>
 
     private final double speedup;
     private final int k;
-    private final Node<T> query;
+    private final T query;
     private final int random_jumps;
     private final double expansion;
     private final StatisticsAccumulator stats_accumulator;
 
     DistributedSearch(
-            final Node<T> query,
+            final T query,
             final int k,
             final double speedup,
             final int random_jumps,
@@ -189,7 +189,7 @@ class DistributedSearch<T>
         StatisticsContainer local_stats = new StatisticsContainer();
 
         NeighborList local_results = local_graph.fastSearch(
-                query.value,
+                query,
                 k,
                 speedup,
                 random_jumps,

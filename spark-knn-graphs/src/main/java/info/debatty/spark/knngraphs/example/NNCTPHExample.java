@@ -25,7 +25,6 @@
 package info.debatty.spark.knngraphs.example;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.stringsimilarity.JaroWinkler;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
@@ -49,23 +48,23 @@ public class NNCTPHExample {
      * @throws java.io.IOException
      */
     public static void main(String[] args) throws IOException, Exception {
-        
+
         if (args.length != 1) {
             System.out.println(
                     "Usage: spark-submit --class " +
                     Search.class.getCanonicalName() + " " +
                     "<dataset>");
         }
-        
+
         String file =  args[0];
-        
+
         // Read the file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
-        
+
         // Convert to nodes
-        List<Node<String>> data = new ArrayList<Node<String>>();
+        List<String> data = new ArrayList<String>();
         for (String s : strings) {
-            data.add(new Node<String>(String.valueOf(data.size()), s));
+            data.add(new String(String.valueOf(data.size()), s));
         }
 
         // Configure spark instance
@@ -73,10 +72,10 @@ public class NNCTPHExample {
         conf.setAppName("SparkTest");
         conf.setIfMissing("spark.master", "local[*]");
         JavaSparkContext sc = new JavaSparkContext(conf);
-        
+
         // Parallelize the dataset in Spark
-        JavaRDD<Node<String>> nodes = sc.parallelize(data);
-        
+        JavaRDD<String> nodes = sc.parallelize(data);
+
         // Configure NNCTPH
         NNCTPH nnctph = new NNCTPH();
         nnctph.setBuckets(10);
@@ -89,11 +88,11 @@ public class NNCTPHExample {
                 return jw.similarity(value1, value2);
             }
         });
-        
+
         // Compute the graph...
-        JavaPairRDD<Node<String>, NeighborList> graph = 
+        JavaPairRDD<String, NeighborList> graph =
                 nnctph.computeGraph(nodes);
         System.out.println(graph.first());
-        
+
     }
 }

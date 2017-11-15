@@ -24,7 +24,7 @@
 package info.debatty.spark.knngraphs.example;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.stringsimilarity.JaroWinkler;
 import info.debatty.spark.knngraphs.ApproximateSearch;
@@ -102,22 +102,22 @@ public final class Search {
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Convert to nodes
-        List<Node<String>> dataset = new ArrayList<Node<String>>();
+        List<String> dataset = new ArrayList<String>();
         for (String s : strings) {
-            dataset.add(new Node<String>(String.valueOf(dataset.size()), s));
+            dataset.add(new String(String.valueOf(dataset.size()), s));
         }
 
         // Split the dataset between training and validation
         Random rand = new Random();
-        ArrayList<Node<String>> validation_dataset
-                = new ArrayList<Node<String>>(search_queries);
+        ArrayList<String> validation_dataset
+                = new ArrayList<String>(search_queries);
         for (int i = 0; i < search_queries; i++) {
             validation_dataset.add(
                     dataset.remove(rand.nextInt(dataset.size())));
         }
 
         // Parallelize the dataset and force execution
-        JavaRDD<Node<String>> nodes = sc.parallelize(dataset);
+        JavaRDD<String> nodes = sc.parallelize(dataset);
         nodes.cache();
         nodes.first();
 
@@ -125,7 +125,7 @@ public final class Search {
         DistributedGraphBuilder<String> builder = new Brute<String>();
         builder.setK(k);
         builder.setSimilarity(similarity);
-        JavaPairRDD<Node<String>, NeighborList> graph
+        JavaPairRDD<String, NeighborList> graph
                 = builder.computeGraph(nodes);
         graph.cache();
         graph.first();
@@ -142,7 +142,7 @@ public final class Search {
         graph.first();
 
         // Perform some search...
-        for (final Node<String> query : validation_dataset) {
+        for (final String query : validation_dataset) {
             System.out.println("Search query: " + query.value);
 
             // Using distributed graph based NN-search

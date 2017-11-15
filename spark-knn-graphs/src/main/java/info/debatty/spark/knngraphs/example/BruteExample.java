@@ -25,14 +25,11 @@
 package info.debatty.spark.knngraphs.example;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.stringsimilarity.JaroWinkler;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -46,26 +43,19 @@ public class BruteExample {
 
     /**
      * @param args the command line arguments
-     * @throws java.io.IOException
+     * @throws Exception if dataset not readable or cannot build graph
      */
-    public static void main(String[] args) throws IOException, Exception {
+    public static void main(final String[] args) throws Exception {
         if (args.length != 1) {
-            System.out.println(
-                    "Usage: spark-submit --class " +
-                    Search.class.getCanonicalName() + " " +
-                    "<dataset>");
+            System.out.println("Usage: spark-submit --class "
+                            + BruteExample.class.getCanonicalName() + " "
+                            + "<dataset>");
         }
 
         String file =  args[0];
 
         // Read the file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
-
-        // Convert to nodes
-        List<Node<String>> data = new ArrayList<Node<String>>();
-        for (String s : strings) {
-            data.add(new Node<String>(String.valueOf(data.size()), s));
-        }
 
         // Configure spark instance
         SparkConf conf = new SparkConf();
@@ -74,20 +64,21 @@ public class BruteExample {
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Parallelize the dataset in Spark
-        JavaRDD<Node<String>> nodes = sc.parallelize(data);
+        JavaRDD<String> nodes = sc.parallelize(strings);
 
         Brute brute = new Brute();
         brute.setK(10);
         brute.setSimilarity(new SimilarityInterface<String>() {
 
-            public double similarity(String value1, String value2) {
+            @Override
+            public double similarity(final String value1, final String value2) {
                 JaroWinkler jw = new JaroWinkler();
                 return jw.similarity(value1, value2);
             }
         });
 
         // Compute the graph...
-        JavaPairRDD<Node<String>, NeighborList> graph =
+        JavaPairRDD<String, NeighborList> graph =
                 brute.computeGraph(nodes);
         System.out.println(graph.first());
     }

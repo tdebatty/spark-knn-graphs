@@ -23,9 +23,8 @@
  */
 package info.debatty.spark.knngraphs.partitioner;
 
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
-import info.debatty.spark.knngraphs.DistributedGraph;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
@@ -52,15 +51,25 @@ public class Edge1D<T> implements Partitioner<T> {
      * @param graph
      * @return
      */
+    @Override
     public final Partitioning<T> partition(
-            final JavaPairRDD<Node<T>, NeighborList> graph) {
+            final JavaPairRDD<T, NeighborList> graph) {
 
-        Partitioning<T> solution = new Partitioning<T>();
+        Partitioning<T> solution = new Partitioning<>();
         solution.start_time = System.currentTimeMillis();
-        solution.graph = graph.mapToPair(new Edge1DFunction<T>(partitions));
-        solution.graph = DistributedGraph.moveNodes(solution.graph, partitions);
-        solution.graph.cache();
-        solution.graph.count();
+
+        JavaPairRDD<Node<T>, NeighborList> wrapped_graph =
+                Helper.wrapNodes(graph);
+
+        JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
+                wrapped_graph.mapToPair(new Edge1DFunction<T>(partitions));
+
+        JavaPairRDD<Node<T>, NeighborList> distributed_graph =
+                Helper.moveNodes(partitioned_graph, partitions);
+
+        solution.wrapped_graph = distributed_graph;
+        solution.wrapped_graph.cache();
+        solution.wrapped_graph.count();
         solution.end_time = System.currentTimeMillis();
         return solution;
     }
@@ -84,9 +93,8 @@ class Edge1DFunction<T>
             final Tuple2<Node<T>, NeighborList> tuple) {
 
         Node<T> node = tuple._1;
-        int node_id = Integer.valueOf(node.id);
-        int partition = (int) (Math.abs(node_id * MIXING_PRIME) % partitions);
-        node.setAttribute(NodePartitioner.PARTITION_KEY, partition);
+        int partition = (int) (Math.abs(node.id * MIXING_PRIME) % partitions);
+        node.partition = partition;
         return tuple;
     }
 }

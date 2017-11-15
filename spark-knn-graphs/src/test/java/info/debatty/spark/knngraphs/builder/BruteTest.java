@@ -27,13 +27,12 @@ package info.debatty.spark.knngraphs.builder;
 import info.debatty.java.datasets.gaussian.Dataset;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
 import info.debatty.spark.knngraphs.JWSimilarity;
 import info.debatty.spark.knngraphs.L2Similarity;
 import info.debatty.spark.knngraphs.KNNGraphCase;
+import info.debatty.spark.knngraphs.Node;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -57,7 +56,7 @@ public class BruteTest extends KNNGraphCase {
         System.out.println("Build SPAM graph");
         System.out.println("================");
 
-        JavaRDD<Node<String>> nodes = readSpam();
+        JavaRDD<String> nodes = readSpam();
 
         Brute brute = new Brute();
         brute.setK(K);
@@ -85,7 +84,7 @@ public class BruteTest extends KNNGraphCase {
             // Check wether a node receives himself as neighbor...
             Node<String> node = tuple._1;
             for (Neighbor neighbor : tuple._2) {
-                assertTrue(!node.equals(neighbor.node));
+                assertTrue(!node.equals(neighbor.getNode()));
             }
         }
     }
@@ -105,17 +104,11 @@ public class BruteTest extends KNNGraphCase {
                 .setSize(10000)
                 .build();
 
-        // Convert to nodes
-        List<Node<double[]>> data = new ArrayList<Node<double[]>>();
-        for (double[] point : dataset) {
-            data.add(new Node<double[]>(String.valueOf(data.size()), point));
-        }
-
         // Parallelize the dataset in Spark
-        JavaRDD<Node<double[]>> nodes = sc.parallelize(data);
+        JavaRDD<double[]> nodes = sc.parallelize(dataset.getAll());
 
         // Build the graph
-        Brute<double[]> builder = new Brute<double[]>();
+        Brute<double[]> builder = new Brute<>();
         builder.setK(K);
         builder.setSimilarity(new L2Similarity());
         JavaPairRDD<Node<double[]>, NeighborList> graph =

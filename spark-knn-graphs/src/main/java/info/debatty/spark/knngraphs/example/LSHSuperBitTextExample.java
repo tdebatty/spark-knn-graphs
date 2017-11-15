@@ -1,7 +1,7 @@
 package info.debatty.spark.knngraphs.example;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.java.stringsimilarity.KShingling;
 import info.debatty.java.utils.SparseIntegerVector;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
