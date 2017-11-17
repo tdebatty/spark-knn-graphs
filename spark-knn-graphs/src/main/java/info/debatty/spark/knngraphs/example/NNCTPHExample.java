@@ -27,11 +27,10 @@ package info.debatty.spark.knngraphs.example;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.stringsimilarity.JaroWinkler;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import info.debatty.spark.knngraphs.builder.NNCTPH;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -45,27 +44,20 @@ public class NNCTPHExample {
 
     /**
      * @param args the command line arguments
-     * @throws java.io.IOException
+     * @throws java.lang.Exception if we cannot read dataset or build graph
      */
-    public static void main(String[] args) throws IOException, Exception {
+    public static void main(final String[] args) throws Exception {
 
         if (args.length != 1) {
-            System.out.println(
-                    "Usage: spark-submit --class " +
-                    Search.class.getCanonicalName() + " " +
-                    "<dataset>");
+            System.out.println("Usage: spark-submit --class "
+                    + NNCTPHExample.class.getCanonicalName() + " "
+                    + "<dataset>");
         }
 
         String file =  args[0];
 
         // Read the file
         ArrayList<String> strings = DistributedGraphBuilder.readFile(file);
-
-        // Convert to nodes
-        List<String> data = new ArrayList<String>();
-        for (String s : strings) {
-            data.add(new String(String.valueOf(data.size()), s));
-        }
 
         // Configure spark instance
         SparkConf conf = new SparkConf();
@@ -74,7 +66,7 @@ public class NNCTPHExample {
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // Parallelize the dataset in Spark
-        JavaRDD<String> nodes = sc.parallelize(data);
+        JavaRDD<String> nodes = sc.parallelize(strings);
 
         // Configure NNCTPH
         NNCTPH nnctph = new NNCTPH();
@@ -83,14 +75,15 @@ public class NNCTPHExample {
         nnctph.setK(10);
         nnctph.setSimilarity(new SimilarityInterface<String>() {
 
-            public double similarity(String value1, String value2) {
+            @Override
+            public double similarity(final String value1, final String value2) {
                 JaroWinkler jw = new JaroWinkler();
                 return jw.similarity(value1, value2);
             }
         });
 
         // Compute the graph...
-        JavaPairRDD<String, NeighborList> graph =
+        JavaPairRDD<Node<String>, NeighborList> graph =
                 nnctph.computeGraph(nodes);
         System.out.println(graph.first());
 

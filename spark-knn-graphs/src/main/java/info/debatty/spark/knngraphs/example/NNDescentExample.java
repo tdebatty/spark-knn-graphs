@@ -3,13 +3,11 @@ package info.debatty.spark.knngraphs.example;
 import info.debatty.spark.knngraphs.builder.NNDescent;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
-
 import info.debatty.java.graphs.SimilarityInterface;
+import info.debatty.spark.knngraphs.Node;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -23,7 +21,12 @@ import scala.Tuple2;
  */
 public class NNDescentExample implements Runnable, Serializable {
 
-    public static void main(String[] args) throws Exception {
+    /**
+     *
+     * @param args
+     * @throws Exception If we cannot build graph
+     */
+    public static void main(final String[] args) throws Exception {
         NNDescentExample instance = new NNDescentExample();
         instance.run();
     }
@@ -38,11 +41,11 @@ public class NNDescentExample implements Runnable, Serializable {
 
         // Create some nodes
         // the value of the nodes will simply be an integer:
-        List<Node<Integer>> data = new ArrayList<>();
+        List<Integer> data = new ArrayList<>();
         for (int i = 0; i < 1000; i++) {
-            data.add(new Node(String.valueOf(i), i));
+            data.add(i);
         }
-        JavaRDD<Node<Integer>> nodes = sc.parallelize(data);
+        JavaRDD<Integer> nodes = sc.parallelize(data);
 
         // Instanciate and configure NNDescent for Integer node values
         NNDescent<Integer> nndes = new NNDescent<>();
@@ -85,7 +88,7 @@ public class NNDescentExample implements Runnable, Serializable {
 
                         double acc = val;
                         for (Neighbor n : tuple._2()) {
-                            acc += n.similarity;
+                            acc += n.getSimilarity();
                         }
                         return acc;
                     }
