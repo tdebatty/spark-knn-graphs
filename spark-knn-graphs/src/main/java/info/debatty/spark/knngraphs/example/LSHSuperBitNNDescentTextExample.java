@@ -89,5 +89,7 @@ public class LSHSuperBitNNDescentTextExample {
         JavaPairRDD<Node<SparseIntegerVector>, NeighborList> graph =
                 gbuilder.computeGraph(nodes);
         System.out.println(graph.first());
+
+        sc.close();
     }
 }

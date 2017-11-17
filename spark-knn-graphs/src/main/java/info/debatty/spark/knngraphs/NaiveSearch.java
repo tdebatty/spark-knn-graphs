@@ -41,7 +41,7 @@ import org.apache.spark.api.java.function.Function;
  */
 public class NaiveSearch<T> {
 
-    private final JavaRDD<Graph<T>> distributed_graph;
+    private final JavaRDD<Graph<Node<T>>> distributed_graph;
 
     /**
      *
@@ -49,7 +49,7 @@ public class NaiveSearch<T> {
      * @param similarity
      */
     public NaiveSearch(
-            final JavaPairRDD<T, NeighborList> graph,
+            final JavaPairRDD<Node<T>, NeighborList> graph,
             final SimilarityInterface<T> similarity) {
 
         // Transform into an RDD of graphs

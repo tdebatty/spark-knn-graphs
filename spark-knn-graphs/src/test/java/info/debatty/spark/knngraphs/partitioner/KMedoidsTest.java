@@ -28,6 +28,7 @@ import info.debatty.java.graphs.NeighborList;
 import info.debatty.spark.knngraphs.JWSimilarity;
 import info.debatty.spark.knngraphs.L2Similarity;
 import info.debatty.spark.knngraphs.KNNGraphCase;
+import info.debatty.spark.knngraphs.Node;
 import org.apache.spark.api.java.JavaPairRDD;
 
 /**
@@ -47,12 +48,12 @@ public class KMedoidsTest extends KNNGraphCase {
         System.out.println("Partition");
         System.out.println("=========");
 
-        JavaPairRDD<String, NeighborList> graph = readSpamGraph();
+        JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
 
         KMedoids<String> partitioner
-                = new KMedoids<String>(
+                = new KMedoids<>(
                         new JWSimilarity(), PARTITIONS);
-        graph = partitioner.partition(graph).graph;
+        graph = partitioner.partition(graph).wrapped_graph;
         graph.cache();
         graph.count();
 
@@ -71,15 +72,15 @@ public class KMedoidsTest extends KNNGraphCase {
         System.out.println("Imbalance");
         System.out.println("=========");
 
-        JavaPairRDD<double[], NeighborList> graph = readSyntheticGraph();
+        JavaPairRDD<Node<double[]>, NeighborList> graph = readSyntheticGraph();
 
         // Partition
         KMedoids<double[]> partitioner
-                = new KMedoids<double[]>(
+                = new KMedoids<>(
                         new L2Similarity(),
                         PARTITIONS,
                         IMBALANCE);
-        graph = partitioner.partition(graph).graph;
+        graph = partitioner.partition(graph).wrapped_graph;
         graph.cache();
         graph.count();
         // Check result...

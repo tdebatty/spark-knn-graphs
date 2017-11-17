@@ -28,7 +28,9 @@ import info.debatty.java.graphs.NeighborList;
 
 import info.debatty.spark.knngraphs.DistributedGraph;
 import info.debatty.spark.knngraphs.KNNGraphCase;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.partitioner.jabeja.TimeBudget;
+import java.util.Map;
 import org.apache.spark.api.java.JavaPairRDD;
 import scala.Tuple2;
 
@@ -48,18 +50,17 @@ public class JaBeJaTest extends KNNGraphCase {
         System.out.println("BuildIndex");
         System.out.println("==========");
 
-        JavaPairRDD<String, NeighborList> graph = readSpamGraph();
+        JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
 
-        JaBeJa<String> jbj = new JaBeJa<String>(PARTITIONS);
+        JaBeJa<String> jbj = new JaBeJa<>(PARTITIONS);
         graph = jbj.randomize(graph);
         graph.cache();
-        Tuple2<String, NeighborList> first = graph.first();
-        int first_partition = (Integer) first._1
-                .getAttribute(NodePartitioner.PARTITION_KEY);
-        int first_id = Integer.valueOf(first._1.id);
+        Tuple2<Node<String>, NeighborList> first = graph.first();
+        int first_partition = first._1.partition;
+        long first_id = first._1.id;
 
-        int[] index = JaBeJa.buildColorIndex(graph);
-        assertEquals(first_partition, index[first_id]);
+        Map<Long, Integer> index = JaBeJa.buildColorIndex(graph);
+        assertEquals(first_partition, (int) index.get(first_id));
     }
 
     /**
@@ -70,13 +71,13 @@ public class JaBeJaTest extends KNNGraphCase {
         System.out.println("Swap");
         System.out.println("====");
 
-        JavaPairRDD<String, NeighborList> graph = readSpamGraph();
+        JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
 
-        JaBeJa<String> jbj = new JaBeJa<String>(PARTITIONS);
+        JaBeJa<String> jbj = new JaBeJa<>(PARTITIONS);
 
         // Randomize
         graph = jbj.randomize(graph);
-        graph = DistributedGraph.moveNodes(graph, PARTITIONS);
+        graph = Helper.moveNodes(graph, PARTITIONS);
         graph.cache();
 
         testPartitionNotNull(graph);
@@ -85,7 +86,7 @@ public class JaBeJaTest extends KNNGraphCase {
 
         // Perform Swap
         graph = jbj.swap(graph, 2.0, 1).graph;
-        graph = DistributedGraph.moveNodes(graph, PARTITIONS);
+        graph = Helper.moveNodes(graph, PARTITIONS);
         graph.cache();
         graph.count();
         testPartitionNotNull(graph);
@@ -104,14 +105,15 @@ public class JaBeJaTest extends KNNGraphCase {
         System.out.println("TimeBudget");
         System.out.println("==========");
 
-        JavaPairRDD<String, NeighborList> graph = readSpamGraph();
+        JavaPairRDD<Node<String>, NeighborList> graph = readSpamGraph();
 
-        JaBeJa<String> jbj = new JaBeJa<String>(
+        JaBeJa<String> jbj = new JaBeJa<>(
                 PARTITIONS,
                 new TimeBudget(TIME_BUDGET));
         Partitioning<String> solution = jbj.partition(graph);
-        System.out.println(JaBeJa.countCrossEdges(solution.graph, PARTITIONS));
-        testPartitionNotNull(solution.graph);
+        System.out.println(
+                JaBeJa.countCrossEdges(solution.wrapped_graph, PARTITIONS));
+        testPartitionNotNull(solution.wrapped_graph);
         assertEquals(TIME_BUDGET, solution.runTime() / 1000);
     }
 
@@ -120,11 +122,10 @@ public class JaBeJaTest extends KNNGraphCase {
      * @param graph
      */
     private void testPartitionNotNull(
-            final JavaPairRDD<String, NeighborList> graph) {
+            final JavaPairRDD<Node<String>, NeighborList> graph) {
 
-        for (Tuple2<String, NeighborList> tuple : graph.collect()) {
-            assertNotNull("Partition id is null!", tuple._1.getAttribute(
-                    NodePartitioner.PARTITION_KEY));
+        for (Tuple2<Node<String>, NeighborList> tuple : graph.collect()) {
+            assertNotNull("Partition id is null!", tuple._1.partition);
         }
 
     }

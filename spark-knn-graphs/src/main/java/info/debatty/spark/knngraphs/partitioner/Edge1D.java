@@ -53,16 +53,14 @@ public class Edge1D<T> implements Partitioner<T> {
      */
     @Override
     public final Partitioning<T> partition(
-            final JavaPairRDD<T, NeighborList> graph) {
+            final JavaPairRDD<Node<T>, NeighborList> graph) {
 
         Partitioning<T> solution = new Partitioning<>();
         solution.start_time = System.currentTimeMillis();
 
-        JavaPairRDD<Node<T>, NeighborList> wrapped_graph =
-                Helper.wrapNodes(graph);
 
         JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
-                wrapped_graph.mapToPair(new Edge1DFunction<T>(partitions));
+                graph.mapToPair(new Edge1DFunction<T>(partitions));
 
         JavaPairRDD<Node<T>, NeighborList> distributed_graph =
                 Helper.moveNodes(partitioned_graph, partitions);
@@ -75,6 +73,11 @@ public class Edge1D<T> implements Partitioner<T> {
     }
 }
 
+/**
+ * Assign a partition id to each node, using the node id.
+ * @author tibo
+ * @param <T>
+ */
 class Edge1DFunction<T>
         implements PairFunction<
             Tuple2<Node<T>, NeighborList>,
@@ -89,6 +92,7 @@ class Edge1DFunction<T>
     }
 
 
+    @Override
     public Tuple2<Node<T>, NeighborList> call(
             final Tuple2<Node<T>, NeighborList> tuple) {
 

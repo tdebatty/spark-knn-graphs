@@ -81,6 +81,8 @@ public class BruteExample {
         JavaPairRDD<String, NeighborList> graph =
                 brute.computeGraph(nodes);
         System.out.println(graph.first());
+
+        sc.close();
     }
 
 }

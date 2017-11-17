@@ -26,6 +26,7 @@ package info.debatty.spark.knngraphs;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.SimilarityInterface;
+import info.debatty.spark.knngraphs.builder.NodeSimilarityAdapter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -33,7 +34,6 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
-import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
 /**
@@ -64,10 +64,10 @@ public class DistributedGraph {
      * @return
      */
     public static final <T> long countCommonEdges(
-            final JavaPairRDD<T, NeighborList> graph1,
-            final JavaPairRDD<T, NeighborList> graph2) {
+            final JavaPairRDD<Node<T>, NeighborList> graph1,
+            final JavaPairRDD<Node<T>, NeighborList> graph2) {
 
-        return (Long) graph1
+        return (long) graph1
                 .union(graph2)
                 .groupByKey()
                 .map(new CountFunction())
@@ -81,8 +81,8 @@ public class DistributedGraph {
      * @param similarity
      * @return
      */
-    public static final <T> JavaRDD<Graph<T>> toGraph(
-            final JavaPairRDD<T, NeighborList> graph,
+    public static final <T> JavaRDD<Graph<Node<T>>> toGraph(
+            final JavaPairRDD<Node<T>, NeighborList> graph,
             final SimilarityInterface<T> similarity) {
         return graph.mapPartitions(
                 new NeighborListToGraph(similarity), true);
@@ -110,7 +110,7 @@ class WrapNodeFunction<T> implements Function<Tuple2<T, Long>, Node<T>> {
  */
 class NeighborListToGraph<T>
         implements FlatMapFunction<
-            Iterator<Tuple2<T, NeighborList>>, Graph<T>> {
+            Iterator<Tuple2<Node<T>, NeighborList>>, Graph<Node<T>>> {
 
     private final SimilarityInterface<T> similarity;
 
@@ -120,20 +120,20 @@ class NeighborListToGraph<T>
     }
 
     @Override
-    public Iterator<info.debatty.java.graphs.Graph<T>> call(
-            final Iterator<Tuple2<T, NeighborList>> iterator) {
+    public Iterator<Graph<Node<T>>> call(
+            final Iterator<Tuple2<Node<T>, NeighborList>> iterator) {
 
-        info.debatty.java.graphs.Graph<T> graph = new Graph<>();
+        info.debatty.java.graphs.Graph<Node<T>> graph = new Graph<>();
         while (iterator.hasNext()) {
-            Tuple2<T, NeighborList> next = iterator.next();
+            Tuple2<Node<T>, NeighborList> next = iterator.next();
             graph.put(next._1, next._2);
         }
 
-        graph.setSimilarity(similarity);
+        graph.setSimilarity(new NodeSimilarityAdapter<>(similarity));
         graph.setK(
                 graph.getNeighbors(graph.getNodes().iterator().next()).size());
 
-        ArrayList<Graph<T>> list = new ArrayList<>(1);
+        ArrayList<Graph<Node<T>>> list = new ArrayList<>(1);
         list.add(graph);
         return list.iterator();
 

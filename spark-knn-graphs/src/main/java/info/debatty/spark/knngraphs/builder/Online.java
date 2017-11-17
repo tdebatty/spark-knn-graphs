@@ -31,9 +31,9 @@ import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
 import info.debatty.spark.knngraphs.ApproximateSearch;
 import info.debatty.spark.knngraphs.DistributedGraph;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.partitioner.KMedoids;
 import info.debatty.spark.knngraphs.partitioner.KMedoidsPartitioning;
-import info.debatty.spark.knngraphs.partitioner.NodePartitioner;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -84,11 +84,11 @@ public class Online<T> {
 
     // ------ Algorithm state ------
     private final long[] partitions_size;
-    private final LinkedList<JavaRDD<Graph<T>>> previous_rdds;
+    private final LinkedList<JavaRDD<Graph<Node<T>>>> previous_rdds;
     private long nodes_added_or_removed = 0;
     private long nodes_before_update_medoids = 0;
-    private JavaRDD<Graph<T>> distributed_graph;
-    private final ArrayList<T> medoids;
+    private JavaRDD<Graph<Node<T>>> distributed_graph;
+    private final ArrayList<Node<T>> medoids;
 
     /**
      *
@@ -102,7 +102,7 @@ public class Online<T> {
             final int k,
             final SimilarityInterface<T> similarity,
             final JavaSparkContext sc,
-            final JavaPairRDD<T, NeighborList> initial_graph,
+            final JavaPairRDD<Node<T>, NeighborList> initial_graph,
             final int partitioning_medoids) {
 
         this.similarity = similarity;
@@ -115,31 +115,30 @@ public class Online<T> {
         this.search_expansion = ApproximateSearch.DEFAULT_EXPANSION;
         this.update_depth = DEFAULT_UPDATE_DEPTH;
 
-        this.previous_rdds = new LinkedList<JavaRDD<Graph<T>>>();
+        this.previous_rdds = new LinkedList<>();
 
         // Use kmedoids to partition the graph
         KMedoids<T> partitioner
-                = new KMedoids<T>(similarity, partitioning_medoids);
+                = new KMedoids<>(similarity, partitioning_medoids);
 
         KMedoidsPartitioning<T> partitioning =
                 partitioner.partition(initial_graph);
 
         this.medoids = partitioning.medoids;
         this.distributed_graph = DistributedGraph.toGraph(
-                partitioning.graph, similarity);
+                partitioning.wrapped_graph, similarity);
         this.distributed_graph.cache();
         this.distributed_graph.count();
 
         this.partitions_size = getPartitionsSize(distributed_graph);
         this.nodes_before_update_medoids = computeNodesBeforeUpdate();
-
     }
 
     /**
      * Unpersist all cached RDD's.
      */
     public final void clean() {
-        for (JavaRDD<Graph<T>> rdd : previous_rdds) {
+        for (JavaRDD rdd : previous_rdds) {
             rdd.unpersist();
         }
     }
@@ -158,26 +157,30 @@ public class Online<T> {
 
     /**
      * Add a node to the graph using fast distributed algorithm.
-     * @param node to add to the graph
+     * @param value to add to the graph
      */
-    public final void fastAdd(final T node) {
-        fastAdd(node, null);
+    public final void fastAdd(final T value) {
+        fastAdd(value, null);
     }
 
     /**
      * Add a node to the graph using fast distributed algorithm.
-     * @param node to add to the graph
+     * @param value to add to the graph
      * @param stats_accumulator
      */
     public final void fastAdd(
-            final T node,
+            final T value,
             final StatisticsAccumulator stats_accumulator) {
 
+        Node<T> node = new Node<>();
+        node.value = value;
+        node.id = System.nanoTime();
+
         // Find the neighbors of this node
-        ApproximateSearch<T> searcher = new ApproximateSearch<T>(
+        ApproximateSearch<T> searcher = new ApproximateSearch<>(
                 distributed_graph);
         NeighborList neighborlist = searcher.search(
-                node,
+                value,
                 k,
                 null,
                 search_speedup,
@@ -189,12 +192,11 @@ public class Online<T> {
         assign(node);
 
         // bookkeeping: update the counts
-        partitions_size[(Integer) node
-                .getAttribute(NodePartitioner.PARTITION_KEY)]++;
+        partitions_size[node.partition]++;
 
         // update the existing graph edges
-        JavaRDD<Graph<T>> updated_graph = distributed_graph.map(
-                    new UpdateFunction<T>(
+        JavaRDD<Graph<Node<T>>> updated_graph = distributed_graph.map(
+                    new UpdateFunction<>(
                             node,
                             neighborlist,
                             similarity,
@@ -231,7 +233,7 @@ public class Online<T> {
         }
     }
 
-    private final void assign(final T node) {
+    private void assign(final Node<T> node) {
         // Total number of elements
         long n = sum(partitions_size) + 1;
         int partitions = medoids.size();
@@ -243,7 +245,7 @@ public class Online<T> {
         // 1. similarities
         for (int i = 0; i < partitions; i++) {
             similarities[i] = similarity.similarity(
-                    medoids.get(i), node);
+                    medoids.get(i).value, node.value);
         }
 
         // 2. value to maximize :
@@ -256,10 +258,7 @@ public class Online<T> {
         // 3. choose partition that maximizes computed value
         int partition = argmax(values);
         partitions_size[partition]++;
-        node.setAttribute(
-                NodePartitioner.PARTITION_KEY,
-                partition);
-
+        node.partition = partition;
     }
 
     /*
@@ -307,22 +306,22 @@ public class Online<T> {
      * @param stats_accumulator
      */
     public final void fastRemove(
-            final T node_to_remove,
+            final Node<T> node_to_remove,
             final StatisticsAccumulator stats_accumulator) {
 
         // find the list of nodes to update
-        List<T> nodes_to_update = distributed_graph
+        List<Node<T>> nodes_to_update = distributed_graph
                 .flatMap(new FindNodesToUpdate(node_to_remove))
                 .collect();
 
         // build the list of candidates
-        LinkedList<T> initial_candidates = new LinkedList<T>();
+        LinkedList<Node<T>> initial_candidates = new LinkedList<>();
         initial_candidates.add(node_to_remove);
         initial_candidates.addAll(nodes_to_update);
 
         // In spark 1.6.0 the list returned by collect causes an
         // UnsupportedOperationException when you try to remove :(
-        LinkedList<T> candidates  = new LinkedList<T>(
+        LinkedList<Node<T>> candidates  = new LinkedList<>(
                         distributed_graph
                         .flatMap(new SearchNeighbors(
                                 initial_candidates,
@@ -335,15 +334,10 @@ public class Online<T> {
         // hence not necessarily in node_to_remove provided as parameter...
         // This is dirty :(
         int partition_of_node_to_remove = 0;
-        for (T node : candidates) {
+        for (Node<T> node : candidates) {
             if (node.equals(node_to_remove)) {
-                if (null != node.getAttribute(
-                                NodePartitioner.PARTITION_KEY)) {
-                    partition_of_node_to_remove =
-                            (Integer) node.getAttribute(
-                                NodePartitioner.PARTITION_KEY);
-                    break;
-                }
+                partition_of_node_to_remove = node.partition;
+                break;
             }
         }
 
@@ -352,7 +346,7 @@ public class Online<T> {
         }
 
         // Update the graph and remove the node
-        JavaRDD<Graph<T>> updated_graph = distributed_graph
+        JavaRDD<Graph<Node<T>>> updated_graph = distributed_graph
                 .map(new RemoveUpdate(
                         node_to_remove,
                         nodes_to_update,
@@ -386,7 +380,7 @@ public class Online<T> {
      * Get the current graph, represented as a RDD of Graph.
      * @return the current graph
      */
-    public final JavaRDD<Graph<T>> getDistributedGraph() {
+    public final JavaRDD<Graph<Node<T>>> getDistributedGraph() {
         return distributed_graph;
     }
 
@@ -394,11 +388,11 @@ public class Online<T> {
      * Get the current graph, converted to a RDD of Tuples (Node, NeighborList).
      * @return
      */
-    public final JavaPairRDD<T, NeighborList> getGraph() {
+    public final JavaPairRDD<Node<T>, NeighborList> getGraph() {
         return distributed_graph.flatMapToPair(new MergeGraphs());
     }
 
-    private long[] getPartitionsSize(final JavaRDD<Graph<T>> graph) {
+    private long[] getPartitionsSize(final JavaRDD<Graph<Node<T>>> graph) {
 
         List<Long> counts_list = graph.map(
                 new SubgraphSizeFunction()).collect();
@@ -429,9 +423,10 @@ public class Online<T> {
  * @author Thibault Debatty
  * @param <T>
  */
-class SubgraphSizeFunction<T> implements Function<Graph<T>, Long> {
+class SubgraphSizeFunction<T> implements Function<Graph<Node<T>>, Long> {
 
-    public Long call(final Graph<T> subgraph) {
+    @Override
+    public Long call(final Graph<Node<T>> subgraph) {
         return new Long(subgraph.size());
     }
 }
@@ -441,24 +436,21 @@ class SubgraphSizeFunction<T> implements Function<Graph<T>, Long> {
  * @author Thibault Debatty
  * @param <T>
  */
-class AddNode<T> implements Function<Graph<T>, Graph<T>> {
-    private final T node;
+class AddNode<T> implements Function<Graph<Node<T>>, Graph<Node<T>>> {
+    private final Node<T> node;
     private final NeighborList neighborlist;
 
-    AddNode(final T node, final NeighborList neighborlist) {
+    AddNode(final Node<T> node, final NeighborList neighborlist) {
         this.node = node;
         this.neighborlist = neighborlist;
     }
 
-    public Graph<T> call(final Graph<T> graph) {
-        T one_node = graph.getNodes().iterator().next();
-
-        if (node.getAttribute(NodePartitioner.PARTITION_KEY).equals(
-                one_node.getAttribute(
-                        NodePartitioner.PARTITION_KEY))) {
+    @Override
+    public Graph<Node<T>> call(final Graph<Node<T>> graph) {
+        Node<T> one_node = graph.getNodes().iterator().next();
+        if (node.partition == one_node.partition) {
             graph.put(node, neighborlist);
         }
-
         return graph;
     }
 }
@@ -469,16 +461,16 @@ class AddNode<T> implements Function<Graph<T>, Graph<T>> {
  * @param <T>
  */
 class UpdateFunction<T>
-        implements Function<Graph<T>, Graph<T>> {
+        implements Function<Graph<Node<T>>, Graph<Node<T>>> {
 
     private final int update_depth;
     private final NeighborList neighborlist;
     private final SimilarityInterface<T> similarity;
-    private final T node;
+    private final Node<T> node;
     private final StatisticsAccumulator stats_accumulator;
 
     UpdateFunction(
-            final T node,
+            final Node<T> node,
             final NeighborList neighborlist,
             final SimilarityInterface<T> similarity,
             final StatisticsAccumulator stats_accumulator,
@@ -491,19 +483,20 @@ class UpdateFunction<T>
         this.update_depth = update_depth;
     }
 
-    public Graph<T> call(final Graph<T> local_graph) {
+    @Override
+    public Graph<Node<T>> call(final Graph<Node<T>> local_graph) {
 
         // Nodes to analyze at this iteration
-        LinkedList<T> analyze = new LinkedList<T>();
+        LinkedList<Node<T>> analyze = new LinkedList<>();
 
         // Nodes to analyze at next iteration
-        LinkedList<T> next_analyze = new LinkedList<T>();
+        LinkedList<Node<T>> next_analyze = new LinkedList<>();
 
         // List of already analyzed nodes
-        HashMap<T, Boolean> visited = new HashMap<T, Boolean>();
+        HashMap<Node<T>, Boolean> visited = new HashMap<>();
 
         // Fill the list of nodes to analyze
-        for (Neighbor<T> neighbor : neighborlist) {
+        for (Neighbor<Node<T>> neighbor : neighborlist) {
             analyze.add(neighbor.getNode());
         }
 
@@ -511,8 +504,9 @@ class UpdateFunction<T>
 
         for (int depth = 0; depth < update_depth; depth++) {
             while (!analyze.isEmpty()) {
-                T other = analyze.pop();
-                NeighborList other_neighborlist = local_graph.getNeighbors(other);
+                Node<T> other = analyze.pop();
+                NeighborList other_neighborlist =
+                        local_graph.getNeighbors(other);
 
                 // This part of the graph is in another partition :-(
                 if (other_neighborlist == null) {
@@ -521,7 +515,7 @@ class UpdateFunction<T>
 
                 // Add neighbors to the list of nodes to analyze
                 // at next iteration
-                for (Neighbor<T> other_neighbor : other_neighborlist) {
+                for (Neighbor<Node<T>> other_neighbor : other_neighborlist) {
                     if (!visited.containsKey(other_neighbor.getNode())) {
                         next_analyze.add(other_neighbor.getNode());
                     }
@@ -531,8 +525,8 @@ class UpdateFunction<T>
                 other_neighborlist.add(new Neighbor(
                         node,
                         similarity.similarity(
-                                node,
-                                (T) other)));
+                                node.value,
+                                other.value)));
 
                 local_stats.incAddSimilarities();
 
@@ -540,7 +534,7 @@ class UpdateFunction<T>
             }
 
             analyze = next_analyze;
-            next_analyze = new LinkedList<T>();
+            next_analyze = new LinkedList<>();
         }
 
         if (stats_accumulator != null) {
@@ -560,19 +554,19 @@ class UpdateFunction<T>
  * @param <T>
  */
 class MergeGraphs<T>
-    implements PairFlatMapFunction<Graph<T>, T, NeighborList> {
+    implements PairFlatMapFunction<Graph<Node<T>>, Node<T>, NeighborList> {
 
-    public Iterator<Tuple2<T, NeighborList>> call(final Graph<T> graph) {
+    @Override
+    public Iterator<Tuple2<Node<T>, NeighborList>> call(
+            final Graph<Node<T>> graph) {
 
-        ArrayList<Tuple2<T, NeighborList>> list =
-                new ArrayList<Tuple2<T, NeighborList>>(graph.size());
-
-        for (Map.Entry<T, NeighborList> entry : graph.entrySet()) {
-            list.add(new Tuple2<T, NeighborList>(
+        ArrayList<Tuple2<Node<T>, NeighborList>> list =
+                new ArrayList<>(graph.size());
+        for (Map.Entry<Node<T>, NeighborList> entry : graph.entrySet()) {
+            list.add(new Tuple2<>(
                     entry.getKey(),
                     entry.getValue()));
         }
-
         return list.iterator();
     }
 }
@@ -582,16 +576,17 @@ class MergeGraphs<T>
  * @author Thibault Debatty
  * @param <T>
  */
-class FindNodesToUpdate<T> implements FlatMapFunction<Graph<T>, T> {
-    private final T node_to_remove;
+class FindNodesToUpdate<T> implements FlatMapFunction<Graph<Node<T>>, Node<T>> {
+    private final Node<T> node_to_remove;
 
-    FindNodesToUpdate(final T node_to_remove) {
+    FindNodesToUpdate(final Node<T> node_to_remove) {
         this.node_to_remove = node_to_remove;
     }
 
-    public Iterator<T> call(final Graph<T> subgraph) {
-        LinkedList<T> nodes_to_update = new LinkedList<T>();
-        for (T node : subgraph.getNodes()) {
+    @Override
+    public Iterator<Node<T>> call(final Graph<Node<T>> subgraph) {
+        LinkedList<Node<T>> nodes_to_update = new LinkedList<>();
+        for (Node<T> node : subgraph.getNodes()) {
             if (subgraph.getNeighbors(node).containsNode(node_to_remove)) {
                 nodes_to_update.add(node);
             }
@@ -607,20 +602,20 @@ class FindNodesToUpdate<T> implements FlatMapFunction<Graph<T>, T> {
  * @author Thibault Debatty
  * @param <T>
  */
-class SearchNeighbors<T> implements FlatMapFunction<Graph<T>, T> {
+class SearchNeighbors<T> implements FlatMapFunction<Graph<Node<T>>, Node<T>> {
     private final int search_depth;
 
-    private final LinkedList<T> starting_points;
+    private final LinkedList<Node<T>> starting_points;
 
     SearchNeighbors(
-            final LinkedList<T> initial_candidates,
+            final LinkedList<Node<T>> initial_candidates,
             final int search_depth) {
 
         this.starting_points = initial_candidates;
         this.search_depth = search_depth;
     }
 
-    public Iterator<T> call(final Graph<T> subgraph) {
+    public Iterator<Node<T>> call(final Graph<Node<T>> subgraph) {
         return subgraph.findNeighbors(starting_points, search_depth).iterator();
     }
 }
@@ -650,6 +645,7 @@ class RemoveUpdate<T> implements Function<Graph<T>, Graph<T>> {
 
     }
 
+    @Override
     public Graph<T> call(final Graph<T> subgraph) {
 
         StatisticsContainer local_stats = new StatisticsContainer();

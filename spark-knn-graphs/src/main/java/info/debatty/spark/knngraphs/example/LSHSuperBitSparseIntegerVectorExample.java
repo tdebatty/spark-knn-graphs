@@ -74,8 +74,12 @@ public class LSHSuperBitSparseIntegerVectorExample implements Runnable {
             JavaPairRDD<Node<SparseIntegerVector>, NeighborList> graph =
                     gbuilder.computeGraph(nodes);
             System.out.println(graph.first());
+
         } catch (Exception ex) {
             System.err.println("Something went wrong...");
+
+        } finally {
+            sc.close();
         }
     }
 }

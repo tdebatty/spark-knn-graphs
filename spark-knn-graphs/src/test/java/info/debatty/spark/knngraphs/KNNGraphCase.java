@@ -60,13 +60,13 @@ public class KNNGraphCase extends SparkCase {
      * Read the exact SPAM graph from resources.
      * @return
      */
-    public final JavaPairRDD<String, NeighborList> readSpamGraph() {
+    public final JavaPairRDD<Node<String>, NeighborList> readSpamGraph() {
         String file =  getClass().getClassLoader().
                 getResource("graph-spam").getPath();
 
-        JavaRDD<Tuple2<String, NeighborList>> tuples =
+        JavaRDD<Tuple2<Node<String>, NeighborList>> tuples =
                 getSpark().objectFile(file, 8);
-        JavaPairRDD<String, NeighborList> graph =
+        JavaPairRDD<Node<String>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
         return graph;
@@ -76,15 +76,15 @@ public class KNNGraphCase extends SparkCase {
      * Read the exact synthetic graph from resources.
      * @return
      */
-    public final JavaPairRDD<double[], NeighborList>
+    public final JavaPairRDD<Node<double[]>, NeighborList>
         readSyntheticGraph() {
 
         String file =  getClass().getClassLoader().
                 getResource("graph-synthetic-10K").getPath();
 
-        JavaRDD<Tuple2<double[], NeighborList>> tuples =
+        JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
                 getSpark().objectFile(file, 8);
-        JavaPairRDD<double[], NeighborList> graph =
+        JavaPairRDD<Node<double[]>, NeighborList> graph =
                 JavaPairRDD.fromJavaRDD(tuples);
 
         return graph;

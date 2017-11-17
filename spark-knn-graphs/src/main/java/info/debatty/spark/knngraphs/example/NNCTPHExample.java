@@ -87,5 +87,7 @@ public class NNCTPHExample {
                 nnctph.computeGraph(nodes);
         System.out.println(graph.first());
 
+        sc.close();
+
     }
 }

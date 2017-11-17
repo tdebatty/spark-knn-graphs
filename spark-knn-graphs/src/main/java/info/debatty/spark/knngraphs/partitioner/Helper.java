@@ -46,6 +46,7 @@ public class Helper {
     /**
      * Move the nodes to the correct partition.
      * Does NOT force execution or cache the resulting partition!
+     * @param <T> the type of data wrapped in each node
      * @param graph
      * @param partitions
      * @return

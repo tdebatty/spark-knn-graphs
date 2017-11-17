@@ -75,5 +75,7 @@ public class LSHSuperBitTextExample {
         JavaPairRDD<Node<SparseIntegerVector>, NeighborList> graph =
                 gbuilder.computeGraph(nodes);
         System.out.println(graph.first());
+
+        sc.close();
     }
 }

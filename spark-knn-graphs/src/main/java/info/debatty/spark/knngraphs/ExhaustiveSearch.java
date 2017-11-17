@@ -40,7 +40,7 @@ import scala.Tuple2;
  * @param <T>
  */
 public class ExhaustiveSearch<T> implements Serializable {
-    private final JavaPairRDD<T, NeighborList> graph;
+    private final JavaPairRDD<Node<T>, NeighborList> graph;
     private final SimilarityInterface<T> similarity;
 
     /**
@@ -49,8 +49,9 @@ public class ExhaustiveSearch<T> implements Serializable {
      * @param similarity
      */
     public ExhaustiveSearch(
-            final JavaPairRDD<T, NeighborList> graph,
+            final JavaPairRDD<Node<T>, NeighborList> graph,
             final SimilarityInterface<T> similarity) {
+
         this.graph = graph;
         this.similarity = similarity;
     }
@@ -83,7 +84,7 @@ public class ExhaustiveSearch<T> implements Serializable {
  */
 class SearchFunction<T>
         implements FlatMapFunction<
-            Iterator<Tuple2<T, NeighborList>>,
+            Iterator<Tuple2<Node<T>, NeighborList>>,
             NeighborList> {
 
     private final int k;
@@ -100,17 +101,19 @@ class SearchFunction<T>
         this.similarity = similarity;
     }
 
+    @Override
     public Iterator<NeighborList> call(
-            final Iterator<Tuple2<T, NeighborList>> tuples_iterator) {
+            final Iterator<Tuple2<Node<T>, NeighborList>> tuples_iterator) {
+
         NeighborList local_nl = new NeighborList(k);
         while (tuples_iterator.hasNext()) {
-            T next = tuples_iterator.next()._1;
+            Node<T> node = tuples_iterator.next()._1;
             local_nl.add(new Neighbor(
-                    next,
-                    similarity.similarity(query, next)));
+                    node,
+                    similarity.similarity(query, node.value)));
         }
 
-        ArrayList<NeighborList> result = new ArrayList<NeighborList>(1);
+        ArrayList<NeighborList> result = new ArrayList<>(1);
         result.add(local_nl);
         return result.iterator();
 

@@ -29,6 +29,7 @@ import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.stringsimilarity.JaroWinkler;
 import info.debatty.spark.knngraphs.ApproximateSearch;
 import info.debatty.spark.knngraphs.ExhaustiveSearch;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import java.io.IOException;
@@ -101,31 +102,25 @@ public final class Search {
         conf.setIfMissing("spark.master", "local[*]");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
-        // Convert to nodes
-        List<String> dataset = new ArrayList<String>();
-        for (String s : strings) {
-            dataset.add(new String(String.valueOf(dataset.size()), s));
-        }
-
         // Split the dataset between training and validation
         Random rand = new Random();
         ArrayList<String> validation_dataset
-                = new ArrayList<String>(search_queries);
+                = new ArrayList<>(search_queries);
         for (int i = 0; i < search_queries; i++) {
             validation_dataset.add(
-                    dataset.remove(rand.nextInt(dataset.size())));
+                    strings.remove(rand.nextInt(strings.size())));
         }
 
         // Parallelize the dataset and force execution
-        JavaRDD<String> nodes = sc.parallelize(dataset);
+        JavaRDD<String> nodes = sc.parallelize(strings);
         nodes.cache();
         nodes.first();
 
         // Compute the graph (and force execution)...
-        DistributedGraphBuilder<String> builder = new Brute<String>();
+        DistributedGraphBuilder<String> builder = new Brute<>();
         builder.setK(k);
         builder.setSimilarity(similarity);
-        JavaPairRDD<String, NeighborList> graph
+        JavaPairRDD<Node<String>, NeighborList> graph
                 = builder.computeGraph(nodes);
         graph.cache();
         graph.first();
@@ -133,7 +128,8 @@ public final class Search {
         // Prepare the graph for approximate graph based search
         // (and force execution)
         ApproximateSearch approximate_search_algorithm
-                = new ApproximateSearch(graph, similarity, partitioning_medoids);
+                = new ApproximateSearch(
+                        graph, similarity, partitioning_medoids);
 
         // Prepare exhaustive search
         ExhaustiveSearch exhaustive_search
@@ -143,20 +139,20 @@ public final class Search {
 
         // Perform some search...
         for (final String query : validation_dataset) {
-            System.out.println("Search query: " + query.value);
+            System.out.println("Search query: " + query);
 
             // Using distributed graph based NN-search
             NeighborList neighborlist_graph
                     = approximate_search_algorithm.search(query, search_k);
             System.out.println(
-                    "Using graph: " + neighborlist_graph.element().node.value);
+                    "Using graph: " + neighborlist_graph.element().getNode());
 
             // Using distributed exhaustive search
             NeighborList neighborlist_exhaustive
                     = exhaustive_search.search(query, search_k);
             System.out.println(
                     "Using exhaustive search: "
-                    + neighborlist_exhaustive.element().node.value);
+                    + neighborlist_exhaustive.element().getNode());
         }
     }
 }

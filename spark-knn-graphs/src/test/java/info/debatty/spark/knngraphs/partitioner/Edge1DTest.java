@@ -26,6 +26,7 @@ package info.debatty.spark.knngraphs.partitioner;
 import info.debatty.java.graphs.NeighborList;
 
 import info.debatty.spark.knngraphs.KNNGraphCase;
+import info.debatty.spark.knngraphs.Node;
 import org.apache.spark.api.java.JavaPairRDD;
 
 /**
@@ -45,7 +46,7 @@ public class Edge1DTest extends KNNGraphCase {
         System.out.println("Partition");
         System.out.println("=========");
 
-        JavaPairRDD<double[], NeighborList> graph = readSyntheticGraph();
+        JavaPairRDD<Node<double[]>, NeighborList> graph = readSyntheticGraph();
 
         // Partition
         Edge1D<double[]> partitioner = new Edge1D<>(PARTITIONS);
@@ -63,7 +64,7 @@ public class Edge1DTest extends KNNGraphCase {
                 "Incorrect number of cross edges!",
                 random_cross_edges,
                 cross_edges,
-                0.001 * random_cross_edges);
+                0.01 * random_cross_edges);
 
         double imbalance = JaBeJa.computeBalance(
                 partitioning.wrapped_graph, PARTITIONS);
@@ -73,6 +74,4 @@ public class Edge1DTest extends KNNGraphCase {
                 imbalance,
                 0.0001);
     }
-
-
 }

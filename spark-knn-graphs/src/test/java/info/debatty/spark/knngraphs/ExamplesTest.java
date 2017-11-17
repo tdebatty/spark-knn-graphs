@@ -47,11 +47,13 @@ public class ExamplesTest extends TestCase {
 
         for (Class<? extends Runnable> example_class : examples) {
             try {
+                System.out.println(example_class.getName());
                 Runnable instance = example_class.newInstance();
                 instance.run();
             } catch (Exception ex) {
                 System.out.println("Example failed: "
                         + example_class.getCanonicalName());
+                ex.printStackTrace();
                 fail = true;
             }
         }

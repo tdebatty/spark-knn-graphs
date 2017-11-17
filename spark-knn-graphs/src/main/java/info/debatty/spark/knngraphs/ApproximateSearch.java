@@ -57,7 +57,7 @@ public class ApproximateSearch<T> {
     public static final double DEFAULT_EXPANSION = 1.2;
 
     // State: the partitioned graph
-    private final JavaRDD<Graph<T>> distributed_graph;
+    private final JavaRDD<Graph<Node<T>>> distributed_graph;
 
     /**
      * Prepare the graph for distributed search.
@@ -67,15 +67,15 @@ public class ApproximateSearch<T> {
      * @param partitions
      */
     public ApproximateSearch(
-            final JavaPairRDD<T, NeighborList> graph,
+            final JavaPairRDD<Node<T>, NeighborList> graph,
             final SimilarityInterface<T> similarity,
             final int partitions) {
 
         // Partition the graph
         KMedoids<T> partitioner
                 = new KMedoids<>(similarity, partitions);
-        JavaPairRDD<T, NeighborList> partitioned_graph =
-                partitioner.partition(graph).graph;
+        JavaPairRDD<Node<T>, NeighborList> partitioned_graph =
+                partitioner.partition(graph).wrapped_graph;
 
         this.distributed_graph = DistributedGraph.toGraph(
                 partitioned_graph, similarity);
@@ -87,7 +87,7 @@ public class ApproximateSearch<T> {
      * Use the graph as it is, without repartitioning.
      * @param distributed_graph
      */
-    public ApproximateSearch(final JavaRDD<Graph<T>> distributed_graph) {
+    public ApproximateSearch(final JavaRDD<Graph<Node<T>>> distributed_graph) {
         this.distributed_graph = distributed_graph;
     }
 
@@ -134,10 +134,13 @@ public class ApproximateSearch<T> {
             final int jumps,
             final double expansion) {
 
+        Node<T> query_node = new Node<>();
+        query_node.value = query;
+
         JavaRDD<NeighborList> candidates_neighborlists
                 = distributed_graph.map(
                         new DistributedSearch(
-                                query,
+                                query_node,
                                 k,
                                 speedup,
                                 jumps,
@@ -158,17 +161,17 @@ public class ApproximateSearch<T> {
  * @param <T> Value of graph nodes
  */
 class DistributedSearch<T>
-        implements Function<Graph<T>, NeighborList> {
+        implements Function<Graph<Node<T>>, NeighborList> {
 
     private final double speedup;
     private final int k;
-    private final T query;
+    private final Node<T> query;
     private final int random_jumps;
     private final double expansion;
     private final StatisticsAccumulator stats_accumulator;
 
     DistributedSearch(
-            final T query,
+            final Node<T> query,
             final int k,
             final double speedup,
             final int random_jumps,
@@ -184,7 +187,7 @@ class DistributedSearch<T>
     }
 
     @Override
-    public NeighborList call(final Graph<T> local_graph) throws Exception {
+    public NeighborList call(final Graph<Node<T>> local_graph) {
 
         StatisticsContainer local_stats = new StatisticsContainer();
 

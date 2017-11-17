@@ -2,6 +2,7 @@ package info.debatty.spark.knngraphs.builder;
 
 
 import info.debatty.spark.knngraphs.Node;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -13,7 +14,9 @@ import scala.Tuple2;
  *
  * @author Thibault Debatty
  */
-abstract class LSHSuperBit<T> extends AbstractPartitioningBuilder<T> {
+abstract class LSHSuperBit<T>
+        extends AbstractPartitioningBuilder<T>
+        implements Serializable {
 
     info.debatty.java.lsh.LSHSuperBit lsh;
     protected int dim;

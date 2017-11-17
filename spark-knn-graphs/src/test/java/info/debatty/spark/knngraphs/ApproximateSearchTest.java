@@ -50,14 +50,14 @@ public class ApproximateSearchTest extends KNNGraphCase {
         System.out.println("Search");
         System.out.println("======");
 
-        JavaPairRDD<double[], NeighborList> graph = readSyntheticGraph();
+        JavaPairRDD<Node<double[]>, NeighborList> graph = readSyntheticGraph();
 
         ExhaustiveSearch<double[]> exhaustive_search =
-                new ExhaustiveSearch<double[]>(graph, new L2Similarity());
+                new ExhaustiveSearch<>(graph, new L2Similarity());
 
         System.out.println("Prepare the graph for approximate search");
         ApproximateSearch<double[]> approximate_search =
-                new ApproximateSearch<double[]>(
+                new ApproximateSearch<>(
                         graph,
                         new L2Similarity(),
                         PARTITIONS);

@@ -25,14 +25,13 @@
 package info.debatty.spark.knngraphs.partitioner;
 
 import info.debatty.java.graphs.NeighborList;
-
+import info.debatty.spark.knngraphs.Node;
 import java.util.Random;
 import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
 /**
- * Randomize dataset by assigning a random value to each node (in attribute
- * NodePartition.PARTITION_KEY).
+ * Randomize dataset by assigning a random value to each node.partition.
  *
  * Usage:
  * graph = graph.mapToPair(new RandomizeFunction(partitions))
@@ -42,8 +41,8 @@ import scala.Tuple2;
  */
 class RandomizeFunction<T>
         implements PairFunction<
-            Tuple2<T, NeighborList>,
-            T,
+            Tuple2<Node<T>, NeighborList>,
+            Node<T>,
             NeighborList> {
 
     private final int partitions;
@@ -53,18 +52,16 @@ class RandomizeFunction<T>
         this.partitions = partitions;
     }
 
-    public Tuple2<T, NeighborList> call(
-            final Tuple2<T, NeighborList> tuple) {
+    @Override
+    public Tuple2<Node<T>, NeighborList> call(
+            final Tuple2<Node<T>, NeighborList> tuple) {
 
         if (rand == null) {
             rand = new Random();
         }
 
-        tuple._1.setAttribute(
-                NodePartitioner.PARTITION_KEY,
-                rand.nextInt(partitions));
+        tuple._1.partition = rand.nextInt(partitions);
 
         return tuple;
     }
-
 }
