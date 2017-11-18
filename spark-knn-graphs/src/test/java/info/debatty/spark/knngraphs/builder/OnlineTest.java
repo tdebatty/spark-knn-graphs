@@ -117,7 +117,7 @@ public class OnlineTest extends TestCase implements Serializable {
                         graph,
                         PARTITIONS);
 
-        System.out.println("Add " + N_TEST + "nodes...");
+        System.out.println("Add " + N_TEST + " nodes...");
         long start_time = System.currentTimeMillis();
         for (int i = 0; i < N_TEST; i++) {
             double[] point = data_source.next();
