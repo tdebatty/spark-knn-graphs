@@ -9,7 +9,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.Serializable;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -72,20 +71,26 @@ public abstract class DistributedGraphBuilder<T> {
      * @throws java.lang.Exception
      */
     protected abstract JavaPairRDD<Node<T>, NeighborList>
-        doComputeGraph(JavaRDD<Node<T>> nodes) throws Exception;
+            doComputeGraph(JavaRDD<Node<T>> nodes) throws Exception;
 
-    public static ArrayList<String> readFile(String path) throws IOException {
+    /**
+     * Read a file to an ArrayList of String.
+     * @param path
+     * @return
+     * @throws IOException if cannot read file
+     */
+    public static ArrayList<String> readFile(final String path)
+            throws IOException {
 
         File file = new File(path);
-	BufferedReader br = new BufferedReader(new FileReader(file));
-
-        ArrayList<String> r = new ArrayList<String>();
-	String line;
-	while ((line = br.readLine()) != null) {
-		r.add(line);
-	}
-
-	br.close();
-        return r;
+        ArrayList<String> lines;
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            lines = new ArrayList<>();
+            String line;
+            while ((line = br.readLine()) != null) {
+                lines.add(line);
+            }
+        }
+        return lines;
     }
 }
