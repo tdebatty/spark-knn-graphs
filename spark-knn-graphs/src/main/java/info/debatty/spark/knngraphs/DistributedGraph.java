@@ -84,11 +84,19 @@ public class DistributedGraph {
     public static final <T> JavaRDD<Graph<Node<T>>> toGraph(
             final JavaPairRDD<Node<T>, NeighborList> graph,
             final SimilarityInterface<T> similarity) {
+
         return graph.mapPartitions(
                 new NeighborListToGraph(similarity), true);
     }
 }
 
+/**
+ * Wrap values of type T with a Node class (which holds a unique id and a
+ * partition id).
+ *
+ * @author tibo
+ * @param <T>
+ */
 class WrapNodeFunction<T> implements Function<Tuple2<T, Long>, Node<T>> {
 
     @Override
