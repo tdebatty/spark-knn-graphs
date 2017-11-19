@@ -25,6 +25,7 @@
 package info.debatty.spark.knngraphs.builder;
 
 import info.debatty.java.graphs.NeighborList;
+import info.debatty.spark.knngraphs.DistributedGraph;
 import info.debatty.spark.knngraphs.JWSimilarity;
 import info.debatty.spark.knngraphs.KNNGraphCase;
 import info.debatty.spark.knngraphs.Node;
@@ -38,6 +39,8 @@ import org.apache.spark.api.java.JavaRDD;
 public class NNDescentTest extends KNNGraphCase {
 
     private static final int K = 10;
+    private static final int ITERATIONS = 5;
+    private static final double SUCCESS_RATIO = 0.9;
 
     /**
      * Test of computeGraph method, of class NNDescent.
@@ -47,30 +50,34 @@ public class NNDescentTest extends KNNGraphCase {
         System.out.println("NNDescent");
         System.out.println("=========");
 
-        JavaRDD<String> nodes = readSpam();
+
+        JavaPairRDD<Node<String>, NeighborList> exact_graph = readSpamGraph();
+        JavaRDD<Node<String>> nodes = exact_graph.keys();
 
         NNDescent<String> builder = new NNDescent<>();
         builder.setK(K);
         builder.setSimilarity(new JWSimilarity());
-        builder.setMaxIterations(5);
+        builder.setMaxIterations(ITERATIONS);
 
         // Compute the graph and force execution
         JavaPairRDD<Node<String>, NeighborList> graph =
-                builder.computeGraph(nodes);
+                builder.computeGraphFromNodes(nodes);
         graph.cache();
 
         // Perform tests
         assertEquals(nodes.count(), graph.count());
         assertEquals(K, graph.first()._2.size());
 
-        JavaPairRDD<Node<String>, NeighborList> exact_graph = readSpamGraph();
-        //long correct_edges = DistributedGraph.countCommonEdges(
-        //        exact_graph, graph);
 
-        int correct_threshold = (int) (nodes.count() * K * 0.9);
+        long correct_edges = DistributedGraph.countCommonEdges(
+                exact_graph, graph);
 
-        //assertTrue(
-        //        "Not enough correct edges: " + correct_edges,
-        //        correct_edges >= correct_threshold);
+        System.out.printf("Found %d correct edges\n", correct_edges);
+
+        int correct_threshold = (int) (nodes.count() * K * SUCCESS_RATIO);
+
+        assertTrue(
+                "Not enough correct edges: " + correct_edges,
+                correct_edges >= correct_threshold);
     }
 }

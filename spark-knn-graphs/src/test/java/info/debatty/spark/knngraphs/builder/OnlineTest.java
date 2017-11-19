@@ -27,6 +27,7 @@ import info.debatty.java.datasets.gaussian.Dataset;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
+import info.debatty.spark.knngraphs.DistributedGraph;
 import info.debatty.spark.knngraphs.KNNGraphCase;
 
 import info.debatty.spark.knngraphs.L2Similarity;
@@ -36,9 +37,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -51,16 +49,15 @@ import scala.Tuple2;
 public class OnlineTest extends KNNGraphCase {
 
     // Number of nodes in the initial graph
-    private static final int N = 1000;
+    private static final int N = 2000;
 
     // Number of nodes to add to the graph
     private static final int N_TEST = 200;
     private static final int PARTITIONS = 4;
     private static final int K = 10;
-    private static final double SUCCESS_RATIO = 0.6;
+    private static final double SUCCESS_RATIO = 0.95;
     private static final int DIMENSIONALITY = 1;
     private static final int NUM_CENTERS = 4;
-    private static final double SPEEDUP = 4;
 
     /**
      * Test of addNode method, of class Online.
@@ -81,10 +78,8 @@ public class OnlineTest extends KNNGraphCase {
 
         JavaSparkContext sc = getSpark();
 
-        LinkedList<double[]> data = dataset.get(N);
-
         // Parallelize the dataset in Spark
-        JavaRDD<double[]> nodes = sc.parallelize(data);
+        JavaRDD<double[]> nodes = sc.parallelize(dataset.get(N));
 
         Brute brute = new Brute();
         brute.setK(K);
@@ -117,38 +112,30 @@ public class OnlineTest extends KNNGraphCase {
             online_graph.fastAdd(point, stats_accumulator);
             //System.out.println(stats_accumulator.value());
 
-            // keep the node for later testing
-            data.add(point);
         }
 
         System.out.println("Time: "
                 + (System.currentTimeMillis() - start_time)
                 + " ms");
 
-        Graph<Node<double[]>> local_approximate_graph =
-                list2graph(online_graph.getGraph().collect());
 
-        System.out.println("Approximate graph size: "
-                + online_graph.getGraph().collect().size());
+        JavaPairRDD<Node<double[]>, NeighborList> approximate_graph =
+                online_graph.getGraph();
 
         System.out.println("Compute the exact graph...");
-        Graph<Double> local_exact_graph =
-                list2graph(brute.computeGraph(sc.parallelize(data)).collect());
+        JavaPairRDD exact_graph =
+                brute.computeGraphFromNodes(online_graph.getGraph().keys());
 
-        int correct = 0;
-        //for (Node<Double> node : local_exact_graph.getNodes()) {
-        //    correct += local_exact_graph.get(node).countCommons(
-        //            local_approximate_graph.get(node));
-        //}
+        long correct_edges = DistributedGraph.countCommonEdges(
+                exact_graph, approximate_graph);
+        double correct_ratio = correct_edges / (1.0 * K * (N + N_TEST));
 
-        double ratio = 1.0 * correct / (data.size() * K);
-        System.out.printf("Found %d correct edges (%f)\n", correct, ratio);
-        System.out.println("Number of partitions: "
-                + online_graph.getGraph().partitions().size());
+        System.out.printf("Found %d correct edges (%f)\n",
+                correct_edges, correct_ratio);
 
         assertEquals(online_graph.getGraph().partitions().size(), PARTITIONS);
-        assertEquals(data.size(), local_approximate_graph.size());
-        // assertTrue(ratio > SUCCESS_RATIO);
+        assertEquals(N + N_TEST, approximate_graph.count());
+        assertTrue(correct_ratio > SUCCESS_RATIO);
     }
 
     /**
@@ -160,36 +147,19 @@ public class OnlineTest extends KNNGraphCase {
         System.out.println("Remove nodes");
         System.out.println("============");
 
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
-
         System.out.println("Create some random nodes");
-
-        Iterator<double[]> data_source
-                = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
+        Dataset dataset = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
                 .setOverlap(Dataset.Builder.Overlap.MEDIUM)
-                .build()
-                .iterator();
-
-        List<double[]> data = new ArrayList<>();
-        while (data.size() < N) {
-            data.add(data_source.next());
-        }
-
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        JavaSparkContext sc = new JavaSparkContext(conf);
+                .build();
 
         // Parallelize the dataset in Spark
-        JavaRDD<double[]> nodes = sc.parallelize(data);
+        JavaSparkContext sc = getSpark();
+        JavaRDD<double[]> nodes = sc.parallelize(dataset.get(N));
 
+        System.out.println("Compute the graph and force execution");
         Brute brute = new Brute();
         brute.setK(K);
         brute.setSimilarity(new L2Similarity());
-
-        System.out.println("Compute the graph and force execution");
         JavaPairRDD<Node<double[]>, NeighborList> graph
                 = brute.computeGraph(nodes);
         graph.cache();
@@ -200,61 +170,50 @@ public class OnlineTest extends KNNGraphCase {
                 new Online<>(K, new L2Similarity(), sc, graph, PARTITIONS);
 
         System.out.println("Remove some nodes...");
-        LinkedList<Node<double[]>> removed_nodes = new LinkedList<>();
-
-        List<Node<double[]>> all_nodes = graph.keys().collect();
         Random rand = new Random();
+        List<Node<double[]>> allnodes = new LinkedList<>(
+                graph.keys().collect());
+        List<Node<double[]>> removed_nodes = new LinkedList<>();
+
         for (int i = 0; i < N_TEST; i++) {
             Node<double[]> query =
-                    all_nodes.get(rand.nextInt(all_nodes.size() - 1));
-
-            StatisticsAccumulator stats_accumulator
-                    = new StatisticsAccumulator();
-            sc.sc().register(stats_accumulator);
-
-            online_graph.fastRemove(query, stats_accumulator);
-            if (i == 0) {
-                System.out.println(stats_accumulator.value());
-            }
-            data.remove(query.value);
+                    allnodes.get(rand.nextInt(allnodes.size()));
+            online_graph.fastRemove(query, null);
+            allnodes.remove(query);
             removed_nodes.add(query);
         }
-        Graph<Node<double[]>> local_approximate_graph =
-                list2graph(online_graph.getGraph().collect());
+
+        JavaPairRDD<Node<double[]>, NeighborList> approximate_graph =
+                online_graph.getGraph();
+
+        assertEquals(N - N_TEST, approximate_graph.count());
 
         System.out.println("Compute the exact graph...");
-        Graph<Node<double[]>> local_exact_graph =
-                list2graph(brute.computeGraph(sc.parallelize(data)).collect());
+        JavaPairRDD exact_graph = brute.computeGraphFromNodes(
+                approximate_graph.keys());
 
-        sc.close();
+        long correct_edges = DistributedGraph.countCommonEdges(
+                exact_graph, approximate_graph);
+        double correct_ratio = correct_edges / (1.0 * K * (N - N_TEST));
+        System.out.printf("Found %d correct edges (%f)\n",
+                correct_edges, correct_ratio);
+        assertTrue(correct_ratio > SUCCESS_RATIO);
 
-        int correct = 0;
-        for (Node<double[]> node : local_exact_graph.getNodes()) {
-            try {
-                correct += local_exact_graph.getNeighbors(node).countCommons(
-                    local_approximate_graph.getNeighbors(node));
-            } catch (Exception ex) {
-                System.out.println("Null neighborlist!");
-            }
-        }
+        Graph<Node<double[]>> local_approx_graph =
+                list2graph(approximate_graph.collect());
 
-        // Check all nodes have K neighbors
-        for (Node<double[]> node : local_approximate_graph.getNodes()) {
-            assertEquals(K, local_approximate_graph.getNeighbors(node).size());
+        for (Node<double[]> node : local_approx_graph.getNodes()) {
+            // Check all nodes have K neighbors
+            assertEquals(K, local_approx_graph.getNeighbors(node).size());
 
             // Check the old nodes are completely removed
             assertTrue(!node.equals(removed_nodes.get(0)));
-            for (Neighbor neighbor : local_approximate_graph.getNeighbors(node)) {
+            for (Neighbor neighbor : local_approx_graph.getNeighbors(node)) {
                 assertTrue(!neighbor.getNode().equals(removed_nodes.get(0)));
             }
         }
 
-        double ratio = 1.0 * correct / (data.size() * K);
-        System.out.printf("Found %d correct edges (%f)\n", correct, ratio);
-
-        // assertEquals(data.size(), local_approximate_graph.size());
-        assertEquals(online_graph.getGraph().partitions().size(), PARTITIONS);
-        assertTrue(ratio > SUCCESS_RATIO);
+        assertEquals(approximate_graph.partitions().size(), PARTITIONS);
     }
 
     private Graph<Node<double[]>> list2graph(

@@ -679,7 +679,9 @@ class RemoveUpdate<T> implements Function<Graph<T>, Graph<T>> {
             }
         }
 
-        stats_accumulator.add(local_stats);
+        if (stats_accumulator != null) {
+            stats_accumulator.add(local_stats);
+        }
         return subgraph;
     }
 }

@@ -57,11 +57,24 @@ public abstract class DistributedGraphBuilder<T> {
     public final JavaPairRDD<Node<T>, NeighborList> computeGraph(
             final JavaRDD<T> nodes) throws Exception {
 
+
+        return computeGraphFromNodes(DistributedGraph.wrapNodes(nodes));
+    }
+
+    /**
+     * Compute and return the graph.
+     * @param nodes
+     * @return
+     * @throws Exception on error
+     */
+    public final JavaPairRDD<Node<T>, NeighborList> computeGraphFromNodes(
+            final JavaRDD<Node<T>> nodes) throws Exception {
+
         if (similarity == null) {
             throw new InvalidParameterException("Similarity is not defined!");
         }
 
-        return doComputeGraph(DistributedGraph.wrapNodes(nodes));
+        return doComputeGraph(nodes);
     }
 
     /**
