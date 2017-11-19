@@ -333,7 +333,7 @@
         <dependency>
             <groupId>info.debatty</groupId>
             <artifactId>java-datasets</artifactId>
-            <version>0.10</version>
+            <version>0.14</version>
             <scope>test</scope>
         </dependency>
 

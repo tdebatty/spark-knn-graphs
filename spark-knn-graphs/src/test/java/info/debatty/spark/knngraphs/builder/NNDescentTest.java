@@ -25,8 +25,6 @@
 package info.debatty.spark.knngraphs.builder;
 
 import info.debatty.java.graphs.NeighborList;
-
-import info.debatty.spark.knngraphs.DistributedGraph;
 import info.debatty.spark.knngraphs.JWSimilarity;
 import info.debatty.spark.knngraphs.KNNGraphCase;
 import info.debatty.spark.knngraphs.Node;

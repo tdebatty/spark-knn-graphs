@@ -27,16 +27,15 @@ import info.debatty.java.datasets.gaussian.Dataset;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
+import info.debatty.spark.knngraphs.KNNGraphCase;
 
 import info.debatty.spark.knngraphs.L2Similarity;
 import info.debatty.spark.knngraphs.Node;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
-import junit.framework.TestCase;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
@@ -49,7 +48,7 @@ import scala.Tuple2;
  *
  * @author Thibault Debatty
  */
-public class OnlineTest extends TestCase implements Serializable {
+public class OnlineTest extends KNNGraphCase {
 
     // Number of nodes in the initial graph
     private static final int N = 1000;
@@ -72,28 +71,17 @@ public class OnlineTest extends TestCase implements Serializable {
         System.out.println("Add nodes");
         System.out.println("=========");
 
-        Logger.getLogger("org").setLevel(Level.WARN);
-        Logger.getLogger("akka").setLevel(Level.WARN);
 
         System.out.println("Create some random nodes");
 
-        Iterator<double[]> data_source
-                = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
+        Dataset dataset = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
                 .setOverlap(Dataset.Builder.Overlap.MEDIUM)
-                .build()
-                .iterator();
+                .setSize(N)
+                .build();
 
-        List<double[]> data = new ArrayList<>();
-        while (data.size() < N) {
-            data.add(data_source.next());
+        JavaSparkContext sc = getSpark();
 
-        }
-
-        // Configure spark instance
-        SparkConf conf = new SparkConf();
-        conf.setAppName("SparkTest");
-        conf.setIfMissing("spark.master", "local[*]");
-        JavaSparkContext sc = new JavaSparkContext(conf);
+        LinkedList<double[]> data = dataset.get(N);
 
         // Parallelize the dataset in Spark
         JavaRDD<double[]> nodes = sc.parallelize(data);
@@ -120,7 +108,7 @@ public class OnlineTest extends TestCase implements Serializable {
         System.out.println("Add " + N_TEST + " nodes...");
         long start_time = System.currentTimeMillis();
         for (int i = 0; i < N_TEST; i++) {
-            double[] point = data_source.next();
+            double[] point = dataset.get(1).element();
 
             StatisticsAccumulator stats_accumulator
                     = new StatisticsAccumulator();
@@ -132,6 +120,7 @@ public class OnlineTest extends TestCase implements Serializable {
             // keep the node for later testing
             data.add(point);
         }
+
         System.out.println("Time: "
                 + (System.currentTimeMillis() - start_time)
                 + " ms");
@@ -145,8 +134,6 @@ public class OnlineTest extends TestCase implements Serializable {
         System.out.println("Compute the exact graph...");
         Graph<Double> local_exact_graph =
                 list2graph(brute.computeGraph(sc.parallelize(data)).collect());
-
-        sc.close();
 
         int correct = 0;
         //for (Node<Double> node : local_exact_graph.getNodes()) {
