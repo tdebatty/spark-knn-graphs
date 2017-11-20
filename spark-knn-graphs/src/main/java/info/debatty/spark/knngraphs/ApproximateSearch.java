@@ -89,7 +89,7 @@ public class ApproximateSearch<T> {
     * @param k
     * @return
     */
-   public final NeighborList search(
+    public final NeighborList search(
             final T query,
             final int k) {
        return search(
