@@ -26,6 +26,7 @@ package info.debatty.spark.knngraphs.builder;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.Neighbor;
 import info.debatty.java.graphs.NeighborList;
+import info.debatty.java.graphs.OnlineConfig;
 
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
@@ -76,10 +77,7 @@ public class Online<T> {
     private final double medoid_update_ratio;
 
     // Parameters used to add or remove nodes
-    private final double search_speedup;
-    private final int search_random_jumps;
-    private final double search_expansion;
-    private final int update_depth;
+    private final OnlineConfig conf;
     private final double imbalance = 1.1;
 
     // ------ Algorithm state ------
@@ -91,7 +89,8 @@ public class Online<T> {
     private final ArrayList<Node<T>> medoids;
 
     /**
-     *
+     * Initialise an online graph with default parameters.
+     * 
      * @param k
      * @param similarity
      * @param sc
@@ -105,15 +104,35 @@ public class Online<T> {
             final JavaPairRDD<Node<T>, NeighborList> initial_graph,
             final int partitioning_medoids) {
 
+        this(
+                k, similarity, sc, initial_graph, partitioning_medoids,
+                OnlineConfig.getDefault());
+    }
+
+    /**
+     *
+     * @param k
+     * @param similarity
+     * @param sc
+     * @param initial_graph
+     * @param partitioning_medoids
+     * @param conf
+     */
+    public Online(
+            final int k,
+            final SimilarityInterface<T> similarity,
+            final JavaSparkContext sc,
+            final JavaPairRDD<Node<T>, NeighborList> initial_graph,
+            final int partitioning_medoids,
+            final OnlineConfig conf) {
+
         this.similarity = similarity;
         this.k = k;
         this.spark_context = sc;
+        this.conf = conf;
+
 
         this.medoid_update_ratio = DEFAULT_MEDOID_UPDATE_RATIO;
-        this.search_speedup = ApproximateSearch.DEFAULT_SPEEDUP;
-        this.search_random_jumps = ApproximateSearch.DEFAULT_JUMPS;
-        this.search_expansion = ApproximateSearch.DEFAULT_EXPANSION;
-        this.update_depth = DEFAULT_UPDATE_DEPTH;
 
         this.previous_rdds = new LinkedList<>();
 
@@ -181,11 +200,7 @@ public class Online<T> {
                 distributed_graph);
         NeighborList neighborlist = searcher.search(
                 value,
-                k,
-                null,
-                search_speedup,
-                search_random_jumps,
-                search_expansion);
+                conf);
 
         // Assign the node to a partition (most similar medoid, with partition
         // size constraint)
@@ -201,7 +216,7 @@ public class Online<T> {
                             neighborlist,
                             similarity,
                             stats_accumulator,
-                            update_depth));
+                            conf.getUpdateDepth()));
 
         // Add the new <Node, NeighborList> to the distributed graph
         updated_graph = updated_graph.map(new AddNode(node, neighborlist));
@@ -325,7 +340,7 @@ public class Online<T> {
                         distributed_graph
                         .flatMap(new SearchNeighbors(
                                 initial_candidates,
-                                update_depth))
+                                conf.getUpdateDepth()))
                         .collect());
 
         // Find the partition corresponding to node_to_remove

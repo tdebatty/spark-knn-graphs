@@ -23,12 +23,11 @@
  */
 package info.debatty.spark.knngraphs;
 
+import info.debatty.java.graphs.FastSearchConfig;
+import info.debatty.java.graphs.FastSearchResult;
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
-
 import info.debatty.java.graphs.SimilarityInterface;
-import info.debatty.java.graphs.StatisticsContainer;
-import info.debatty.spark.knngraphs.builder.StatisticsAccumulator;
 import info.debatty.spark.knngraphs.partitioner.KMedoids;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -40,21 +39,6 @@ import org.apache.spark.api.java.function.Function;
  * @param <T>
  */
 public class ApproximateSearch<T> {
-
-    /**
-     * Default search speedup compared to exhaustive search.
-     */
-    public static final int DEFAULT_SPEEDUP = 10;
-
-    /**
-     * Default number of random jumps per node when searching.
-     */
-    public static final int DEFAULT_JUMPS = 2;
-
-    /**
-     * Default value for search expansion parameter.
-     */
-    public static final double DEFAULT_EXPANSION = 1.2;
 
     // State: the partitioned graph
     private final JavaRDD<Graph<Node<T>>> distributed_graph;
@@ -99,7 +83,8 @@ public class ApproximateSearch<T> {
     }
 
    /**
-    * Fast distributed search.
+    * Perform fast distributed search using default parameters.
+    *
     * @param query
     * @param k
     * @return
@@ -109,47 +94,29 @@ public class ApproximateSearch<T> {
             final int k) {
        return search(
                query,
-               k,
-               null,
-               DEFAULT_SPEEDUP,
-               DEFAULT_JUMPS,
-               DEFAULT_EXPANSION);
+               FastSearchConfig.getDefault());
    }
 
     /**
      *
      * @param query
-     * @param k
-     * @param stats_accumulator
-     * @param speedup
-     * @param jumps
-     * @param expansion
+     * @param conf
      * @return
      */
     public final NeighborList search(
             final T query,
-            final int k,
-            final StatisticsAccumulator stats_accumulator,
-            final double speedup,
-            final int jumps,
-            final double expansion) {
+            final FastSearchConfig conf) {
 
         Node<T> query_node = new Node<>();
         query_node.value = query;
 
-        JavaRDD<NeighborList> candidates_neighborlists
+        JavaRDD<FastSearchResult> candidates_neighborlists
                 = distributed_graph.map(
-                        new DistributedSearch(
-                                query_node,
-                                k,
-                                speedup,
-                                jumps,
-                                expansion,
-                                stats_accumulator));
+                        new DistributedSearch(query_node, conf));
 
-        NeighborList final_neighborlist = new NeighborList(k);
-        for (NeighborList nl : candidates_neighborlists.collect()) {
-            final_neighborlist.addAll(nl);
+        NeighborList final_neighborlist = new NeighborList(conf.getK());
+        for (FastSearchResult<T> result : candidates_neighborlists.collect()) {
+            final_neighborlist.addAll(result.getNeighbors());
         }
         return final_neighborlist;
     }
@@ -161,47 +128,25 @@ public class ApproximateSearch<T> {
  * @param <T> Value of graph nodes
  */
 class DistributedSearch<T>
-        implements Function<Graph<Node<T>>, NeighborList> {
+        implements Function<Graph<Node<T>>, FastSearchResult<T>> {
 
-    private final double speedup;
-    private final int k;
     private final Node<T> query;
-    private final int random_jumps;
-    private final double expansion;
-    private final StatisticsAccumulator stats_accumulator;
+    private final FastSearchConfig conf;
 
     DistributedSearch(
             final Node<T> query,
-            final int k,
-            final double speedup,
-            final int random_jumps,
-            final double expansion,
-            final StatisticsAccumulator stats_accumulator) {
+            final FastSearchConfig conf) {
 
         this.query = query;
-        this.k = k;
-        this.speedup = speedup;
-        this.random_jumps = random_jumps;
-        this.expansion = expansion;
-        this.stats_accumulator = stats_accumulator;
+        this.conf = conf;
     }
 
     @Override
-    public NeighborList call(final Graph<Node<T>> local_graph) {
+    public FastSearchResult<T> call(final Graph<Node<T>> local_graph) {
 
-        StatisticsContainer local_stats = new StatisticsContainer();
-
-        NeighborList local_results = local_graph.fastSearch(
+        FastSearchResult local_results = local_graph.fastSearch(
                 query,
-                k,
-                speedup,
-                random_jumps,
-                expansion,
-                local_stats);
-
-        if (stats_accumulator != null) {
-            stats_accumulator.add(local_stats);
-        }
+                conf);
 
         return local_results;
     }

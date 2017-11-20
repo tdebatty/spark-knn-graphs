@@ -32,8 +32,6 @@ import info.debatty.spark.knngraphs.KNNGraphCase;
 
 import info.debatty.spark.knngraphs.L2Similarity;
 import info.debatty.spark.knngraphs.Node;
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -110,8 +108,6 @@ public class OnlineTest extends KNNGraphCase {
             sc.sc().register(stats_accumulator);
 
             online_graph.fastAdd(point, stats_accumulator);
-            //System.out.println(stats_accumulator.value());
-
         }
 
         System.out.println("Time: "

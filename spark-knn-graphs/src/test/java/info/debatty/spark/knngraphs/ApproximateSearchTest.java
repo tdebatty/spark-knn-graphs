@@ -25,6 +25,7 @@
 package info.debatty.spark.knngraphs;
 
 import info.debatty.java.datasets.gaussian.Dataset;
+import info.debatty.java.graphs.FastSearchConfig;
 import info.debatty.java.graphs.NeighborList;
 
 import java.util.Iterator;
@@ -69,17 +70,16 @@ public class ApproximateSearchTest extends KNNGraphCase {
                 .setOverlap(Dataset.Builder.Overlap.MEDIUM)
                 .build()
                 .iterator();
+
+        FastSearchConfig conf = FastSearchConfig.getDefault();
+        conf.setSpeedup(SPEEDUP);
         int correct = 0;
         for (int i = 0; i < N_TEST; i++) {
             double[] query = queryies.next();
 
             NeighborList approximate_result = approximate_search.search(
                     query,
-                    1,
-                    null,
-                    SPEEDUP,
-                    ApproximateSearch.DEFAULT_JUMPS,
-                    ApproximateSearch.DEFAULT_EXPANSION);
+                    conf);
 
             NeighborList exhaustive_result = exhaustive_search.search(query, 1);
             correct += approximate_result.countCommons(exhaustive_result);
