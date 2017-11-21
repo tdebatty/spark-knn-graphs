@@ -65,7 +65,7 @@ public class ApproximateSearchTest extends KNNGraphCase {
 
         System.out.println("Perform some search queries...");
 
-        Iterator<double[]> queryies
+        Iterator<double[]> queries
                 = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
                 .setOverlap(Dataset.Builder.Overlap.MEDIUM)
                 .build()
@@ -75,7 +75,7 @@ public class ApproximateSearchTest extends KNNGraphCase {
         conf.setSpeedup(SPEEDUP);
         int correct = 0;
         for (int i = 0; i < N_TEST; i++) {
-            double[] query = queryies.next();
+            double[] query = queries.next();
 
             NeighborList approximate_result = approximate_search.search(
                     query,
@@ -90,5 +90,44 @@ public class ApproximateSearchTest extends KNNGraphCase {
         assertTrue(
                 "Not enough correct search results: " + correct,
                 correct > N_CORRECT);
+    }
+
+    /**
+     * Test of search method, of class ApproximateSearch.
+     */
+    public final void testNaiveSearch() {
+        System.out.println("NaiveSearch");
+        System.out.println("===========");
+
+        JavaPairRDD<Node<double[]>, NeighborList> graph = readSyntheticGraph();
+        System.out.println("Prepare the graph for approximate search");
+        ApproximateSearch<double[]> approximate_search =
+                new ApproximateSearch<>(
+                        graph,
+                        new L2Similarity(),
+                        PARTITIONS);
+        ExhaustiveSearch<double[]> exhaustive_search =
+                new ExhaustiveSearch<>(graph, new L2Similarity());
+
+        Iterator<double[]> queries
+                = new Dataset.Builder(DIMENSIONALITY, NUM_CENTERS)
+                .setOverlap(Dataset.Builder.Overlap.MEDIUM)
+                .build()
+                .iterator();
+        FastSearchConfig conf = FastSearchConfig.getNaive();
+        conf.setSpeedup(SPEEDUP);
+        int correct = 0;
+
+        for (int i = 0; i < N_TEST; i++) {
+            double[] query = queries.next();
+            NeighborList approximate_result = approximate_search.search(
+                    query,
+                    conf);
+
+            NeighborList exhaustive_result = exhaustive_search.search(query, 1);
+            correct += approximate_result.countCommons(exhaustive_result);
+        }
+
+        System.out.println("Found " + correct + " correct search results");
     }
 }

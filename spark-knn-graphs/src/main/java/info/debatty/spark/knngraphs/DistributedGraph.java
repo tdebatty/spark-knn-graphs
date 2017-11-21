@@ -88,6 +88,37 @@ public class DistributedGraph {
         return graph.mapPartitions(
                 new NeighborListToGraph(similarity), true);
     }
+
+    /**
+     *
+     * @param <T>
+     * @param graph
+     * @return
+     */
+    public static final <T> long size(
+            final JavaRDD<Graph<T>> graph) {
+
+        long total = 0;
+        JavaRDD<Long> sizes = graph.map(new GraphSizeFunction());
+        for (Long size : sizes.collect()) {
+            total += size;
+        }
+        return total;
+    }
+}
+
+/**
+ * Return the size of the graph.
+ *
+ * @author tibo
+ * @param <T>
+ */
+class GraphSizeFunction<T> implements Function<Graph<T>, Long> {
+
+    @Override
+    public Long call(final Graph<T> graph) {
+        return (long) graph.size();
+    }
 }
 
 /**

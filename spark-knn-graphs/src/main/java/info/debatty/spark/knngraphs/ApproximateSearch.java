@@ -29,6 +29,7 @@ import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.spark.knngraphs.partitioner.KMedoids;
+import java.util.LinkedList;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
@@ -107,18 +108,63 @@ public class ApproximateSearch<T> {
             final T query,
             final FastSearchConfig conf) {
 
+        if (!conf.isRestartAtBoundary()) {
+            // This is a naive search: the sequential search algorithm will
+            // return if the number of computed similarities reaches the max
+            // OR if the search reaches the boundary of the partition
+
+            return naiveSearch(query, conf);
+        }
+
         Node<T> query_node = new Node<>();
         query_node.value = query;
 
-        JavaRDD<FastSearchResult> candidates_neighborlists
-                = distributed_graph.map(
-                        new DistributedSearch(query_node, conf));
+        JavaRDD<FastSearchResult> results = distributed_graph.map(
+                        new DistributedSearch(
+                                query_node, conf, new LinkedList<>()));
 
         NeighborList final_neighborlist = new NeighborList(conf.getK());
-        for (FastSearchResult<T> result : candidates_neighborlists.collect()) {
+        for (FastSearchResult<T> result : results.collect()) {
             final_neighborlist.addAll(result.getNeighbors());
         }
         return final_neighborlist;
+    }
+
+    /**
+     *
+     * @param query
+     * @param conf
+     * @return
+     */
+    public final NeighborList naiveSearch(
+            final T query, final FastSearchConfig conf) {
+
+        long max_similarities = DistributedGraph.size(distributed_graph)
+                / (long) conf.getSpeedup();
+        NeighborList neighborlist = new NeighborList(conf.getK());
+        LinkedList<Node<T>> starting_points = new LinkedList<>();
+        Node<T> query_node = new Node<>();
+        query_node.value = query;
+        int similarities = 0;
+
+        while (similarities < max_similarities) {
+            JavaRDD<FastSearchResult> results = distributed_graph.map(
+                        new DistributedSearch(
+                                query_node, conf, starting_points));
+
+            starting_points = new LinkedList<>();
+
+            for (FastSearchResult<Node<T>> result : results.collect()) {
+                neighborlist.addAll(result.getNeighbors());
+                similarities += result.getSimilarities();
+
+                if (result.getBoundaryNode() != null) {
+                    starting_points.add(result.getBoundaryNode());
+                }
+            }
+        }
+
+        return neighborlist;
     }
 }
 
@@ -132,22 +178,27 @@ class DistributedSearch<T>
 
     private final Node<T> query;
     private final FastSearchConfig conf;
+    private final LinkedList<Node<T>> starting_points;
 
     DistributedSearch(
             final Node<T> query,
-            final FastSearchConfig conf) {
+            final FastSearchConfig conf,
+            final LinkedList<Node<T>> starting_points) {
 
         this.query = query;
         this.conf = conf;
+        this.starting_points = starting_points;
     }
 
     @Override
     public FastSearchResult<T> call(final Graph<Node<T>> local_graph) {
 
-        FastSearchResult local_results = local_graph.fastSearch(
-                query,
-                conf);
+        for (Node<T> start : starting_points) {
+            if (local_graph.containsKey(start)) {
+                return local_graph.fastSearch(query, conf, start);
+            }
+        }
 
-        return local_results;
+        return local_graph.fastSearch(query, conf);
     }
 }
