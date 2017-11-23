@@ -26,7 +26,6 @@ package info.debatty.spark.knngraphs;
 
 import info.debatty.java.datasets.gaussian.Dataset;
 import info.debatty.java.graphs.FastSearchConfig;
-import info.debatty.java.graphs.FastSearchResult;
 import info.debatty.java.graphs.NeighborList;
 
 import java.util.Iterator;
@@ -39,7 +38,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 public class ApproximateSearchTest extends KNNGraphCase {
 
     private static final int N_TEST = 100;
-    private static final int N_CORRECT = 50;
+    private static final int N_CORRECT = 40;
     private static final int DIMENSIONALITY = 10;
     private static final int NUM_CENTERS = 3;
     private static final double SPEEDUP = 4;
@@ -121,10 +120,11 @@ public class ApproximateSearchTest extends KNNGraphCase {
 
         for (int i = 0; i < N_TEST; i++) {
             double[] query = queries.next();
-            FastSearchResult<Node<double[]>> approximate_result =
-                    approximate_search.search(query, conf);
+            DistributedFastSearchResult<Node<double[]>> approximate_result =
+                    approximate_search.naiveSearch(query, conf);
 
-            System.out.println(approximate_result);
+            System.out.println(approximate_result.getIterations()
+                    + " iterations");
 
             NeighborList exhaustive_result = exhaustive_search.search(query, 1);
             correct += approximate_result.getNeighbors()

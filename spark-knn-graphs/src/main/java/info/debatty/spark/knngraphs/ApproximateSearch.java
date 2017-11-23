@@ -134,7 +134,7 @@ public class ApproximateSearch<T> {
      * @param conf
      * @return
      */
-    public final FastSearchResult<Node<T>> naiveSearch(
+    public final DistributedFastSearchResult<Node<T>> naiveSearch(
             final T query, final FastSearchConfig conf) {
 
         long max_similarities = DistributedGraph.size(distributed_graph)
@@ -142,10 +142,11 @@ public class ApproximateSearch<T> {
 
         LinkedList<Node<T>> starting_points = new LinkedList<>();
         Node<T> query_node = new Node<>(query);
-        FastSearchResult<Node<T>> global_result =
-                new FastSearchResult<>(conf.getK());
+        DistributedFastSearchResult<Node<T>> global_result =
+                new DistributedFastSearchResult<>(conf.getK());
 
         while (global_result.getSimilarities() < max_similarities) {
+            global_result.incIterations();
             JavaRDD<FastSearchResult> results = distributed_graph.map(
                         new DistributedSearch(
                                 query_node, conf, starting_points));
