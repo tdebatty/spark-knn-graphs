@@ -90,7 +90,7 @@ public class Online<T> {
 
     /**
      * Initialise an online graph with default parameters.
-     * 
+     *
      * @param k
      * @param similarity
      * @param sc
@@ -191,16 +191,13 @@ public class Online<T> {
             final T value,
             final StatisticsAccumulator stats_accumulator) {
 
-        Node<T> node = new Node<>();
-        node.value = value;
+        Node<T> node = new Node<>(value);
         node.id = System.nanoTime();
 
         // Find the neighbors of this node
         ApproximateSearch<T> searcher = new ApproximateSearch<>(
                 distributed_graph);
-        NeighborList neighborlist = searcher.search(
-                value,
-                conf);
+        NeighborList neighborlist = searcher.search(value, conf).getNeighbors();
 
         // Assign the node to a partition (most similar medoid, with partition
         // size constraint)
@@ -602,7 +599,9 @@ class FindNodesToUpdate<T> implements FlatMapFunction<Graph<Node<T>>, Node<T>> {
     public Iterator<Node<T>> call(final Graph<Node<T>> subgraph) {
         LinkedList<Node<T>> nodes_to_update = new LinkedList<>();
         for (Node<T> node : subgraph.getNodes()) {
-            if (subgraph.getNeighbors(node).containsNode(node_to_remove)) {
+            NeighborList neighbors = subgraph.getNeighbors(node);
+            if (neighbors != null
+                    && neighbors.containsNode(node_to_remove)) {
                 nodes_to_update.add(node);
             }
         }

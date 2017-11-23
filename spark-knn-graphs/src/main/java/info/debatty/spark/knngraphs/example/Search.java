@@ -34,7 +34,6 @@ import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -127,7 +126,7 @@ public final class Search {
 
         // Prepare the graph for approximate graph based search
         // (and force execution)
-        ApproximateSearch approximate_search_algorithm
+        ApproximateSearch approximate_search
                 = new ApproximateSearch(
                         graph, similarity, partitioning_medoids);
 
@@ -143,7 +142,7 @@ public final class Search {
 
             // Using distributed graph based NN-search
             NeighborList neighborlist_graph
-                    = approximate_search_algorithm.search(query, search_k);
+                    = approximate_search.search(query, search_k).getNeighbors();
             System.out.println(
                     "Using graph: " + neighborlist_graph.element().getNode());
 

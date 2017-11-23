@@ -37,6 +37,14 @@ public class Node<T> implements Serializable {
     public long id;
     public int partition;
 
+    /**
+     * Initialize a node with id and partition = 0.
+     * @param value
+     */
+    public Node(final T value) {
+        this.value = value;
+    }
+
     @Override
     public final int hashCode() {
         int hash = 7;
@@ -60,5 +68,11 @@ public class Node<T> implements Serializable {
 
         final Node<?> other = (Node<?>) obj;
         return this.id == other.id;
+    }
+
+    @Override
+    public final String toString() {
+        return "Node{" + "value=" + value + ", id=" + id
+                + ", partition=" + partition + '}';
     }
 }

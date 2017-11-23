@@ -134,9 +134,8 @@ class WrapNodeFunction<T> implements Function<Tuple2<T, Long>, Node<T>> {
     public Node<T> call(
             final Tuple2<T, Long> value) {
 
-        Node<T> node = new Node<>();
+        Node<T> node = new Node<>(value._1);
         node.id = value._2;
-        node.value = value._1;
 
         return node;
     }
