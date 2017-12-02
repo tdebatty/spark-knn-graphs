@@ -60,12 +60,15 @@ public class TestCase {
     public static void main(final String[] args) throws Exception {
 
         // Parse input parameters
+        // -t time to partition the graph (1 or more values)
+        // -r directory to write result files
+        // -d path to dataset
         OptionParser parser = new OptionParser("t:r:d:");
         OptionSet options = parser.parse(args);
         List<String> time_list = (List<String>) options.valuesOf("t");
-        double[] similarities = new double[time_list.size()];
-        for (int i = 0; i < similarities.length; i++) {
-            similarities[i] = Double.valueOf(time_list.get(i));
+        double[] time_array = new double[time_list.size()];
+        for (int i = 0; i < time_array.length; i++) {
+            time_array[i] = Double.valueOf(time_list.get(i));
         }
 
         // Reduce Spark output logs
@@ -111,10 +114,6 @@ public class TestCase {
         // Run the test
         AbstractTest.graph_path = graph_path;
         AbstractTest.queries = queries;
-        // KMedoidsTest.graph_path = graph_path;
-        // KMedoidsTest.queries = queries;
-        // Edg1DTest.graph_path = graph_path;
-        // Edge1DTest.queries = queries;
 
         Case test = new Case();
         test.setDescription(TestCase.class.getName() + " : "
@@ -123,7 +122,7 @@ public class TestCase {
         test.setParallelism(1);
         test.commitToGit(false);
         test.setBaseDir((String) options.valueOf("r"));
-        test.setParamValues(similarities);
+        test.setParamValues(time_array);
 
         test.addTest(JaBeJaTest.class);
         test.addTest(KMedoidsTest.class);
