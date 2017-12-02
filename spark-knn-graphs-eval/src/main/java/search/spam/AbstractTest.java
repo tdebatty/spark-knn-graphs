@@ -24,10 +24,11 @@
 package search.spam;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.jinu.TestInterface;
 import info.debatty.spark.knngraphs.ApproximateSearch;
 import info.debatty.spark.knngraphs.ExhaustiveSearch;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.partitioner.Partitioner;
 import info.debatty.spark.knngraphs.partitioner.Partitioning;
 import info.debatty.spark.knngraphs.eval.JWSimilarity;
@@ -67,18 +68,17 @@ public abstract class AbstractTest implements TestInterface {
 
         // Use default parameters
         ApproximateSearch<String> fast_search = new ApproximateSearch<>(
-                partition.graph,
+                partition.wrapped_graph,
                 new JWSimilarity(),
                     16);
 
         ExhaustiveSearch<String> search = new ExhaustiveSearch<>(
-                partition.graph, new JWSimilarity());
+                partition.wrapped_graph, new JWSimilarity());
 
         int correct = 0;
         for (String query : queries) {
-            Node<String> query_node = new Node(query, query);
-            NeighborList fast_result = fast_search.search(query_node, 1);
-            NeighborList exact_result = search.search(query_node, 1);
+            NeighborList fast_result = fast_search.search(query, 1).getNeighbors();
+            NeighborList exact_result = search.search(query, 1);
 
             correct += fast_result.countCommons(exact_result);
         }

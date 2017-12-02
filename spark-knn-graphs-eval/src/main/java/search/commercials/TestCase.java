@@ -25,8 +25,9 @@ package search.commercials;
 
 import info.debatty.java.datasets.tv.Sequence;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.jinu.Case;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.builder.Brute;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -84,6 +85,9 @@ public class TestCase {
         JavaRDD<Sequence> sequences = strings.map(new ParseSequenceFunction());
         LinkedList<Sequence> vectors = new LinkedList(sequences.collect());
 
+        // FIXME : conversion to double[] should take place in
+        // ParseSequenceFunction
+
         // Split between main and test data
         Random rand = new Random();
         LinkedList<double[]> queries = new LinkedList<>();
@@ -97,16 +101,12 @@ public class TestCase {
         }
 
         // Build the list of nodes
-        LinkedList<Node<double[]>> nodes = new LinkedList<>();
-        int i = 0;
+        LinkedList<double[]> nodes = new LinkedList<>();
         for (Sequence vector : vectors) {
-            nodes.add(new Node<>(
-                    String.valueOf(i),
-                    Sequence.normalize(vector.getSummary())));
-            i++;
+            nodes.add(Sequence.normalize(vector.getSummary()));
         }
 
-        JavaRDD<Node<double[]>> nodes_rdd = sc.parallelize(nodes);
+        JavaRDD<double[]> nodes_rdd = sc.parallelize(nodes);
 
         // Build the graph
         LOGGER.info("Build graph...");

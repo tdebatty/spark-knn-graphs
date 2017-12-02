@@ -25,7 +25,8 @@ package partitioning.fish;
 
 import info.debatty.java.datasets.fish.TimeSerie;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+import info.debatty.spark.knngraphs.Node;
+
 import info.debatty.spark.knngraphs.builder.Brute;
 import java.util.LinkedList;
 import java.util.List;
@@ -60,23 +61,12 @@ public class BuildGraph {
 
         JavaSparkContext sc = new JavaSparkContext(conf);
         JavaRDD<TimeSerie> timeseries_rdd = sc.objectFile(dataset_path);
-        List<TimeSerie> timeseries = timeseries_rdd.collect();
-
-        LinkedList<Node<TimeSerie>> nodes = new LinkedList<Node<TimeSerie>>();
-        int i = 0;
-        for (TimeSerie ts : timeseries) {
-            nodes.add(new Node<TimeSerie>(String.valueOf(i), ts));
-            i++;
-        }
-
-        JavaRDD<Node<TimeSerie>> nodes_rdd = sc.parallelize(nodes);
-
 
         Brute<TimeSerie> brute = new Brute();
         brute.setK(10);
         brute.setSimilarity(new TimeSerieSimilarity());
         JavaPairRDD<Node<TimeSerie>, NeighborList> graph =
-                brute.computeGraph(nodes_rdd);
+                brute.computeGraph(timeseries_rdd);
 
         graph.saveAsObjectFile(output_path);
 

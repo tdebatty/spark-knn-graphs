@@ -24,8 +24,9 @@
 package search.synthetic;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.jinu.Case;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.eval.L2Similarity;
 import java.text.SimpleDateFormat;
@@ -90,16 +91,7 @@ public class TestCase {
             queries.add(vectors.remove(rand.nextInt(vectors.size())));
         }
 
-
-        // Build the list of nodes
-        LinkedList<Node<double[]>> nodes = new LinkedList<>();
-        int i = 0;
-        for (double[] vector : vectors) {
-            nodes.add(new Node<>(String.valueOf(i), vector));
-            i++;
-        }
-
-        JavaRDD<Node<double[]>> nodes_rdd = sc.parallelize(nodes);
+        JavaRDD<double[]> nodes_rdd = sc.parallelize(vectors);
 
         // Build the graph
         LOGGER.info("Build graph...");

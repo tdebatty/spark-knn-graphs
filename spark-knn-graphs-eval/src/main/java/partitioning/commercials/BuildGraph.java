@@ -25,9 +25,9 @@ package partitioning.commercials;
 
 import info.debatty.java.datasets.tv.Sequence;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+import info.debatty.spark.knngraphs.Node;
+
 import info.debatty.spark.knngraphs.builder.Brute;
-import java.util.LinkedList;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import org.apache.log4j.Level;
@@ -66,22 +66,13 @@ public class BuildGraph {
         sequences.cache();
         sequences.count();
 
-        LinkedList<Node<Sequence>> nodes = new LinkedList<>();
-        int i = 0;
-        for (Sequence value : sequences.collect()) {
-            nodes.add(new Node<>(String.valueOf(i), value));
-            i++;
-        }
-
-        JavaRDD<Node<Sequence>> nodes_rdd = sc.parallelize(nodes);
 
         Brute<Sequence> brute = new Brute<>();
         brute.setK(10);
         brute.setSimilarity(new SequenceSimilarity());
         JavaPairRDD<Node<Sequence>, NeighborList> graph =
-                brute.computeGraph(nodes_rdd);
+                brute.computeGraph(sequences);
 
         graph.saveAsObjectFile(output_path);
-
     }
 }

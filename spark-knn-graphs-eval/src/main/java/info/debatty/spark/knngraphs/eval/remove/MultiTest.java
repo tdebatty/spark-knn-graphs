@@ -24,9 +24,10 @@
 package info.debatty.spark.knngraphs.eval.remove;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import info.debatty.spark.knngraphs.builder.Online;
@@ -78,7 +79,7 @@ public class MultiTest<T> {
 
     private JavaPairRDD<Node<T>, NeighborList> final_graph;
     private JavaPairRDD<Node<T>,NeighborList> initial_graph;
-    private ArrayList<Node<T>> test_dataset;
+    private ArrayList<T> test_dataset;
 
     private PrintWriter result_file_writer;
     private JavaSparkContext sc;
@@ -99,11 +100,9 @@ public class MultiTest<T> {
         log("Spark version: " + sc.version());
 
         log("Read dataset...");
-        List<Node<T>> dataset = new ArrayList<Node<T>>(n);
+        List<T> dataset = new ArrayList<T>(n);
         for (int i = 0; i < n; i++) {
-            dataset.add(new Node<T>(
-                    String.valueOf(i),
-                    dataset_iterator.next()));
+            dataset.add(dataset_iterator.next());
         }
 
         log("Compute initial graph");
@@ -119,7 +118,7 @@ public class MultiTest<T> {
 
         log("Split the dataset between training and test...");
         Random rand = new Random();
-        test_dataset = new ArrayList<Node<T>>(n_remove);
+        test_dataset = new ArrayList<>(n_remove);
         for (int i = 0; i < n_remove; i++) {
             test_dataset.add(
                     dataset.remove(rand.nextInt(dataset.size())));
@@ -216,13 +215,14 @@ public class MultiTest<T> {
         int i = 0;
         long similarities = 0;
         start_time = System.currentTimeMillis();
-        for (final Node<T> query : test_dataset) {
+        for (final T query : test_dataset) {
             i++;
             StatisticsAccumulator stats_accumulator =
                     new StatisticsAccumulator();
             sc.sc().register(stats_accumulator);
 
-            online_graph.fastRemove(query, stats_accumulator);
+            // FIXME
+            // online_graph.fastRemove(query, stats_accumulator);
 
             StatisticsContainer global_stats = stats_accumulator.value();
             similarities += global_stats.getSimilarities();

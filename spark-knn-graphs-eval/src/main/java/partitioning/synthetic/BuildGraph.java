@@ -24,7 +24,8 @@
 package partitioning.synthetic;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+import info.debatty.spark.knngraphs.Node;
+
 import info.debatty.spark.knngraphs.builder.Brute;
 import java.util.LinkedList;
 import joptsimple.OptionParser;
@@ -59,20 +60,11 @@ public class BuildGraph {
         JavaSparkContext sc = new JavaSparkContext(conf);
         JavaRDD<double[]> data = sc.objectFile(dataset_path);
 
-        LinkedList<Node<double[]>> nodes = new LinkedList<Node<double[]>>();
-        int i = 0;
-        for (double[] value : data.collect()) {
-            nodes.add(new Node<double[]>(String.valueOf(i), value));
-            i++;
-        }
-
-        JavaRDD<Node<double[]>> nodes_rdd = sc.parallelize(nodes);
-
         Brute<double[]> brute = new Brute();
         brute.setK(10);
         brute.setSimilarity(new L2Similarity());
         JavaPairRDD<Node<double[]>, NeighborList> graph =
-                brute.computeGraph(nodes_rdd);
+                brute.computeGraph(data);
 
         graph.saveAsObjectFile(output_path);
 

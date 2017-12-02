@@ -24,10 +24,10 @@
 package info.debatty.spark.knngraphs.eval;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
 import info.debatty.spark.knngraphs.DistributedGraph;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import info.debatty.spark.knngraphs.builder.Online;
@@ -126,17 +126,14 @@ public abstract class AbstractTest<T> {
         log("Spark version: " + sc.version());
 
         log("Read dataset...");
-        List<Node<T>> dataset = new ArrayList<Node<T>>(n + n_add);
+        List<T> dataset = new ArrayList<>(n + n_add);
         for (int i = 0; i < n + n_add; i++) {
-            dataset.add(new Node<T>(
-                    String.valueOf(i),
-                    dataset_iterator.next()));
+            dataset.add(dataset_iterator.next());
         }
 
         log("Split the dataset between training and validation...");
         Random rand = new Random();
-        ArrayList<Node<T>> validation_dataset
-                = new ArrayList<Node<T>>(n_add);
+        ArrayList<T> validation_dataset = new ArrayList<>(n_add);
         for (int i = 0; i < n_add; i++) {
             validation_dataset.add(
                     dataset.remove(rand.nextInt(dataset.size())));
@@ -187,7 +184,7 @@ public abstract class AbstractTest<T> {
         // search restarts due to cross partition edges
         long xpartition_restarts = 0;
         start_time = System.currentTimeMillis();
-        for (final Node<T> query : validation_dataset) {
+        for (final T query : validation_dataset) {
             i++;
             StatisticsAccumulator stats_accumulator =
                     new StatisticsAccumulator();

@@ -25,8 +25,9 @@ package partitioning.commercials;
 
 import info.debatty.java.datasets.tv.Sequence;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.jinu.TestInterface;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.partitioner.Edge1D;
 import info.debatty.spark.knngraphs.partitioner.JaBeJa;
 import info.debatty.spark.knngraphs.partitioner.Partitioning;
@@ -63,8 +64,8 @@ public class Edg1DTest implements TestInterface {
                 new Edge1D<>(16);
         Partitioning<Sequence> partition = partitioner.partition(graph);
         double[] result = new double[] {
-            JaBeJa.countCrossEdges(partition.graph, 16),
-            JaBeJa.computeBalance(partition.graph, 16)
+            JaBeJa.countCrossEdges(partition.wrapped_graph, 16),
+            JaBeJa.computeBalance(partition.wrapped_graph, 16)
         };
         sc.close();
 

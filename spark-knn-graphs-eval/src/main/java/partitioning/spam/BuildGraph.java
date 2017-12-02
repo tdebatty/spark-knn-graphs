@@ -24,7 +24,8 @@
 package partitioning.spam;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+import info.debatty.spark.knngraphs.Node;
+
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.eval.JWSimilarity;
 import java.util.LinkedList;
@@ -59,23 +60,13 @@ public class BuildGraph {
         conf.setIfMissing("spark.master", "local[*]");
 
         JavaSparkContext sc = new JavaSparkContext(conf);
-        List<String> strings = sc.textFile(dataset_path, 16).collect();
-
-        LinkedList<Node<String>> nodes = new LinkedList<Node<String>>();
-        int i = 0;
-        for (String string : strings) {
-            nodes.add(new Node<String>(String.valueOf(i), string));
-            i++;
-        }
-
-        JavaRDD<Node<String>> nodes_rdd = sc.parallelize(nodes);
-
+        JavaRDD<String> strings = sc.textFile(dataset_path, 16);
 
         Brute<String> brute = new Brute();
         brute.setK(10);
         brute.setSimilarity(new JWSimilarity());
         JavaPairRDD<Node<String>, NeighborList> graph =
-                brute.computeGraph(nodes_rdd);
+                brute.computeGraph(strings);
 
         graph.saveAsObjectFile(output_path);
 

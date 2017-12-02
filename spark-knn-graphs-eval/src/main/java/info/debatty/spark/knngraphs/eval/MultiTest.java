@@ -25,9 +25,10 @@ package info.debatty.spark.knngraphs.eval;
 
 import info.debatty.java.graphs.Graph;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.java.graphs.SimilarityInterface;
 import info.debatty.java.graphs.StatisticsContainer;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.builder.DistributedGraphBuilder;
 import info.debatty.spark.knngraphs.builder.Online;
@@ -80,7 +81,7 @@ public class MultiTest<T> {
 
     private JavaPairRDD<Node<T>, NeighborList> initial_graph;
     private JavaPairRDD<Node<T>,NeighborList> exact_graph;
-    private ArrayList<Node<T>> test_dataset;
+    private ArrayList<T> test_dataset;
 
     private PrintWriter result_file_writer;
     private JavaSparkContext sc;
@@ -98,11 +99,9 @@ public class MultiTest<T> {
         log("Spark version: " + sc.version());
 
         log("Read dataset...");
-        List<Node<T>> dataset = new ArrayList<Node<T>>(n + n_add);
+        List<T> dataset = new ArrayList<T>(n + n_add);
         for (int i = 0; i < n + n_add; i++) {
-            dataset.add(new Node<T>(
-                    String.valueOf(i),
-                    dataset_iterator.next()));
+            dataset.add(dataset_iterator.next());
         }
 
         log("Compute verification graph");
@@ -118,7 +117,7 @@ public class MultiTest<T> {
 
         log("Split the dataset between training and test...");
         Random rand = new Random();
-        test_dataset = new ArrayList<Node<T>>(n_add);
+        test_dataset = new ArrayList<>(n_add);
         for (int i = 0; i < n_add; i++) {
             test_dataset.add(
                     dataset.remove(rand.nextInt(dataset.size())));
@@ -139,7 +138,7 @@ public class MultiTest<T> {
     private void runBatch(
             Batch batch,
             JavaPairRDD<Node<T>, NeighborList> initial_graph,
-            ArrayList<Node<T>> test_dataset) throws IOException {
+            ArrayList<T> test_dataset) throws IOException {
 
         result_file = batch.result_file;
         if (!result_file.equals("-")) {
@@ -218,7 +217,7 @@ public class MultiTest<T> {
         // search restarts due to cross partition edges
         long xpartition_restarts = 0;
         start_time = System.currentTimeMillis();
-        for (final Node<T> query : test_dataset) {
+        for (final T query : test_dataset) {
             i++;
             StatisticsAccumulator stats_accumulator =
                     new StatisticsAccumulator();
@@ -317,7 +316,7 @@ public class MultiTest<T> {
 
         Graph<T> graph = new Graph<T>();
         for (Tuple2<Node<T>, NeighborList> tuple : list) {
-            graph.put(tuple._1, tuple._2);
+            graph.put(tuple._1.value, tuple._2);
         }
 
         return graph;

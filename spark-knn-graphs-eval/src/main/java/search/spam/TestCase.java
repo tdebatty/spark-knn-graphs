@@ -24,8 +24,9 @@
 package search.spam;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.jinu.Case;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.builder.Brute;
 import info.debatty.spark.knngraphs.eval.JWSimilarity;
 import java.text.SimpleDateFormat;
@@ -90,16 +91,7 @@ public class TestCase {
             queries.add(strings.remove(rand.nextInt(strings.size())));
         }
 
-
-        // Build the list of nodes
-        LinkedList<Node<String>> nodes = new LinkedList<>();
-        int i = 0;
-        for (String string : strings) {
-            nodes.add(new Node<>(String.valueOf(i), string));
-            i++;
-        }
-
-        JavaRDD<Node<String>> nodes_rdd = sc.parallelize(nodes);
+        JavaRDD<String> nodes_rdd = sc.parallelize(strings);
 
         // Build the graph
         LOGGER.info("Build graph...");

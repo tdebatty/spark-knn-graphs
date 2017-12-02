@@ -24,10 +24,11 @@
 package search.commercials;
 
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.jinu.TestInterface;
 import info.debatty.spark.knngraphs.ApproximateSearch;
 import info.debatty.spark.knngraphs.ExhaustiveSearch;
+import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.partitioner.Partitioner;
 import info.debatty.spark.knngraphs.partitioner.Partitioning;
 import java.util.LinkedList;
@@ -68,17 +69,17 @@ public abstract class AbstractTest implements TestInterface {
         Partitioning<double[]> partition = partitioner.partition(graph);
 
         ApproximateSearch<double[]> fast_search = new ApproximateSearch<>(
-                partition.graph, new L2Similarity(), 16);
+                partition.wrapped_graph, new L2Similarity(), 16);
 
         ExhaustiveSearch<double[]> search = new ExhaustiveSearch<>(
-                partition.graph, new L2Similarity());
+                partition.wrapped_graph, new L2Similarity());
 
         int correct = 0;
         int i = 200000;
         for (double[] query : queries) {
-            Node<double[]> query_node = new Node("" + i++, query);
-            NeighborList fast_result = fast_search.search(query_node, 1);
-            NeighborList exact_result = search.search(query_node, 1);
+            NeighborList fast_result = fast_search.search(query, 1)
+                    .getNeighbors();
+            NeighborList exact_result = search.search(query, 1);
 
             correct += fast_result.countCommons(exact_result);
         }

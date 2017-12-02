@@ -25,12 +25,13 @@ package partitioning.commercials;
 
 import info.debatty.java.datasets.tv.Sequence;
 import info.debatty.java.graphs.NeighborList;
-import info.debatty.java.graphs.Node;
+
 import info.debatty.jinu.TestInterface;
 import info.debatty.spark.knngraphs.partitioner.JaBeJa;
 import info.debatty.spark.knngraphs.partitioner.KMedoids;
 import info.debatty.spark.knngraphs.partitioner.Partitioning;
 import info.debatty.spark.kmedoids.budget.TimeBudget;
+import info.debatty.spark.knngraphs.Node;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -70,8 +71,8 @@ public class KMedoidsTest implements TestInterface {
                         new TimeBudget((int) budget));
         Partitioning<Sequence> partition = partitioner.partition(graph);
         double[] result = new double[] {
-            JaBeJa.countCrossEdges(partition.graph, 16),
-            JaBeJa.computeBalance(partition.graph, 16)
+            JaBeJa.countCrossEdges(partition.wrapped_graph, 16),
+            JaBeJa.computeBalance(partition.wrapped_graph, 16)
         };
         sc.close();
 
