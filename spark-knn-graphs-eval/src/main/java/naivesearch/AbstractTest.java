@@ -73,7 +73,7 @@ public abstract class AbstractTest implements TestInterface {
         Partitioning<double[]> partition = partitioner.partition(graph);
 
         ApproximateSearch<double[]> fast_search = new ApproximateSearch<>(
-                partition.wrapped_graph, new L2Similarity(), 16);
+                partition.wrapped_graph, new L2Similarity());
 
         FastSearchConfig search_config = getFastSearchConfig();
 
