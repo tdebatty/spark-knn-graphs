@@ -1,0 +1,101 @@
+/*
+ * The MIT License
+ *
+ * Copyright 2017 tibo.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+package naivesearch;
+
+import info.debatty.java.graphs.FastSearchConfig;
+import info.debatty.java.graphs.NeighborList;
+
+import info.debatty.jinu.TestInterface;
+import info.debatty.spark.kmedoids.budget.TimeBudget;
+import info.debatty.spark.knngraphs.ApproximateSearch;
+import info.debatty.spark.knngraphs.ExhaustiveSearch;
+import info.debatty.spark.knngraphs.Node;
+import info.debatty.spark.knngraphs.partitioner.Partitioner;
+import info.debatty.spark.knngraphs.partitioner.Partitioning;
+import info.debatty.spark.knngraphs.eval.L2Similarity;
+import info.debatty.spark.knngraphs.partitioner.KMedoids;
+import java.util.LinkedList;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import scala.Tuple2;
+
+/**
+ *
+ * @author tibo
+ */
+public abstract class AbstractTest implements TestInterface {
+
+    static String graph_path;
+    static LinkedList<double[]> queries;
+
+    final Partitioner<double[]> getPartitioner(final int budget) {
+        return new KMedoids<>(
+                new L2Similarity(), 16, 1.2, new TimeBudget(budget));
+    }
+
+    @Override
+    public final double[] run(final double budget) throws Exception {
+
+        SparkConf conf = new SparkConf();
+        conf.setAppName("Fast vs naive search with synthetic dataset");
+        conf.setIfMissing("spark.master", "local[*]");
+
+        JavaSparkContext sc = new JavaSparkContext(conf);
+        JavaRDD<Tuple2<Node<double[]>, NeighborList>> tuples =
+                sc.objectFile(graph_path);
+        JavaPairRDD<Node<double[]>, NeighborList> graph =
+                JavaPairRDD.fromJavaRDD(tuples);
+
+        Partitioner<double[]> partitioner = getPartitioner((int) budget);
+        Partitioning<double[]> partition = partitioner.partition(graph);
+
+        ApproximateSearch<double[]> fast_search = new ApproximateSearch<>(
+                partition.wrapped_graph, new L2Similarity(), 16);
+
+        FastSearchConfig search_config = getFastSearchConfig();
+
+        ExhaustiveSearch<double[]> search = new ExhaustiveSearch<>(
+                partition.wrapped_graph, new L2Similarity());
+
+        int correct = 0;
+        for (double[] query : queries) {
+            NeighborList fast_result = fast_search.search(query, search_config)
+                    .getNeighbors();
+            NeighborList exact_result = search.search(query, 1);
+
+            correct += fast_result.countCommons(exact_result);
+        }
+
+        double[] result = new double[] {
+            correct
+        };
+        sc.close();
+
+        return result;
+    }
+
+    abstract FastSearchConfig getFastSearchConfig();
+}
