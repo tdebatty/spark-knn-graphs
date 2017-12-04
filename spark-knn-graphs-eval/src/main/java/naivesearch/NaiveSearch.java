@@ -29,7 +29,7 @@ import info.debatty.java.graphs.FastSearchConfig;
  *
  * @author tibo
  */
-class NaiveSearch extends AbstractTest {
+public class NaiveSearch extends AbstractTest {
 
     @Override
     FastSearchConfig getFastSearchConfig() {
