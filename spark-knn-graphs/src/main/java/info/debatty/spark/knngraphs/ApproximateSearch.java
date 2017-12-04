@@ -35,7 +35,8 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 
 /**
- * Perform a fast distributed nn search, first partitioning the graph.
+ * Perform a fast distributed nn search, depending on constructor, the graph is
+ * first partitioned.
  * @author Thibault Debatty
  * @param <T>
  */
@@ -45,7 +46,7 @@ public class ApproximateSearch<T> {
     private final JavaRDD<Graph<Node<T>>> distributed_graph;
 
     /**
-     * Prepare the graph for distributed search.
+     * Partition the graph for distributed search.
      *
      * @param graph
      * @param similarity
@@ -69,11 +70,27 @@ public class ApproximateSearch<T> {
     }
 
     /**
+     * Use the graph as it is.
+     * @param graph
+     * @param similarity
+     */
+    public ApproximateSearch(
+            final JavaPairRDD<Node<T>, NeighborList> graph,
+            final SimilarityInterface<T> similarity) {
+
+        this.distributed_graph = DistributedGraph.toGraph(graph, similarity);
+        this.distributed_graph.cache();
+        this.distributed_graph.count();
+    }
+
+    /**
      * Use the graph as it is, without repartitioning.
      * @param distributed_graph
      */
     public ApproximateSearch(final JavaRDD<Graph<Node<T>>> distributed_graph) {
         this.distributed_graph = distributed_graph;
+        this.distributed_graph.cache();
+        this.distributed_graph.count();
     }
 
     /**
@@ -93,9 +110,10 @@ public class ApproximateSearch<T> {
     public final FastSearchResult<Node<T>> search(
             final T query,
             final int k) {
-       return search(
-               query,
-               FastSearchConfig.getDefault());
+
+        FastSearchConfig conf = FastSearchConfig.getDefault();
+        conf.setK(k);
+        return search(query, conf);
    }
 
     /**
