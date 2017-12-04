@@ -27,6 +27,8 @@ import info.debatty.java.datasets.tv.Sequence;
 import info.debatty.java.graphs.NeighborList;
 
 import info.debatty.jinu.Case;
+import info.debatty.jinu.TestFactory;
+import info.debatty.jinu.TestInterface;
 import info.debatty.spark.knngraphs.Node;
 import info.debatty.spark.knngraphs.builder.Brute;
 import java.text.SimpleDateFormat;
@@ -140,9 +142,26 @@ public class TestCase {
         test.setBaseDir((String) options.valueOf("r"));
         test.setParamValues(similarities);
 
-        test.addTest(JaBeJaTest.class);
-        test.addTest(KMedoidsTest.class);
-        test.addTest(Edge1DTest.class);
+        test.addTest(new TestFactory() {
+            @Override
+            public TestInterface newInstance() {
+                return new JaBeJaTest();
+            }
+        });
+
+        test.addTest(new TestFactory() {
+            @Override
+            public TestInterface newInstance() {
+                return new KMedoidsTest();
+            }
+        });
+
+        test.addTest(new TestFactory() {
+            @Override
+            public TestInterface newInstance() {
+                return new Edge1DTest();
+            }
+        });
 
         LOGGER.info("Run tests...");
         test.run();

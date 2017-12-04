@@ -24,6 +24,8 @@
 package jbj.spam;
 
 import info.debatty.jinu.Case;
+import info.debatty.jinu.TestFactory;
+import info.debatty.jinu.TestInterface;
 import java.util.Arrays;
 import java.util.List;
 import joptsimple.OptionParser;
@@ -69,7 +71,12 @@ public class TestCase {
         test.setBaseDir((String) options.valueOf("r"));
         test.setParamValues(times);
 
-        test.addTest(JaBeJaTest.class);
+        test.addTest(new TestFactory() {
+            @Override
+            public TestInterface newInstance() {
+                return new JaBeJaTest();
+            }
+        });
 
         test.run();
 
